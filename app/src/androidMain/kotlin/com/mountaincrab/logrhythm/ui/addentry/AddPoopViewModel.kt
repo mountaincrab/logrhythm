@@ -17,19 +17,16 @@ import kotlinx.coroutines.launch
 
 data class AddPoopUiState(
     val occurredAt: Long = currentTimeMillis(),
-    val bristol: Int = 4,
-    val rating: Int = 1,
+    val bristolTypes: Set<Int> = setOf(4),
+    val blood: Int = 1,
     val notes: String = "",
-    val medsMissed: Boolean = false,
-    val caffeine: Boolean = false,
-    val alcohol: Boolean = false,
     val saving: Boolean = false,
     val saved: Boolean = false,
 )
 
 class AddPoopViewModel(
     private val repository: EntryRepository,
-    prefs: UserPreferencesRepository,
+    private val prefs: UserPreferencesRepository,
     private val existingId: String?,
 ) : ViewModel() {
 
@@ -44,14 +41,15 @@ class AddPoopViewModel(
         if (existingId != null) {
             viewModelScope.launch {
                 repository.getPoop(existingId)?.let { e ->
+                    val types = e.bristolTypes.split(",")
+                        .mapNotNull { it.trim().toIntOrNull() }
+                        .toSet()
+                        .ifEmpty { setOf(4) }
                     _state.value = AddPoopUiState(
                         occurredAt = e.occurredAt,
-                        bristol = e.bristol,
-                        rating = e.rating,
+                        bristolTypes = types,
+                        blood = e.blood,
                         notes = e.notes.orEmpty(),
-                        medsMissed = e.medsMissed,
-                        caffeine = e.caffeine,
-                        alcohol = e.alcohol,
                     )
                 }
             }
@@ -59,12 +57,18 @@ class AddPoopViewModel(
     }
 
     fun onOccurredAtChange(value: Long) = _state.update { it.copy(occurredAt = value) }
-    fun onBristolChange(value: Int) = _state.update { it.copy(bristol = value) }
-    fun onRatingChange(value: Int) = _state.update { it.copy(rating = value) }
+
+    fun onBristolToggle(value: Int) = _state.update {
+        val new = if (value in it.bristolTypes) it.bristolTypes - value else it.bristolTypes + value
+        it.copy(bristolTypes = new.ifEmpty { setOf(value) })
+    }
+
+    fun onBloodChange(value: Int) = _state.update { it.copy(blood = value) }
     fun onNotesChange(value: String) = _state.update { it.copy(notes = value) }
-    fun onMedsToggle() = _state.update { it.copy(medsMissed = !it.medsMissed) }
-    fun onCaffeineToggle() = _state.update { it.copy(caffeine = !it.caffeine) }
-    fun onAlcoholToggle() = _state.update { it.copy(alcohol = !it.alcohol) }
+
+    fun onStoolSystemChange(system: StoolSystem) {
+        viewModelScope.launch { prefs.setStoolSystem(system.name) }
+    }
 
     fun save() {
         val s = _state.value
@@ -74,12 +78,9 @@ class AddPoopViewModel(
             repository.savePoop(
                 id = existingId,
                 occurredAt = s.occurredAt,
-                bristol = s.bristol,
-                rating = s.rating,
+                bristolTypes = s.bristolTypes,
+                blood = s.blood,
                 notes = s.notes,
-                medsMissed = s.medsMissed,
-                caffeine = s.caffeine,
-                alcohol = s.alcohol,
             )
             _state.update { it.copy(saving = false, saved = true) }
         }

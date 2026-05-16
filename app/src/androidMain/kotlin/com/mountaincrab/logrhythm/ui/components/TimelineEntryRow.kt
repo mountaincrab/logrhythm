@@ -34,7 +34,7 @@ fun TimelineEntryRow(
 ) {
     val palette = LocalAppPalette.current
     val dotColor = when (entry) {
-        is TimelineEntry.Poop -> RatingColors[entry.entity.rating]?.bg ?: palette.surfaceHigh
+        is TimelineEntry.Poop -> RatingColors[entry.entity.blood]?.bg ?: palette.surfaceHigh
         is TimelineEntry.Food -> palette.surfaceHigh
         is TimelineEntry.Note -> palette.warning
     }
@@ -72,24 +72,33 @@ fun TimelineEntryRow(
 @Composable
 private fun PoopBody(entry: TimelineEntry.Poop) {
     val palette = LocalAppPalette.current
-    val ratingColor = RatingColors[entry.entity.rating]?.bg ?: palette.fgMuted
+    val bloodColor = RatingColors[entry.entity.blood]?.bg ?: palette.fgMuted
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(text = entry.entity.occurredAt.formatTime(), color = MaterialTheme.colorScheme.onSurface,
             fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        Text(text = "· Poop", color = ratingColor, fontSize = 11.sp,
+        Text(text = "· Poop", color = bloodColor, fontSize = 11.sp,
             fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
     }
-    val br = runCatching { bristol(entry.entity.bristol) }.getOrNull()
+    val bristolNums = entry.entity.bristolTypes.split(",")
+        .mapNotNull { it.trim().toIntOrNull() }
     val bodyText = buildString {
-        append("Bristol ")
-        append(entry.entity.bristol)
-        if (br != null) append(" · ${br.plain}")
-        if (!entry.entity.notes.isNullOrBlank()) append(" · ${entry.entity.notes}")
+        if (bristolNums.isNotEmpty()) {
+            append("Bristol ")
+            append(bristolNums.joinToString(", "))
+            val names = bristolNums.mapNotNull { runCatching { bristol(it) }.getOrNull()?.plain }
+            if (names.isNotEmpty()) append(" · ${names.joinToString(", ")}")
+        }
+        if (!entry.entity.notes.isNullOrBlank()) {
+            if (isNotEmpty()) append(" · ")
+            append(entry.entity.notes)
+        }
     }
-    Text(text = bodyText, color = MaterialTheme.colorScheme.onSurface,
-        fontSize = 14.sp, lineHeight = 20.sp)
+    if (bodyText.isNotEmpty()) {
+        Text(text = bodyText, color = MaterialTheme.colorScheme.onSurface,
+            fontSize = 14.sp, lineHeight = 20.sp)
+    }
     Spacer(modifier = Modifier.height(2.dp))
-    RatingPill(rating = entry.entity.rating)
+    RatingPill(rating = entry.entity.blood)
 }
 
 @Composable

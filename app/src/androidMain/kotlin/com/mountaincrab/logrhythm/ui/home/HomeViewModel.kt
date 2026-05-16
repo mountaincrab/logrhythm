@@ -35,7 +35,7 @@ class HomeViewModel(repository: EntryRepository) : ViewModel() {
             HomeUiState(
                 days = grouped,
                 todayPoopCount = todayPoops.size,
-                todayWorstRating = todayPoops.maxOfOrNull { it.entity.rating },
+                todayWorstRating = todayPoops.maxOfOrNull { it.entity.blood },
             )
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())

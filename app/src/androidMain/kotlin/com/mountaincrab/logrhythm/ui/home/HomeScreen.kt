@@ -120,7 +120,7 @@ fun HomeScreen(
         ) {
             LogButton(emoji = "💩", label = "Poop", modifier = Modifier.weight(1f), onClick = onOpenAddPoop)
             LogButton(emoji = "🍴", label = "Food", modifier = Modifier.weight(1f), onClick = onOpenAddFood)
-            LogButton(emoji = "📝", label = "Note", modifier = Modifier.weight(1f), onClick = onOpenAddNote)
+            LogButton(emoji = "📝", label = "Extras", modifier = Modifier.weight(1f), onClick = onOpenAddNote)
         }
 
         BottomTabBar(active = Screen.Home.route, onSelect = onTabSelect)
@@ -163,7 +163,7 @@ private fun EmptyState() {
         Text("No entries yet", fontSize = 16.sp, fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground)
         Text(
-            text = "Tap one of the buttons below to log a poop, food, or note.",
+            text = "Tap one of the buttons below to log a poop, food, or extras.",
             color = palette.fgMuted, fontSize = 13.sp,
         )
     }

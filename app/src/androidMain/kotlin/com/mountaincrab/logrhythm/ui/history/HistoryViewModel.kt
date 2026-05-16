@@ -90,7 +90,7 @@ class HistoryViewModel(repository: EntryRepository) : ViewModel() {
         poops.forEach { p ->
             val d = p.occurredAt.toLocalDate()
             if (YearMonth.from(d) == month) {
-                ratingsByDay[d] = maxOf(ratingsByDay[d] ?: 0, p.rating)
+                ratingsByDay[d] = maxOf(ratingsByDay[d] ?: 0, p.blood)
                 countByDay[d] = (countByDay[d] ?: 0) + 1
             }
         }
@@ -119,7 +119,7 @@ class HistoryViewModel(repository: EntryRepository) : ViewModel() {
         val byDay = poops
             .filter { it.occurredAt.toLocalDate() in start..today }
             .groupBy { it.occurredAt.toLocalDate() }
-            .mapValues { (_, list) -> list.maxOf { it.rating } }
+            .mapValues { (_, list) -> list.maxOf { it.blood } }
         val points = byDay.toSortedMap().map { (d, r) -> d to r }
         val avg = points.map { it.second }.takeIf { it.isNotEmpty() }?.average()
         return points to avg
