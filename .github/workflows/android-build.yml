@@ -2,13 +2,13 @@ name: Android Build
 
 on:
   push:
-    branches: ["main"]
+    branches: ["**"]
   pull_request:
     branches: ["**"]
 
 jobs:
-  compile:
-    name: Compile (Android)
+  build:
+    name: Build (Android)
     runs-on: ubuntu-latest
 
     steps:
@@ -29,5 +29,12 @@ jobs:
           key: gradle-${{ hashFiles('**/*.gradle.kts', '**/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: gradle-
 
-      - name: Compile debug Kotlin (Android)
-        run: ./gradlew :app:compileDebugKotlinAndroid
+      - name: Build debug APK
+        run: ./gradlew :app:assembleDebug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: logrhythm-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
