@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en" data-theme="deep-navy">
+<head>
+<meta charset="utf-8"/>
+<title>Poop tracker — prototype</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="stylesheet" href="tokens.css"/>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100vh; background: #0a0a0e; color: var(--fg); font-family: var(--font-sans); overflow: hidden; }
+  button { font-family: inherit; cursor: pointer; border: 0; background: none; color: inherit; padding: 0; }
+  input, textarea { font-family: inherit; border: 0; outline: none; }
+  [data-lucide] { stroke-width: 2; }
+
+  /* Stage centres the phone, scales it to fit viewport height with margin. */
+  .stage {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background:
+      radial-gradient(1200px 800px at 30% 20%, rgba(79,124,255,0.06), transparent 60%),
+      radial-gradient(900px 600px at 70% 80%, rgba(6,182,212,0.05), transparent 60%),
+      #07080d;
+    overflow: hidden;
+  }
+  .phone-wrap {
+    width: calc(412px * var(--phone-scale, 1));
+    height: calc(908px * var(--phone-scale, 1));
+    position: relative;
+  }
+  .phone-inner {
+    width: 412px; height: 908px;
+    transform: scale(var(--phone-scale, 1));
+    transform-origin: top left;
+  }
+
+  /* Floating intro card — top-left, dismissible */
+  .intro {
+    position: fixed; left: 18px; top: 18px;
+    max-width: 320px;
+    background: rgba(28,35,64,0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 14px;
+    padding: 14px 16px;
+    color: var(--fg);
+    font-size: 12px;
+    line-height: 1.5;
+    z-index: 100;
+  }
+  .intro h2 { margin: 0 0 6px; font-size: 13px; font-weight: 800; letter-spacing: -0.005em; }
+  .intro p { margin: 0 0 8px; color: var(--fg-muted); }
+  .intro p:last-child { margin-bottom: 0; }
+  .intro b { color: var(--fg); font-weight: 700; }
+  .intro a { color: var(--accent-text); text-decoration: none; font-weight: 600; }
+  .intro a:hover { text-decoration: underline; }
+  .intro .x { position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--fg-muted); }
+  .intro .x:hover { background: rgba(255,255,255,0.08); color: var(--fg); }
+  .intro kbd { background: rgba(255,255,255,0.10); padding: 1px 5px; border-radius: 4px; font-family: var(--font-mono); font-size: 11px; }
+
+  .footnote { position: fixed; right: 18px; bottom: 14px; font-size: 11px; color: var(--fg-faint); z-index: 50; }
+  .footnote a { color: var(--accent-text); text-decoration: none; }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="phone.jsx" data-presets="react"></script>
+<script type="text/babel" src="d1-styles.jsx" data-presets="react"></script>
+<script type="text/babel" src="d1-screens.jsx" data-presets="react"></script>
+<script type="text/babel" src="v2-screens.jsx" data-presets="react"></script>
+<script type="text/babel" src="home-dashboard.jsx" data-presets="react"></script>
+<script type="text/babel" src="sheets.jsx" data-presets="react"></script>
+<script type="text/babel" src="tweaks-panel.jsx" data-presets="react"></script>
+<script type="text/babel" src="prototype.jsx" data-presets="react"></script>
+
+<script type="text/babel" data-presets="react">
+ReactDOM.createRoot(document.getElementById('root')).render(<Wrapper/>);
+
+function Wrapper() {
+  const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+
+  React.useEffect(() => {
+    const set = () => {
+      const sH = window.innerHeight - 24;
+      const sW = window.innerWidth - 24;
+      const scale = Math.min(1, sH / 908, sW / 412);
+      document.documentElement.style.setProperty('--phone-scale', scale);
+    };
+    set();
+    window.addEventListener('resize', set);
+    return () => window.removeEventListener('resize', set);
+  }, []);
+
+  const [showIntro, setShowIntro] = React.useState(true);
+
+  return (
+    <div className="stage">
+      <div className="phone-wrap">
+        <div className="phone-inner">
+          <PrototypeAppControlled tweaks={tweaks} setTweak={setTweak}/>
+        </div>
+      </div>
+
+      {showIntro && (
+        <div className="intro">
+          <button className="x" onClick={() => setShowIntro(false)} aria-label="Close">
+            <svg width="14" height="14" viewBox="0 0 24 24" stroke="currentColor" fill="none" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+          <h2>Poop tracker — clickable</h2>
+          <p>Tap <b>Poop</b>, <b>Food</b> or <b>Note</b> at the bottom to log. Tap any poop row on the timeline to open its detail. Use the bottom tabs to move between <b>Home</b>, <b>History</b>, and <b>Settings</b>.</p>
+          <p>Hit the <b>Tweaks</b> button in the toolbar to change theme, stool-type system, home layout, and which chart leads on History · Trends.</p>
+          <p style={{ marginTop: 8 }}><a href="concepts.html">← the original three concepts</a></p>
+        </div>
+      )}
+
+      <TweaksPanel title="Tweaks">
+        <TweakSection label="Look"/>
+        <TweakRadio label="Theme" value={tweaks.theme}
+                    options={[
+                      { label:'Deep Navy', value:'deep-navy' },
+                      { label:'Charcoal',  value:'charcoal'  },
+                      { label:'Retro',     value:'retro'     },
+                    ]}
+                    onChange={(v) => setTweak('theme', v)}/>
+
+        <TweakSection label="Behaviour"/>
+        <TweakRadio label="Home layout" value={tweaks.homeLayout}
+                    options={[
+                      { label:'Timeline',  value:'timeline'  },
+                      { label:'Dashboard', value:'dashboard' },
+                    ]}
+                    onChange={(v) => setTweak('homeLayout', v)}/>
+
+        <TweakSelect label="Stool type" value={tweaks.stoolType}
+                     options={[
+                       { label:'Bristol scale',  value:'bristol' },
+                       { label:'My plain types', value:'plain'   },
+                       { label:'Both side-by-side', value:'both' },
+                     ]}
+                     onChange={(v) => setTweak('stoolType', v)}/>
+
+        <TweakSelect label="Primary chart" value={tweaks.primaryChart}
+                     options={[
+                       { label:'Blood rating over time', value:'rating' },
+                       { label:'Poops per day',          value:'frequency' },
+                       { label:'Food correlation',       value:'correlation' },
+                     ]}
+                     onChange={(v) => setTweak('primaryChart', v)}/>
+
+        <TweakSection label="Try the app"/>
+        <TweakButton onClick={() => {
+          // open the add-poop sheet — controlled via a window event
+          window.dispatchEvent(new CustomEvent('proto:openSheet', { detail: 'poop' }));
+        }}>Open "Log a poop"</TweakButton>
+        <TweakButton onClick={() => {
+          window.dispatchEvent(new CustomEvent('proto:goto', { detail: 'history' }));
+        }}>Jump to History</TweakButton>
+      </TweaksPanel>
+
+      <div className="footnote">Crab Do design system · <a href="concepts.html">concepts</a></div>
+    </div>
+  );
+}
+</script>
+</body>
+</html>

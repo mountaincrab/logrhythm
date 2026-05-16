@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en" data-theme="deep-navy">
+<head>
+<meta charset="utf-8"/>
+<title>Poop tracker — concepts</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<link rel="stylesheet" href="tokens.css"/>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  *,*::before,*::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #0a0a0e; color: var(--fg); font-family: var(--font-sans); min-height: 100vh; }
+  button { font-family: inherit; cursor: pointer; border: 0; background: none; color: inherit; padding: 0; }
+  input, textarea { font-family: inherit; border: 0; outline: none; }
+  [data-lucide] { stroke-width: 2; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="phone.jsx" data-presets="react"></script>
+<script type="text/babel" src="design-canvas.jsx" data-presets="react"></script>
+<script type="text/babel" src="d1-styles.jsx" data-presets="react"></script>
+<script type="text/babel" src="d1-screens.jsx" data-presets="react"></script>
+<script type="text/babel" src="d2-styles.jsx" data-presets="react"></script>
+<script type="text/babel" src="d2-screens.jsx" data-presets="react"></script>
+<script type="text/babel" src="v2-screens.jsx" data-presets="react"></script>
+
+<script type="text/babel" data-presets="react">
+function Mount() {
+  React.useEffect(() => {
+    [['__d1styles', window.D1.styles], ['__d2styles', window.D2.styles], ['__v2styles', window.V2.styles]].forEach(([id, css]) => {
+      if (!document.getElementById(id)) {
+        const s = document.createElement('style');
+        s.id = id;
+        s.textContent = css;
+        document.head.appendChild(s);
+      }
+    });
+  }, []);
+
+  // Build a screen wrapped in the Phone shell, sized to fit the artboard 1:1.
+  const screen = (theme, time, ScreenComp) => (
+    <Phone theme={theme} time={time}><ScreenComp/></Phone>
+  );
+
+  return (
+    <DesignCanvas defaultZoom={0.55}>
+      {/* Header */}
+      <DCSection id="intro" title="Poop tracker — refined" subtitle="Direction 1 base · with your notes folded in">
+        <DCArtboard id="brief" label="What changed" width={680} height={892} style={{ background:'#0F1629', padding:'40px 36px', color:'var(--fg)', borderRadius:0 }}>
+          <div data-theme="deep-navy" style={{ fontFamily:'var(--font-sans)', color:'var(--fg)', height:'100%', display:'flex', flexDirection:'column', gap:18 }}>
+            <div>
+              <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.12em', textTransform:'uppercase', color:'#A5B4FC' }}>Round 2 · from your feedback</div>
+              <h1 style={{ fontSize:36, fontWeight:900, letterSpacing:'-0.02em', margin:'8px 0 12px', lineHeight:1.1 }}>One direction, your notes folded in.</h1>
+              <p style={{ fontSize:15, lineHeight:1.55, color:'var(--fg-muted)', margin:0 }}>
+                Quiet Crab won. Crabby is parked. Below is the refined v2 — the home, add-poop and add-food screens from direction 1, the compact entry detail from direction 2, and a new combined History screen with Calendar and Trends sub-tabs. Direction 1 and 2 are kept further down as reference.
+              </p>
+            </div>
+
+            <div style={{ background:'#1C2340', borderRadius:14, padding:'14px 16px', border:'1px solid rgba(255,255,255,0.10)' }}>
+              <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.10em', textTransform:'uppercase', color:'var(--fg-muted)', marginBottom:8 }}>What moved</div>
+              <ul style={{ margin:0, padding:'0 0 0 18px', fontSize:13, lineHeight:1.6, color:'var(--fg)' }}>
+                <li><b>Home</b> — greeting card gone. FAB gone. Three log buttons (💩 · 🍴 · 📝) sit across the bottom, just above the tab bar. "Log poop" is the primary (filled), food + note are quieter chips.</li>
+                <li><b>Tabs</b> — Today · History · Settings. Trends now lives <i>inside</i> History as a second sub-tab.</li>
+                <li><b>History · Calendar</b> — Mon–Sun grid, dates printed in every cell, coloured by worst rating, with the poop count underneath. Swipe between months.</li>
+                <li><b>History · Trends</b> — the two charts you liked (blood rating + poops/day) with a 7d/30d/90d/6mo/1y/All range picker. Food correlation kept. Heatmap dropped.</li>
+                <li><b>Entry detail</b> — compact D2-style hero. Opened by tapping any poop row on Home.</li>
+              </ul>
+            </div>
+
+            <div style={{ background:'#1C2340', borderRadius:14, padding:'14px 16px', border:'1px solid rgba(255,255,255,0.10)' }}>
+              <div style={{ fontSize:11, fontWeight:700, letterSpacing:'0.10em', textTransform:'uppercase', color:'var(--fg-muted)', marginBottom:8 }}>Still open</div>
+              <ul style={{ margin:0, padding:'0 0 0 18px', fontSize:13, lineHeight:1.55, color:'var(--fg)' }}>
+                <li>The bottom log-bar covers the bottom-most entry slightly. Worth raising the timeline padding or making the bar partially transparent on scroll — flag if you want me to try.</li>
+                <li>Calendar swipe-between-months gesture isn't shown here — next pass.</li>
+                <li>Once this lands, I'll wire it into a clickable prototype with the Tweaks you asked for: theme, stool-type system, home layout (timeline vs dashboard), graph type.</li>
+              </ul>
+            </div>
+
+            <div style={{ marginTop:'auto', fontSize:11, color:'var(--fg-faint)', lineHeight:1.6 }}>
+              The two reference directions below stay only because you can still pull bits from them. Once you're happy here, they'll go.
+            </div>
+          </div>
+        </DCArtboard>
+      </DCSection>
+
+      {/* Refined v2 */}
+      <DCSection id="v2" title="✨ Refined" subtitle="D1 base · bottom log bar · combined history · compact detail">
+        <DCArtboard id="v2-home"     label="Home"               width={412} height={892}>{screen('deep-navy','09:42', V2Home)}</DCArtboard>
+        <DCArtboard id="v2-poop"     label="Add poop (D1)"      width={412} height={892}>{screen('deep-navy','09:40', D1AddPoop)}</DCArtboard>
+        <DCArtboard id="v2-food"     label="Add food (D1)"      width={412} height={892}>{screen('deep-navy','10:32', D1AddFood)}</DCArtboard>
+        <DCArtboard id="v2-hist-cal" label="History · Calendar"  width={412} height={892}>{screen('deep-navy','19:14', () => <V2History tab="calendar"/>)}</DCArtboard>
+        <DCArtboard id="v2-hist-trd" label="History · Trends"    width={412} height={892}>{screen('deep-navy','19:14', () => <V2History tab="trends"/>)}</DCArtboard>
+        <DCArtboard id="v2-detail"   label="Entry detail"       width={412} height={892}>{screen('deep-navy','19:16', V2Detail)}</DCArtboard>
+        <DCArtboard id="v2-settings" label="Settings (D1)"      width={412} height={892}>{screen('deep-navy','19:20', D1Settings)}</DCArtboard>
+      </DCSection>
+
+      {/* Direction 1 — reference */}
+      <DCSection id="d1" title="1 · Quiet Crab (reference)" subtitle="Original direction 1 — kept here for parts you might still pull from">
+        <DCArtboard id="d1-home"      label="Home"         width={412} height={892}>{screen('deep-navy','09:42', D1Home)}</DCArtboard>
+        <DCArtboard id="d1-poop"      label="Add poop"     width={412} height={892}>{screen('deep-navy','09:40', D1AddPoop)}</DCArtboard>
+        <DCArtboard id="d1-food"      label="Add food"     width={412} height={892}>{screen('deep-navy','10:32', D1AddFood)}</DCArtboard>
+        <DCArtboard id="d1-trends"    label="Trends"       width={412} height={892}>{screen('deep-navy','19:14', D1Trends)}</DCArtboard>
+        <DCArtboard id="d1-detail"    label="Entry detail" width={412} height={892}>{screen('deep-navy','19:16', D1Detail)}</DCArtboard>
+        <DCArtboard id="d1-history"   label="History"      width={412} height={892}>{screen('deep-navy','19:18', D1History)}</DCArtboard>
+        <DCArtboard id="d1-settings"  label="Settings"     width={412} height={892}>{screen('deep-navy','19:20', D1Settings)}</DCArtboard>
+      </DCSection>
+
+      {/* Direction 2 — reference */}
+      <DCSection id="d2" title="2 · At a Glance (reference)" subtitle="Original direction 2 — the compact entry detail informed v2">
+        <DCArtboard id="d2-home"      label="Home"         width={412} height={892}>{screen('charcoal','09:42', D2Home)}</DCArtboard>
+        <DCArtboard id="d2-poop"      label="Add poop"     width={412} height={892}>{screen('charcoal','09:40', D2AddPoop)}</DCArtboard>
+        <DCArtboard id="d2-food"      label="Add food"     width={412} height={892}>{screen('charcoal','10:32', D2AddFood)}</DCArtboard>
+        <DCArtboard id="d2-trends"    label="Trends"       width={412} height={892}>{screen('charcoal','19:14', D2Trends)}</DCArtboard>
+        <DCArtboard id="d2-detail"    label="Entry detail" width={412} height={892}>{screen('charcoal','19:16', D2Detail)}</DCArtboard>
+        <DCArtboard id="d2-history"   label="History"      width={412} height={892}>{screen('charcoal','19:18', D2History)}</DCArtboard>
+        <DCArtboard id="d2-settings"  label="You"          width={412} height={892}>{screen('charcoal','19:20', D2Settings)}</DCArtboard>
+      </DCSection>
+
+      {/* Direction 3 dropped per feedback */}
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Mount/>);
+</script>
+</body>
+</html>

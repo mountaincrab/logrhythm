@@ -1,0 +1,257 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Crab Do — Tokens (semantic theming)
+   Source of truth: app/src/.../ui/theme/Theme.kt + product decisions.
+
+   Themes (all dark — Crab Do is dark-only by design):
+     • deep-navy  (default)  — cool, indigo-blue accent
+     • charcoal              — neutral, cyan accent
+     • retro                 — warm, amber/orange accent
+
+   Components reference SEMANTIC tokens only (--bg, --surface, --accent, etc).
+   Theme files override those tokens. Never reference --accent-blue from a
+   component — use --accent.
+   ────────────────────────────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&family=Geist+Mono:wght@400;500;600&display=swap');
+
+/* ── Brand-constant accent palette (used in gradients and theme defs) ─── */
+:root {
+  --brand-blue:    #4F7CFF;
+  --brand-purple:  #8B5CF6;
+  --brand-cyan:    #06B6D4;
+  --brand-orange:  #F97316;
+  --brand-amber:   #FBBF24;
+  --brand-green:   #10B981;
+  --brand-red:     #EF4444;
+
+  /* Type system (theme-independent) */
+  --font-sans: 'Geist', ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+               Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+               Consolas, "Liberation Mono", monospace;
+
+  --fs-xs:      11px;
+  --fs-sm:      12px;
+  --fs-body:    14px;
+  --fs-md:      16px;
+  --fs-lg:      18px;
+  --fs-xl:      24px;
+  --fs-2xl:     32px;
+  --fs-3xl:     40px;
+  --fs-display: 56px;
+
+  --fw-regular:   400;
+  --fw-medium:    500;
+  --fw-semibold:  600;
+  --fw-bold:      700;
+  --fw-extrabold: 800;
+  --fw-black:     900;
+
+  --lh-tight:  1.10;
+  --lh-snug:   1.25;
+  --lh-normal: 1.50;
+
+  --track-display: -0.03em;
+  --track-tight:   -0.015em;
+
+  /* Geometry (theme-independent) */
+  --r-xs:   6px;
+  --r-sm:   8px;
+  --r-md:   12px;
+  --r-lg:   16px;
+  --r-xl:   20px;
+  --r-pill: 9999px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   THEME: Deep Navy (default)
+   Apply with: <html data-theme="deep-navy"> OR ":root" — this is the default.
+   ────────────────────────────────────────────────────────────────────────── */
+:root,
+[data-theme="deep-navy"] {
+  /* Surfaces */
+  --bg:                 #0A1020;
+  --surface:            #131A2E;   /* header, navbars */
+  --surface-raised:     #1C2340;   /* cards, list rows */
+  --surface-high:       #2A3250;   /* hover, chips, inputs */
+
+  /* Foreground */
+  --fg:                 #F3F4F6;
+  --fg-muted:           #9CA3AF;
+  --fg-faint:           #64748B;
+  --fg-disabled:        #475569;
+
+  /* Borders */
+  --border:             rgba(255, 255, 255, 0.10);
+  --border-subtle:      rgba(255, 255, 255, 0.05);
+  --border-strong:      rgba(255, 255, 255, 0.20);
+
+  /* Accent — primary brand action color for THIS theme */
+  --accent:             #4F7CFF;
+  --accent-hover:       #4063D6;
+  --accent-soft:        rgba(79, 124, 255, 0.18);
+  --accent-fg:          #FFFFFF;
+  --accent-text:        #A5B4FC;     /* lighter accent for inline text */
+
+  /* Semantic — these stay constant-ish across themes for instant readability */
+  --success:            #10B981;
+  --success-text:       #34D399;
+  --danger:             #EF4444;
+  --danger-text:        #F87171;
+  --warning:            #FBBF24;
+  --link:               var(--accent-text);
+
+  /* Theme gradient — used on icon tiles only */
+  --grad-accent:        linear-gradient(135deg, #8B5CF6 0%, #4F7CFF 100%);
+
+  /* Shadows */
+  --shadow-card:        0 1px 2px rgba(0,0,0,0.20);
+  --shadow-raised:      0 4px 16px rgba(0,0,0,0.35);
+  --shadow-dialog:      0 20px 50px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04);
+  --shadow-fab:         0 6px 20px rgba(79,124,255,0.40);
+
+  color-scheme: dark;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   THEME: Charcoal — neutral dark, cyan accent
+   ────────────────────────────────────────────────────────────────────────── */
+[data-theme="charcoal"] {
+  --bg:                 #0A0A0A;
+  --surface:            #141414;
+  --surface-raised:     #1E1E1E;
+  --surface-high:       #2A2A2A;
+
+  --fg:                 #FAFAFA;
+  --fg-muted:           #A1A1AA;
+  --fg-faint:           #71717A;
+  --fg-disabled:        #52525B;
+
+  --border:             rgba(255, 255, 255, 0.10);
+  --border-subtle:      rgba(255, 255, 255, 0.05);
+  --border-strong:      rgba(255, 255, 255, 0.20);
+
+  --accent:             #06B6D4;
+  --accent-hover:       #0891B2;
+  --accent-soft:        rgba(6, 182, 212, 0.18);
+  --accent-fg:          #FFFFFF;
+  --accent-text:        #67E8F9;
+
+  --success:            #10B981;
+  --success-text:       #34D399;
+  --danger:             #EF4444;
+  --danger-text:        #F87171;
+  --warning:            #FBBF24;
+  --link:               var(--accent-text);
+
+  --grad-accent:        linear-gradient(135deg, #06B6D4 0%, #3B82F6 100%);
+
+  --shadow-card:        0 1px 2px rgba(0,0,0,0.30);
+  --shadow-raised:      0 4px 16px rgba(0,0,0,0.50);
+  --shadow-dialog:      0 20px 50px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.04);
+  --shadow-fab:         0 6px 20px rgba(6,182,212,0.40);
+
+  color-scheme: dark;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   THEME: Retro — magenta on deep purple (matches live Android theme)
+   Note: Compose defines RetroCyan + RetroYellow as `secondary` + `tertiary`,
+   but those slots almost never render in-app — the user-visible theme is
+   essentially magenta + purple + white. We keep them only as semantic
+   --success / --warning so toasts can still use them if needed.
+   ────────────────────────────────────────────────────────────────────────── */
+/* ──────────────────────────────────────────────────────────────────────────
+   THEME: Retro — vaporwave magenta + cyan + yellow (from Theme.kt)
+   Magenta is the primary action color. Cyan and yellow are reserved
+   semantic accents (snooze / alarm / success / warning).
+
+   Readability note: this theme is harder on the eyes at low brightness
+   than Deep Navy because saturated text on saturated dark purple loses
+   perceived contrast as OLED dims. We compensate with brighter --fg-muted
+   and --fg-faint than the other themes use, and a slightly lighter --bg.
+   At low brightness consider switching to Deep Navy.
+   ────────────────────────────────────────────────────────────────────────── */
+[data-theme="retro"] {
+  --bg:                 #1A0B1E;
+  --surface:            #29153A;
+  --surface-raised:     #2E1438;
+  --surface-high:       #3F1F50;
+
+  --fg:                 #FFFFFF;
+  --fg-muted:           #DCC4EC;   /* bumped from #C9A0E0 for low-brightness legibility */
+  --fg-faint:           #A584C0;   /* bumped from #8B6BA8 */
+  --fg-disabled:        #6B5586;
+
+  --border:             rgba(255, 0, 204, 0.22);
+  --border-subtle:      rgba(255, 0, 204, 0.10);
+  --border-strong:      rgba(255, 0, 204, 0.40);
+
+  --accent:             #FF00CC;
+  --accent-hover:       #E000B3;
+  --accent-soft:        rgba(255, 0, 204, 0.18);
+  --accent-fg:          #000000;
+  --accent-text:        #FF66DD;
+
+  /* Cyan + yellow ARE part of the active retro palette: */
+  --success:            #00FFEE;   /* cyan — snooze, recurring-next, success */
+  --success-text:       #66FFF5;
+  --danger:             #FF4400;
+  --danger-text:        #FF7755;
+  --warning:            #FFEE00;   /* yellow — alarm tint, warnings */
+  --link:               #00FFEE;
+
+  --grad-accent:        linear-gradient(135deg, #FF00CC 0%, #00FFEE 100%);
+
+  --shadow-card:        0 1px 2px rgba(0,0,0,0.40);
+  --shadow-raised:      0 4px 16px rgba(0,0,0,0.60);
+  --shadow-dialog:      0 20px 50px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,0,204,0.10);
+  --shadow-fab:         0 6px 20px rgba(255,0,204,0.45);
+
+  color-scheme: dark;
+}
+
+  --shadow-card:        0 1px 2px rgba(0,0,0,0.40);
+  --shadow-raised:      0 4px 16px rgba(0,0,0,0.60);
+  --shadow-dialog:      0 20px 50px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,0,204,0.10);
+  --shadow-fab:         0 6px 20px rgba(255,0,204,0.45);
+
+  color-scheme: dark;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Semantic typography helpers
+   ────────────────────────────────────────────────────────────────────────── */
+body, .ds-body {
+  font-family: var(--font-sans);
+  font-size:   var(--fs-body);
+  line-height: var(--lh-normal);
+  font-weight: var(--fw-regular);
+  color:       var(--fg);
+  background:  var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.ds-display { font-size: var(--fs-display); font-weight: var(--fw-black); line-height: var(--lh-tight); letter-spacing: var(--track-display); color: var(--fg); }
+.ds-h1      { font-size: var(--fs-2xl);     font-weight: var(--fw-extrabold); line-height: var(--lh-tight); letter-spacing: var(--track-tight); color: var(--fg); }
+.ds-h2      { font-size: var(--fs-xl);      font-weight: var(--fw-bold);      line-height: var(--lh-snug);  letter-spacing: var(--track-tight); color: var(--fg); }
+.ds-h3      { font-size: var(--fs-lg);      font-weight: var(--fw-semibold);  line-height: var(--lh-snug);  color: var(--fg); }
+.ds-title   { font-size: var(--fs-md);      font-weight: var(--fw-semibold);  color: var(--fg); }
+.ds-body-sm { font-size: var(--fs-body);    color: var(--fg-muted); }
+.ds-meta    { font-size: var(--fs-sm);      color: var(--fg-faint); }
+.ds-label   { font-size: var(--fs-xs);      font-weight: var(--fw-bold); letter-spacing: 0.10em; text-transform: uppercase; color: var(--fg-muted); }
+.ds-button  { font-size: var(--fs-body);    font-weight: var(--fw-semibold); line-height: 1; }
+.ds-mono    { font-family: var(--font-mono); font-size: var(--fs-sm); }
+.ds-link    { color: var(--link); font-weight: var(--fw-medium); text-decoration: none; }
+.ds-link:hover { text-decoration: underline; }

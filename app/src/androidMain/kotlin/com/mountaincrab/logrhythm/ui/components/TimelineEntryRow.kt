@@ -1,0 +1,119 @@
+package com.mountaincrab.logrhythm.ui.components
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.mountaincrab.logrhythm.data.model.bristol
+import com.mountaincrab.logrhythm.data.repository.TimelineEntry
+import com.mountaincrab.logrhythm.ui.theme.LocalAppPalette
+import com.mountaincrab.logrhythm.ui.theme.RatingColors
+import com.mountaincrab.logrhythm.ui.util.formatTime
+
+/**
+ * A single row on the home timeline: a coloured dot (relative to the vertical
+ * line drawn by the parent) and a card with the entry contents.
+ */
+@Composable
+fun TimelineEntryRow(
+    entry: TimelineEntry,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val palette = LocalAppPalette.current
+    val dotColor = when (entry) {
+        is TimelineEntry.Poop -> RatingColors[entry.entity.rating]?.bg ?: palette.surfaceHigh
+        is TimelineEntry.Food -> palette.surfaceHigh
+        is TimelineEntry.Note -> palette.warning
+    }
+
+    Box(modifier = modifier.fillMaxWidth()) {
+        // dot — positioned by parent's timeline padding (22dp from left).
+        Box(
+            modifier = Modifier
+                .padding(start = 2.dp, top = 16.dp)
+                .size(11.dp)
+                .clip(CircleShape)
+                .background(dotColor)
+                .border(2.dp, MaterialTheme.colorScheme.background, CircleShape)
+        )
+        Column(
+            modifier = Modifier
+                .padding(start = 22.dp)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(palette.surfaceRaised)
+                .border(1.dp, palette.border, RoundedCornerShape(14.dp))
+                .clickable(onClick = onClick)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            when (entry) {
+                is TimelineEntry.Poop -> PoopBody(entry)
+                is TimelineEntry.Food -> FoodBody(entry)
+                is TimelineEntry.Note -> NoteBody(entry)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PoopBody(entry: TimelineEntry.Poop) {
+    val palette = LocalAppPalette.current
+    val ratingColor = RatingColors[entry.entity.rating]?.bg ?: palette.fgMuted
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(text = entry.entity.occurredAt.formatTime(), color = MaterialTheme.colorScheme.onSurface,
+            fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Text(text = "· Poop", color = ratingColor, fontSize = 11.sp,
+            fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+    }
+    val br = runCatching { bristol(entry.entity.bristol) }.getOrNull()
+    val bodyText = buildString {
+        append("Bristol ")
+        append(entry.entity.bristol)
+        if (br != null) append(" · ${br.plain}")
+        if (!entry.entity.notes.isNullOrBlank()) append(" · ${entry.entity.notes}")
+    }
+    Text(text = bodyText, color = MaterialTheme.colorScheme.onSurface,
+        fontSize = 14.sp, lineHeight = 20.sp)
+    Spacer(modifier = Modifier.height(2.dp))
+    RatingPill(rating = entry.entity.rating)
+}
+
+@Composable
+private fun FoodBody(entry: TimelineEntry.Food) {
+    val palette = LocalAppPalette.current
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(text = entry.entity.occurredAt.formatTime(), color = MaterialTheme.colorScheme.onSurface,
+            fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Text(text = "· Food", color = palette.fgFaint, fontSize = 11.sp,
+            fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+    }
+    Text(text = entry.entity.items, color = MaterialTheme.colorScheme.onSurface,
+        fontSize = 14.sp, lineHeight = 20.sp)
+}
+
+@Composable
+private fun NoteBody(entry: TimelineEntry.Note) {
+    val palette = LocalAppPalette.current
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(text = entry.entity.occurredAt.formatTime(), color = MaterialTheme.colorScheme.onSurface,
+            fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Text(text = "· Note", color = palette.warning, fontSize = 11.sp,
+            fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+    }
+    Text(text = entry.entity.content, color = palette.fgMuted,
+        fontSize = 14.sp, lineHeight = 20.sp)
+}
