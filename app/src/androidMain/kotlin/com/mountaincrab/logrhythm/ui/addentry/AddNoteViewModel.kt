@@ -13,6 +13,9 @@ import kotlinx.coroutines.launch
 data class AddNoteUiState(
     val occurredAt: Long = currentTimeMillis(),
     val content: String = "",
+    val medsMissed: Boolean = false,
+    val caffeine: Boolean = false,
+    val alcohol: Boolean = false,
     val saving: Boolean = false,
     val saved: Boolean = false,
 )
@@ -29,7 +32,15 @@ class AddNoteViewModel(
         if (existingId != null) {
             viewModelScope.launch {
                 repository.getNote(existingId)?.let { e ->
-                    _state.update { it.copy(occurredAt = e.occurredAt, content = e.content) }
+                    _state.update {
+                        it.copy(
+                            occurredAt = e.occurredAt,
+                            content = e.content,
+                            medsMissed = e.medsMissed,
+                            caffeine = e.caffeine,
+                            alcohol = e.alcohol,
+                        )
+                    }
                 }
             }
         }
@@ -37,13 +48,24 @@ class AddNoteViewModel(
 
     fun onOccurredAtChange(value: Long) = _state.update { it.copy(occurredAt = value) }
     fun onContentChange(value: String) = _state.update { it.copy(content = value) }
+    fun onMedsToggle() = _state.update { it.copy(medsMissed = !it.medsMissed) }
+    fun onCaffeineToggle() = _state.update { it.copy(caffeine = !it.caffeine) }
+    fun onAlcoholToggle() = _state.update { it.copy(alcohol = !it.alcohol) }
 
     fun save() {
         val s = _state.value
-        if (s.saving || s.content.isBlank()) return
+        if (s.saving) return
+        if (s.content.isBlank() && !s.medsMissed && !s.caffeine && !s.alcohol) return
         _state.update { it.copy(saving = true) }
         viewModelScope.launch {
-            repository.saveNote(id = existingId, occurredAt = s.occurredAt, content = s.content.trim())
+            repository.saveNote(
+                id = existingId,
+                occurredAt = s.occurredAt,
+                content = s.content.trim(),
+                medsMissed = s.medsMissed,
+                caffeine = s.caffeine,
+                alcohol = s.alcohol,
+            )
             _state.update { it.copy(saving = false, saved = true) }
         }
     }

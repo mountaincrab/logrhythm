@@ -12,6 +12,8 @@ data class PoopEntryEntity(
     val userId: String = "local",
     val occurredAt: Long,
     val bristol: Int,
+    /** Comma-separated selected Bristol type numbers, e.g. "3,5". Falls back to [bristol] when blank. */
+    val bristolTypes: String = "",
     /** 1..5; matches phone.jsx RATING_COLORS. 1 = no blood, 5 = loads. */
     val rating: Int,
     val notes: String? = null,

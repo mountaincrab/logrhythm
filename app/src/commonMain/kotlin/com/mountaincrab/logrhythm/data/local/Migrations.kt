@@ -15,4 +15,11 @@ import androidx.room.migration.Migration
  * fallbackToDestructiveMigrationOnDowngrade is enabled but not for upgrades, so
  * we never silently drop user data.
  */
-val ALL_MIGRATIONS: Array<Migration> = emptyArray()
+val ALL_MIGRATIONS: Array<Migration> = arrayOf(
+    Migration(1, 2) { db ->
+        db.execSQL("ALTER TABLE poop_entries ADD COLUMN bristolTypes TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE note_entries ADD COLUMN medsMissed INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE note_entries ADD COLUMN caffeine INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE note_entries ADD COLUMN alcohol INTEGER NOT NULL DEFAULT 0")
+    },
+)

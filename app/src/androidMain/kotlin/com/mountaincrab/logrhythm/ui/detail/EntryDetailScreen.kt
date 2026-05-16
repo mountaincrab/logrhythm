@@ -80,7 +80,45 @@ fun EntryDetailScreen(
                 "note" -> state.note?.let { n ->
                     DetailNotesCard("Time", n.occurredAt.formatTime())
                     DetailNotesCard("Date", n.occurredAt.formatFullDay())
-                    DetailNotesCard("Note", n.content)
+                    if (n.content.isNotBlank()) DetailNotesCard("Note", n.content)
+                    val flags = listOfNotNull(
+                        if (n.medsMissed) "Meds missed" else null,
+                        if (n.caffeine) "Caffeine" else null,
+                        if (n.alcohol) "Alcohol" else null,
+                    )
+                    if (flags.isNotEmpty()) {
+                        Column(
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp)
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(palette.surfaceRaised)
+                                .border(1.dp, palette.border, RoundedCornerShape(14.dp))
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                        ) {
+                            Text("LIFESTYLE", color = palette.fgMuted,
+                                fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.1.sp)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+                            androidx.compose.foundation.layout.FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                flags.forEach { tag ->
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(999.dp))
+                                            .background(palette.surfaceHigh)
+                                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                                    ) {
+                                        Text(tag, color = palette.fgMuted, fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold)
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
                 }
             }
         }
@@ -170,13 +208,21 @@ private fun PoopDetail(p: PoopEntryEntity, foods: List<FoodRow>) {
     Spacer(modifier = Modifier.height(12.dp))
 
     // Two-column time + bristol
-    val br = runCatching { bristol(p.bristol) }.getOrNull()
+    val bristolList = if (p.bristolTypes.isNotBlank()) {
+        p.bristolTypes.split(",").mapNotNull { it.trim().toIntOrNull() }
+            .mapNotNull { runCatching { bristol(it) }.getOrNull() }
+    } else {
+        listOfNotNull(runCatching { bristol(p.bristol) }.getOrNull())
+    }
+    val stoolValue = if (bristolList.size == 1) "Bristol ${bristolList[0].n}"
+        else "Bristol ${bristolList.joinToString(", ") { "${it.n}" }}"
+    val stoolSub = bristolList.joinToString(" · ") { it.plain }
     Row(
         modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         TwoColCard("TIME", p.occurredAt.formatTime(), p.occurredAt.formatFullDay(), Modifier.weight(1f))
-        TwoColCard("STOOL", "Bristol ${p.bristol}", br?.let { "${it.plain} · ${it.description}" }, Modifier.weight(1f))
+        TwoColCard("STOOL", stoolValue, stoolSub, Modifier.weight(1f))
     }
     Spacer(modifier = Modifier.height(12.dp))
 
@@ -215,41 +261,6 @@ private fun PoopDetail(p: PoopEntryEntity, foods: List<FoodRow>) {
         Spacer(modifier = Modifier.height(12.dp))
     }
 
-    // Other context chips
-    val flags = listOfNotNull(
-        if (!p.medsMissed) "No meds missed" else "Meds missed",
-        if (!p.caffeine) "No caffeine" else "Caffeine",
-        if (!p.alcohol) "No alcohol" else "Alcohol",
-    )
-    Column(
-        modifier = Modifier
-            .padding(horizontal = 16.dp)
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(palette.surfaceRaised)
-            .border(1.dp, palette.border, RoundedCornerShape(14.dp))
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-    ) {
-        Text("OTHER", color = palette.fgMuted,
-            fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.1.sp)
-        Spacer(modifier = Modifier.height(8.dp))
-        @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-        androidx.compose.foundation.layout.FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            flags.forEach { tag ->
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(palette.surfaceHigh)
-                        .padding(horizontal = 10.dp, vertical = 5.dp),
-                ) {
-                    Text(tag, color = palette.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
-        }
-    }
 }
 
 @Composable

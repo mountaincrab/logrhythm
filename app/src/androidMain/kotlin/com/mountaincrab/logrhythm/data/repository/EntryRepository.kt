@@ -56,32 +56,27 @@ class EntryRepository(
     suspend fun savePoop(
         id: String? = null,
         occurredAt: Long,
-        bristol: Int,
+        bristolTypes: Set<Int>,
         rating: Int,
         notes: String?,
-        medsMissed: Boolean = false,
-        caffeine: Boolean = false,
-        alcohol: Boolean = false,
     ) {
         val now = currentTimeMillis()
+        val bristolTypesStr = bristolTypes.sorted().joinToString(",")
+        val firstBristol = bristolTypes.minOrNull() ?: 4
         val existing = id?.let { poopDao.getById(it) }
         val entry = existing?.copy(
             occurredAt = occurredAt,
-            bristol = bristol,
+            bristol = firstBristol,
+            bristolTypes = bristolTypesStr,
             rating = rating,
             notes = notes?.takeIf { it.isNotBlank() },
-            medsMissed = medsMissed,
-            caffeine = caffeine,
-            alcohol = alcohol,
             updatedAt = now,
         ) ?: PoopEntryEntity(
             occurredAt = occurredAt,
-            bristol = bristol,
+            bristol = firstBristol,
+            bristolTypes = bristolTypesStr,
             rating = rating,
             notes = notes?.takeIf { it.isNotBlank() },
-            medsMissed = medsMissed,
-            caffeine = caffeine,
-            alcohol = alcohol,
         )
         poopDao.upsert(entry)
     }
@@ -111,16 +106,25 @@ class EntryRepository(
         id: String? = null,
         occurredAt: Long,
         content: String,
+        medsMissed: Boolean = false,
+        caffeine: Boolean = false,
+        alcohol: Boolean = false,
     ) {
         val now = currentTimeMillis()
         val existing = id?.let { noteDao.getById(it) }
         val entry = existing?.copy(
             occurredAt = occurredAt,
             content = content,
+            medsMissed = medsMissed,
+            caffeine = caffeine,
+            alcohol = alcohol,
             updatedAt = now,
         ) ?: NoteEntryEntity(
             occurredAt = occurredAt,
             content = content,
+            medsMissed = medsMissed,
+            caffeine = caffeine,
+            alcohol = alcohol,
         )
         noteDao.upsert(entry)
     }

@@ -11,8 +11,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ExpandLess
-import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
@@ -24,7 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -72,14 +69,22 @@ fun AddPoopScreen(
             // Type
             FieldGroup {
                 FieldLabel("Type")
-                StoolSystemToggle(current = stoolSystem)
+                StoolSystemToggle(
+                    current = stoolSystem,
+                    onSelect = viewModel::onStoolSystemChange,
+                )
                 Spacer(modifier = Modifier.height(10.dp))
-                BristolGrid(selected = state.bristol, onSelect = viewModel::onBristolChange)
-                val br = runCatching { bristol(state.bristol) }.getOrNull()
-                if (br != null) {
+                BristolGrid(
+                    selected = state.bristolTypes,
+                    stoolSystem = stoolSystem,
+                    onToggle = viewModel::onBristolToggle,
+                )
+                val selectedTypes = state.bristolTypes.sorted()
+                    .mapNotNull { runCatching { bristol(it) }.getOrNull() }
+                if (selectedTypes.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = buildAnnotatedDescription("Type ${br.n} · ${br.plain}.", br.description),
+                        text = buildAnnotatedTypeDescription(selectedTypes.map { it.n to it.plain }, stoolSystem),
                         color = palette.fgMuted,
                         fontSize = 12.sp,
                         lineHeight = 17.sp,
@@ -99,10 +104,6 @@ fun AddPoopScreen(
                             modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(rc.label, color = rc.bg, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        Text(
-                            text = " · what you'd see if you looked",
-                            color = palette.fgMuted, fontSize = 13.sp,
-                        )
                     }
                 }
             }
@@ -114,33 +115,6 @@ fun AddPoopScreen(
                     placeholder = "Urgency, pain, time of day, anything that felt different…")
             }
 
-            // More
-            var moreOpen by remember { mutableStateOf(false) }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { moreOpen = !moreOpen }
-                    .padding(vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Icon(if (moreOpen) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                    contentDescription = null, tint = palette.accentText)
-                Text("More — meds, caffeine, alcohol",
-                    color = palette.accentText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            }
-            if (moreOpen) {
-                Spacer(modifier = Modifier.height(6.dp))
-                MoreGrid(
-                    medsMissed = state.medsMissed,
-                    caffeine = state.caffeine,
-                    alcohol = state.alcohol,
-                    onMeds = viewModel::onMedsToggle,
-                    onCaffeine = viewModel::onCaffeineToggle,
-                    onAlcohol = viewModel::onAlcoholToggle,
-                )
-            }
             Spacer(modifier = Modifier.height(24.dp))
         }
 
@@ -159,7 +133,7 @@ private fun FieldGroup(content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-private fun StoolSystemToggle(current: StoolSystem) {
+private fun StoolSystemToggle(current: StoolSystem, onSelect: (StoolSystem) -> Unit) {
     val palette = LocalAppPalette.current
     val options = listOf("Bristol scale" to StoolSystem.BRISTOL, "My types" to StoolSystem.PLAIN)
     Row(
@@ -178,6 +152,7 @@ private fun StoolSystemToggle(current: StoolSystem) {
                     .weight(1f)
                     .clip(RoundedCornerShape(9.dp))
                     .background(if (on) palette.surfaceHigh else Color.Transparent)
+                    .clickable { onSelect(sys) }
                     .padding(vertical = 8.dp),
                 contentAlignment = Alignment.Center,
             ) {
@@ -193,11 +168,12 @@ private fun StoolSystemToggle(current: StoolSystem) {
 }
 
 @Composable
-private fun BristolGrid(selected: Int, onSelect: (Int) -> Unit) {
+private fun BristolGrid(selected: Set<Int>, stoolSystem: StoolSystem, onToggle: (Int) -> Unit) {
     val palette = LocalAppPalette.current
+    val usePlain = stoolSystem == StoolSystem.PLAIN
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
         BRISTOL_TYPES.forEach { type ->
-            val isOn = type.n == selected
+            val isOn = type.n in selected
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -209,23 +185,38 @@ private fun BristolGrid(selected: Int, onSelect: (Int) -> Unit) {
                         if (isOn) MaterialTheme.colorScheme.primary else palette.border,
                         RoundedCornerShape(12.dp),
                     )
-                    .clickable { onSelect(type.n) }
+                    .clickable { onToggle(type.n) }
                     .padding(vertical = 4.dp),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(
-                    text = "${type.n}",
-                    color = if (isOn) palette.accentText else MaterialTheme.colorScheme.onSurface,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                )
-                Text(
-                    text = type.plain.split(' ').first(),
-                    color = palette.fgMuted,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
+                if (usePlain) {
+                    Text(
+                        text = type.plain.split(' ').first(),
+                        color = if (isOn) palette.accentText else MaterialTheme.colorScheme.onSurface,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                    Text(
+                        text = "${type.n}",
+                        color = palette.fgMuted,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                } else {
+                    Text(
+                        text = "${type.n}",
+                        color = if (isOn) palette.accentText else MaterialTheme.colorScheme.onSurface,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                    Text(
+                        text = type.plain.split(' ').first(),
+                        color = palette.fgMuted,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
             }
         }
     }
@@ -302,68 +293,16 @@ private fun NotesField(value: String, onChange: (String) -> Unit, placeholder: S
     }
 }
 
-@Composable
-private fun MoreGrid(
-    medsMissed: Boolean,
-    caffeine: Boolean,
-    alcohol: Boolean,
-    onMeds: () -> Unit,
-    onCaffeine: () -> Unit,
-    onAlcohol: () -> Unit,
-) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        MoreCard("Medication", if (medsMissed) "Missed today" else "None today",
-            on = medsMissed, onClick = onMeds, modifier = Modifier.weight(1f))
-        MoreCard("Caffeine", if (caffeine) "Yes today" else "Not today",
-            on = caffeine, onClick = onCaffeine, modifier = Modifier.weight(1f))
-    }
-    Spacer(modifier = Modifier.height(8.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        MoreCard("Alcohol", if (alcohol) "Yes today" else "Not today",
-            on = alcohol, onClick = onAlcohol, modifier = Modifier.weight(1f))
-        Spacer(modifier = Modifier.weight(1f))
-    }
-}
-
-@Composable
-private fun MoreCard(
-    title: String,
-    subtitle: String,
-    on: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val palette = LocalAppPalette.current
-    Row(
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (on) palette.accentSoft else palette.surfaceRaised)
-            .border(
-                1.dp,
-                if (on) MaterialTheme.colorScheme.primary else palette.border,
-                RoundedCornerShape(12.dp),
-            )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Text(subtitle,
-                color = if (on) palette.accentText else palette.fgMuted,
-                fontSize = 11.sp)
-        }
-    }
-}
-
-private fun buildAnnotatedDescription(bold: String, rest: String) =
+private fun buildAnnotatedTypeDescription(
+    types: List<Pair<Int, String>>,
+    stoolSystem: StoolSystem,
+): androidx.compose.ui.text.AnnotatedString =
     androidx.compose.ui.text.buildAnnotatedString {
-        pushStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.SemiBold))
-        append(bold)
-        pop()
-        append(" ")
-        append(rest)
-        append(".")
+        types.forEachIndexed { index, (n, plain) ->
+            if (index > 0) append("  ·  ")
+            pushStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.SemiBold))
+            if (stoolSystem != StoolSystem.PLAIN) append("Type $n · ")
+            append(plain)
+            pop()
+        }
     }
