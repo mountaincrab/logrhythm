@@ -28,7 +28,7 @@ val appModule = module {
         )
             .setDriver(BundledSQLiteDriver())
             .addMigrations(*ALL_MIGRATIONS)
-            .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
+            .fallbackToDestructiveMigration(dropAllTables = true)
             .build()
     }
 

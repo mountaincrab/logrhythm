@@ -57,25 +57,22 @@ class EntryRepository(
         id: String? = null,
         occurredAt: Long,
         bristolTypes: Set<Int>,
-        rating: Int,
+        blood: Int,
         notes: String?,
     ) {
         val now = currentTimeMillis()
         val bristolTypesStr = bristolTypes.sorted().joinToString(",")
-        val firstBristol = bristolTypes.minOrNull() ?: 4
         val existing = id?.let { poopDao.getById(it) }
         val entry = existing?.copy(
             occurredAt = occurredAt,
-            bristol = firstBristol,
             bristolTypes = bristolTypesStr,
-            rating = rating,
+            blood = blood,
             notes = notes?.takeIf { it.isNotBlank() },
             updatedAt = now,
         ) ?: PoopEntryEntity(
             occurredAt = occurredAt,
-            bristol = firstBristol,
             bristolTypes = bristolTypesStr,
-            rating = rating,
+            blood = blood,
             notes = notes?.takeIf { it.isNotBlank() },
         )
         poopDao.upsert(entry)

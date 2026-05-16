@@ -95,8 +95,8 @@ fun AddPoopScreen(
             // Rating
             FieldGroup {
                 FieldLabel("Blood rating", hint = "1–5")
-                RatingPills(selected = state.rating, onSelect = viewModel::onRatingChange)
-                val rc = RatingColors[state.rating]
+                RatingPills(selected = state.blood, onSelect = viewModel::onBloodChange)
+                val rc = RatingColors[state.blood]
                 if (rc != null) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {

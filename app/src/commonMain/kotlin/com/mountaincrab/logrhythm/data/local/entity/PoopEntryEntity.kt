@@ -11,15 +11,11 @@ data class PoopEntryEntity(
     @PrimaryKey val id: String = randomUUID(),
     val userId: String = "local",
     val occurredAt: Long,
-    val bristol: Int,
-    /** Comma-separated selected Bristol type numbers, e.g. "3,5". Falls back to [bristol] when blank. */
+    /** Comma-separated selected Bristol type numbers, e.g. "3,5". */
     val bristolTypes: String = "",
-    /** 1..5; matches phone.jsx RATING_COLORS. 1 = no blood, 5 = loads. */
-    val rating: Int,
+    /** 1..5 blood rating; matches phone.jsx RATING_COLORS. 1 = no blood, 5 = loads. */
+    val blood: Int,
     val notes: String? = null,
-    val medsMissed: Boolean = false,
-    val caffeine: Boolean = false,
-    val alcohol: Boolean = false,
     val createdAt: Long = currentTimeMillis(),
     val updatedAt: Long = currentTimeMillis(),
     val syncStatus: SyncStatus = SyncStatus.PENDING,

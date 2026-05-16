@@ -174,7 +174,7 @@ data class FoodRow(val time: String, val items: String)
 @Composable
 private fun PoopDetail(p: PoopEntryEntity, foods: List<FoodRow>) {
     val palette = LocalAppPalette.current
-    val rc = RatingColors[p.rating] ?: RatingColors.getValue(1)
+    val rc = RatingColors[p.blood] ?: RatingColors.getValue(1)
 
     // Hero
     Row(
@@ -195,7 +195,7 @@ private fun PoopDetail(p: PoopEntryEntity, foods: List<FoodRow>) {
                 .background(rc.bg),
             contentAlignment = Alignment.Center,
         ) {
-            Text("${p.rating}", color = rc.fg,
+            Text("${p.blood}", color = rc.fg,
                 fontSize = 48.sp, fontWeight = FontWeight.Black, letterSpacing = (-1.5).sp)
         }
         Column(modifier = Modifier.weight(1f)) {
@@ -208,12 +208,9 @@ private fun PoopDetail(p: PoopEntryEntity, foods: List<FoodRow>) {
     Spacer(modifier = Modifier.height(12.dp))
 
     // Two-column time + bristol
-    val bristolList = if (p.bristolTypes.isNotBlank()) {
-        p.bristolTypes.split(",").mapNotNull { it.trim().toIntOrNull() }
-            .mapNotNull { runCatching { bristol(it) }.getOrNull() }
-    } else {
-        listOfNotNull(runCatching { bristol(p.bristol) }.getOrNull())
-    }
+    val bristolList = p.bristolTypes.split(",")
+        .mapNotNull { it.trim().toIntOrNull() }
+        .mapNotNull { runCatching { bristol(it) }.getOrNull() }
     val stoolValue = if (bristolList.size == 1) "Bristol ${bristolList[0].n}"
         else "Bristol ${bristolList.joinToString(", ") { "${it.n}" }}"
     val stoolSub = bristolList.joinToString(" · ") { it.plain }

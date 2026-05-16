@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
 data class AddPoopUiState(
     val occurredAt: Long = currentTimeMillis(),
     val bristolTypes: Set<Int> = setOf(4),
-    val rating: Int = 1,
+    val blood: Int = 1,
     val notes: String = "",
     val saving: Boolean = false,
     val saved: Boolean = false,
@@ -41,15 +41,14 @@ class AddPoopViewModel(
         if (existingId != null) {
             viewModelScope.launch {
                 repository.getPoop(existingId)?.let { e ->
-                    val types = if (e.bristolTypes.isNotBlank()) {
-                        e.bristolTypes.split(",").mapNotNull { it.trim().toIntOrNull() }.toSet()
-                    } else {
-                        setOf(e.bristol)
-                    }
+                    val types = e.bristolTypes.split(",")
+                        .mapNotNull { it.trim().toIntOrNull() }
+                        .toSet()
+                        .ifEmpty { setOf(4) }
                     _state.value = AddPoopUiState(
                         occurredAt = e.occurredAt,
                         bristolTypes = types,
-                        rating = e.rating,
+                        blood = e.blood,
                         notes = e.notes.orEmpty(),
                     )
                 }
@@ -60,12 +59,11 @@ class AddPoopViewModel(
     fun onOccurredAtChange(value: Long) = _state.update { it.copy(occurredAt = value) }
 
     fun onBristolToggle(value: Int) = _state.update {
-        val current = it.bristolTypes
-        val new = if (value in current) current - value else current + value
+        val new = if (value in it.bristolTypes) it.bristolTypes - value else it.bristolTypes + value
         it.copy(bristolTypes = new.ifEmpty { setOf(value) })
     }
 
-    fun onRatingChange(value: Int) = _state.update { it.copy(rating = value) }
+    fun onBloodChange(value: Int) = _state.update { it.copy(blood = value) }
     fun onNotesChange(value: String) = _state.update { it.copy(notes = value) }
 
     fun onStoolSystemChange(system: StoolSystem) {
@@ -81,7 +79,7 @@ class AddPoopViewModel(
                 id = existingId,
                 occurredAt = s.occurredAt,
                 bristolTypes = s.bristolTypes,
-                rating = s.rating,
+                blood = s.blood,
                 notes = s.notes,
             )
             _state.update { it.copy(saving = false, saved = true) }

@@ -19,7 +19,7 @@ import com.mountaincrab.logrhythm.data.model.SyncStatus
         FoodEntryEntity::class,
         NoteEntryEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
