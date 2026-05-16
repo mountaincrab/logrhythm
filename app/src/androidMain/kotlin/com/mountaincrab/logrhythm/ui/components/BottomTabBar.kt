@@ -1,7 +1,6 @@
 package com.mountaincrab.logrhythm.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -36,15 +35,23 @@ private val Tabs = listOf(
 @Composable
 fun BottomTabBar(active: String, onSelect: (String) -> Unit) {
     val palette = LocalAppPalette.current
-    Row(
+    // Outer Column lets the surface colour run to the very bottom edge of the
+    // screen (under the navigation bar). The inner Row applies the nav-bar
+    // inset so the tab buttons sit above the system gesture/3-button area.
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, palette.border)
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+            .background(MaterialTheme.colorScheme.surface),
     ) {
-        Tabs.forEach { tab ->
+        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(palette.border))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Tabs.forEach { tab ->
             val isActive = tab.route == active
             Column(
                 modifier = Modifier
@@ -75,6 +82,7 @@ fun BottomTabBar(active: String, onSelect: (String) -> Unit) {
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
                 )
+            }
             }
         }
     }

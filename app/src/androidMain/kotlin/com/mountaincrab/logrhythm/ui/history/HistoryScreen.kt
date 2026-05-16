@@ -51,7 +51,11 @@ fun HistoryScreen(
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         // Top bar
-        Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp)) {
+        Column(
+            modifier = Modifier
+                .statusBarsPadding()
+                .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp),
+        ) {
             Text(text = "History", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold,
                 letterSpacing = (-0.4).sp, color = MaterialTheme.colorScheme.onBackground)
             val sub = when (state.tab) {

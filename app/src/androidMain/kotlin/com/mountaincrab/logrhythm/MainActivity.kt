@@ -3,6 +3,7 @@ package com.mountaincrab.logrhythm
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -18,6 +19,7 @@ import org.koin.compose.viewmodel.koinViewModel
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         setContent {
             val themeViewModel: ThemeViewModel = koinViewModel()
             val appTheme by themeViewModel.appTheme.collectAsStateWithLifecycle()

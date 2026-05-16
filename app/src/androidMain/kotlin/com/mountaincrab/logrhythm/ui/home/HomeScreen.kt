@@ -47,7 +47,10 @@ fun HomeScreen(
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         // Top bar
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {

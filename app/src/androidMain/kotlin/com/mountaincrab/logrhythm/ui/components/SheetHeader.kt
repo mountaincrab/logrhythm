@@ -22,7 +22,10 @@ import com.mountaincrab.logrhythm.ui.theme.LocalAppPalette
 fun SheetHeader(title: String, onClose: () -> Unit) {
     val palette = LocalAppPalette.current
     Row(
-        modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -81,10 +84,12 @@ fun SaveBar(
     saveEnabled: Boolean = true,
 ) {
     val palette = LocalAppPalette.current
+    // Surface extends to the bottom edge; content is padded above the nav bar.
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface)
+            .navigationBarsPadding()
             .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 18.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {

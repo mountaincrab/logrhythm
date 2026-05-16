@@ -1,21 +1,16 @@
 package com.mountaincrab.logrhythm.ui.theme
 
-import android.app.Activity
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import androidx.core.view.WindowCompat
 
 enum class AppTheme(val displayName: String) {
     DEEP_NAVY("Deep Navy"),
@@ -251,21 +246,6 @@ fun LogRhythmTheme(
         AppTheme.RETRO -> RetroScheme
     }
     val palette = paletteFor(appTheme)
-
-    val view = LocalView.current
-    if (!view.isInEditMode) {
-        SideEffect {
-            val window = (view.context as Activity).window
-            @Suppress("DEPRECATION")
-            window.statusBarColor = colorScheme.background.toArgb()
-            @Suppress("DEPRECATION")
-            window.navigationBarColor = colorScheme.background.toArgb()
-            WindowCompat.getInsetsController(window, view).apply {
-                isAppearanceLightStatusBars = false
-                isAppearanceLightNavigationBars = false
-            }
-        }
-    }
 
     CompositionLocalProvider(LocalAppPalette provides palette) {
         MaterialTheme(

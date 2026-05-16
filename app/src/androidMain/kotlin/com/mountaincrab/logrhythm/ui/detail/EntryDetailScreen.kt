@@ -64,6 +64,7 @@ fun EntryDetailScreen(
             modifier = Modifier
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
                 .padding(top = 4.dp, bottom = 20.dp),
         ) {
             when (kind) {
@@ -95,7 +96,10 @@ private fun Header(
 ) {
     val palette = LocalAppPalette.current
     Row(
-        modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 4.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconBtn(Icons.Outlined.ArrowBack, onBack)

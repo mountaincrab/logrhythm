@@ -37,7 +37,11 @@ fun SettingsScreen(
     val stoolSystem by viewModel.stoolSystem.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp)) {
+        Column(
+            modifier = Modifier
+                .statusBarsPadding()
+                .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp),
+        ) {
             Text("Settings",
                 fontSize = 26.sp, fontWeight = FontWeight.ExtraBold,
                 letterSpacing = (-0.4).sp,
