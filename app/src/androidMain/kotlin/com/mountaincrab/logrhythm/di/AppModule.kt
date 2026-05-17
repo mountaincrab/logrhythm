@@ -43,7 +43,7 @@ val appModule = module {
     viewModel { HomeViewModel(repository = get()) }
     viewModel { HistoryViewModel(repository = get()) }
     viewModel { SettingsViewModel(prefs = get(), repository = get()) }
-    viewModel { (entryId: String?) -> AddPoopViewModel(repository = get(), prefs = get(), existingId = entryId) }
+    viewModel { (entryId: String?) -> AddPoopViewModel(repository = get(), existingId = entryId) }
     viewModel { (entryId: String?) -> AddFoodViewModel(repository = get(), existingId = entryId) }
     viewModel { (entryId: String?) -> AddNoteViewModel(repository = get(), existingId = entryId) }
     viewModel { (kind: String, entryId: String) ->

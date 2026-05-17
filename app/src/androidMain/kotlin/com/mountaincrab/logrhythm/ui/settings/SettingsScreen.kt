@@ -27,7 +27,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mountaincrab.logrhythm.data.local.entity.StoolTagEntity
-import com.mountaincrab.logrhythm.data.model.StoolSystem
 import com.mountaincrab.logrhythm.ui.components.BottomTabBar
 import com.mountaincrab.logrhythm.ui.navigation.Screen
 import com.mountaincrab.logrhythm.ui.theme.AppTheme
@@ -41,7 +40,6 @@ fun SettingsScreen(
 ) {
     val palette = LocalAppPalette.current
     val theme by viewModel.appTheme.collectAsStateWithLifecycle()
-    val stoolSystem by viewModel.stoolSystem.collectAsStateWithLifecycle()
     val tags by viewModel.tags.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -62,26 +60,6 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 16.dp),
         ) {
-            SectionLabel("Stool type system")
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(palette.surfaceRaised)
-                    .border(1.dp, palette.border, RoundedCornerShape(14.dp))
-                    .padding(12.dp),
-            ) {
-                StoolSystem.entries.forEachIndexed { i, system ->
-                    StoolSystemRow(
-                        system = system,
-                        selected = system == stoolSystem,
-                        onClick = { viewModel.setStoolSystem(system) },
-                    )
-                    if (i < StoolSystem.entries.size - 1) Divider(palette.borderSubtle)
-                }
-            }
-            Spacer(modifier = Modifier.height(18.dp))
-
             StoolTagsSection(
                 tags = tags,
                 onAdd = viewModel::addTag,
@@ -158,46 +136,6 @@ private fun SectionLabel(text: String) {
         letterSpacing = 1.1.sp,
         modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 8.dp),
     )
-}
-
-@Composable
-private fun StoolSystemRow(system: StoolSystem, selected: Boolean, onClick: () -> Unit) {
-    val palette = LocalAppPalette.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp, horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(20.dp)
-                .clip(CircleShape)
-                .background(Color.Transparent)
-                .border(
-                    2.dp,
-                    if (selected) MaterialTheme.colorScheme.primary else palette.fgFaint,
-                    CircleShape,
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (selected) {
-                Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
-                )
-            }
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(system.displayName, color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            Text(system.sub, color = palette.fgMuted, fontSize = 12.sp)
-        }
-    }
 }
 
 @Composable
