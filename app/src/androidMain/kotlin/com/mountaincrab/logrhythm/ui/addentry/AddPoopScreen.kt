@@ -32,7 +32,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mountaincrab.logrhythm.data.local.entity.StoolTagEntity
 import com.mountaincrab.logrhythm.data.model.BRISTOL_TYPES
-import com.mountaincrab.logrhythm.data.model.bristol
 import com.mountaincrab.logrhythm.ui.components.FieldLabel
 import com.mountaincrab.logrhythm.ui.components.SaveBar
 import com.mountaincrab.logrhythm.ui.components.SheetHeader
@@ -76,17 +75,6 @@ fun AddPoopScreen(
                     selected = state.bristolTypes,
                     onToggle = viewModel::onBristolToggle,
                 )
-                val selectedTypes = state.bristolTypes.sorted()
-                    .mapNotNull { runCatching { bristol(it) }.getOrNull() }
-                if (selectedTypes.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = buildAnnotatedTypeDescription(selectedTypes.map { it.n to it.plain }),
-                        color = palette.fgMuted,
-                        fontSize = 12.sp,
-                        lineHeight = 17.sp,
-                    )
-                }
                 Spacer(modifier = Modifier.height(12.dp))
                 PersonalTagsRow(
                     tags = allTags,
@@ -98,7 +86,7 @@ fun AddPoopScreen(
 
             // Rating
             FieldGroup {
-                FieldLabel("Blood rating", hint = "1–5")
+                FieldLabel("Blood")
                 RatingPills(selected = state.blood, onSelect = viewModel::onBloodChange)
                 val rc = RatingColors[state.blood]
                 if (rc != null) {
@@ -336,16 +324,3 @@ private fun PersonalTagsRow(
         }
     }
 }
-
-private fun buildAnnotatedTypeDescription(
-    types: List<Pair<Int, String>>,
-): androidx.compose.ui.text.AnnotatedString =
-    androidx.compose.ui.text.buildAnnotatedString {
-        types.forEachIndexed { index, (n, plain) ->
-            if (index > 0) append("  ·  ")
-            pushStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.SemiBold))
-            append("Type $n · ")
-            append(plain)
-            pop()
-        }
-    }

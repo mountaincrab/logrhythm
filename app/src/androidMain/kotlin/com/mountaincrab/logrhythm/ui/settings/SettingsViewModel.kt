@@ -2,6 +2,7 @@ package com.mountaincrab.logrhythm.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mountaincrab.logrhythm.data.local.entity.ExtrasTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.StoolTagEntity
 import com.mountaincrab.logrhythm.data.repository.EntryRepository
 import com.mountaincrab.logrhythm.preferences.UserPreferencesRepository
@@ -21,18 +22,29 @@ class SettingsViewModel(
         .map { AppTheme.fromName(it) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, AppTheme.DEEP_NAVY)
 
-    val tags: StateFlow<List<StoolTagEntity>> = repository.observeAllStoolTags()
+    val stoolTags: StateFlow<List<StoolTagEntity>> = repository.observeAllStoolTags()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val extrasTags: StateFlow<List<ExtrasTagEntity>> = repository.observeAllExtrasTags()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun setTheme(theme: AppTheme) {
         viewModelScope.launch { prefs.setAppTheme(theme.name) }
     }
 
-    fun addTag(name: String) {
+    fun addStoolTag(name: String) {
         viewModelScope.launch { repository.createStoolTag(name) }
     }
 
-    fun deleteTag(id: String) {
+    fun deleteStoolTag(id: String) {
         viewModelScope.launch { repository.deleteStoolTag(id) }
+    }
+
+    fun addExtrasTag(name: String) {
+        viewModelScope.launch { repository.createExtrasTag(name) }
+    }
+
+    fun deleteExtrasTag(id: String) {
+        viewModelScope.launch { repository.deleteExtrasTag(id) }
     }
 }

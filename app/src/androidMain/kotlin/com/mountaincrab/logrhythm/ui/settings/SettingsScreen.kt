@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mountaincrab.logrhythm.data.local.entity.ExtrasTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.StoolTagEntity
 import com.mountaincrab.logrhythm.ui.components.BottomTabBar
 import com.mountaincrab.logrhythm.ui.navigation.Screen
@@ -40,7 +41,8 @@ fun SettingsScreen(
 ) {
     val palette = LocalAppPalette.current
     val theme by viewModel.appTheme.collectAsStateWithLifecycle()
-    val tags by viewModel.tags.collectAsStateWithLifecycle()
+    val stoolTags by viewModel.stoolTags.collectAsStateWithLifecycle()
+    val extrasTags by viewModel.extrasTags.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(
@@ -61,9 +63,16 @@ fun SettingsScreen(
                 .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 16.dp),
         ) {
             StoolTagsSection(
-                tags = tags,
-                onAdd = viewModel::addTag,
-                onDelete = viewModel::deleteTag,
+                tags = stoolTags,
+                onAdd = viewModel::addStoolTag,
+                onDelete = viewModel::deleteStoolTag,
+            )
+            Spacer(modifier = Modifier.height(18.dp))
+
+            ExtrasTagsSection(
+                tags = extrasTags,
+                onAdd = viewModel::addExtrasTag,
+                onDelete = viewModel::deleteExtrasTag,
             )
             Spacer(modifier = Modifier.height(18.dp))
 
@@ -253,6 +262,116 @@ private fun StoolTagsSection(
     }
 
     SectionLabel("Stool tags")
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(palette.surfaceRaised)
+            .border(1.dp, palette.border, RoundedCornerShape(14.dp)),
+    ) {
+        if (tags.isEmpty()) {
+            Text(
+                "No tags yet",
+                color = palette.fgFaint,
+                fontSize = 14.sp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            )
+        } else {
+            tags.forEachIndexed { i, tag ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        tag.name,
+                        modifier = Modifier.weight(1f),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onDelete(tag.id) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Outlined.Close,
+                            contentDescription = "Remove tag",
+                            tint = palette.fgMuted,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                }
+                if (i < tags.size - 1) Divider(palette.borderSubtle)
+            }
+        }
+        Divider(palette.borderSubtle)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { showDialog = true }
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(
+                Icons.Outlined.Add,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp),
+            )
+            Text(
+                "Add tag",
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ExtrasTagsSection(
+    tags: List<ExtrasTagEntity>,
+    onAdd: (String) -> Unit,
+    onDelete: (String) -> Unit,
+) {
+    val palette = LocalAppPalette.current
+    var showDialog by remember { mutableStateOf(false) }
+    var newTagName by remember { mutableStateOf("") }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false; newTagName = "" },
+            title = { Text("New tag") },
+            text = {
+                OutlinedTextField(
+                    value = newTagName,
+                    onValueChange = { newTagName = it },
+                    placeholder = { Text("e.g. No suppository") },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (newTagName.isNotBlank()) onAdd(newTagName)
+                        showDialog = false
+                        newTagName = ""
+                    }
+                ) { Text("Add") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialog = false; newTagName = "" }) { Text("Cancel") }
+            },
+        )
+    }
+
+    SectionLabel("Extras tags")
     Column(
         modifier = Modifier
             .fillMaxWidth()

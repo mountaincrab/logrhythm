@@ -36,8 +36,9 @@ val appModule = module {
     single { get<AppDatabase>().foodEntryDao() }
     single { get<AppDatabase>().noteEntryDao() }
     single { get<AppDatabase>().stoolTagDao() }
+    single { get<AppDatabase>().extrasTagDao() }
 
-    single { EntryRepository(poopDao = get(), foodDao = get(), noteDao = get(), stoolTagDao = get()) }
+    single { EntryRepository(poopDao = get(), foodDao = get(), noteDao = get(), stoolTagDao = get(), extrasTagDao = get()) }
 
     viewModel { ThemeViewModel(prefs = get()) }
     viewModel { HomeViewModel(repository = get()) }

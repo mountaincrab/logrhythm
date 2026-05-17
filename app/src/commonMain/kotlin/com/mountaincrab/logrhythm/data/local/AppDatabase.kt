@@ -4,12 +4,15 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
+import com.mountaincrab.logrhythm.data.local.dao.ExtrasTagDao
 import com.mountaincrab.logrhythm.data.local.dao.FoodEntryDao
 import com.mountaincrab.logrhythm.data.local.dao.NoteEntryDao
 import com.mountaincrab.logrhythm.data.local.dao.PoopEntryDao
 import com.mountaincrab.logrhythm.data.local.dao.StoolTagDao
+import com.mountaincrab.logrhythm.data.local.entity.ExtrasTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.FoodEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.NoteEntryEntity
+import com.mountaincrab.logrhythm.data.local.entity.NoteEntryExtrasTagCrossRef
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryStoolTagCrossRef
 import com.mountaincrab.logrhythm.data.local.entity.StoolTagEntity
@@ -23,8 +26,10 @@ import com.mountaincrab.logrhythm.data.model.SyncStatus
         NoteEntryEntity::class,
         StoolTagEntity::class,
         PoopEntryStoolTagCrossRef::class,
+        ExtrasTagEntity::class,
+        NoteEntryExtrasTagCrossRef::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -33,6 +38,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun foodEntryDao(): FoodEntryDao
     abstract fun noteEntryDao(): NoteEntryDao
     abstract fun stoolTagDao(): StoolTagDao
+    abstract fun extrasTagDao(): ExtrasTagDao
 }
 
 class Converters {

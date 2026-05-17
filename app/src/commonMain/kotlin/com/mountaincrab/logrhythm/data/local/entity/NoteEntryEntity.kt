@@ -12,7 +12,6 @@ data class NoteEntryEntity(
     val userId: String = "local",
     val occurredAt: Long,
     val content: String,
-    val medsMissed: Boolean = false,
     val caffeine: Boolean = false,
     val alcohol: Boolean = false,
     val createdAt: Long = currentTimeMillis(),

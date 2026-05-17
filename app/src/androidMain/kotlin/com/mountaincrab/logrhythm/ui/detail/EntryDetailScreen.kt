@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mountaincrab.logrhythm.data.local.entity.ExtrasTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.StoolTagEntity
 import com.mountaincrab.logrhythm.data.model.bristol
@@ -82,12 +83,12 @@ fun EntryDetailScreen(
                     DetailNotesCard("Time", n.occurredAt.formatTime())
                     DetailNotesCard("Date", n.occurredAt.formatFullDay())
                     if (n.content.isNotBlank()) DetailNotesCard("Note", n.content)
-                    val flags = listOfNotNull(
-                        if (n.medsMissed) "Meds missed" else null,
+                    NoteTagsCard(state.noteExtrasTags)
+                    val lifestyleFlags = listOfNotNull(
                         if (n.caffeine) "Caffeine" else null,
                         if (n.alcohol) "Alcohol" else null,
                     )
-                    if (flags.isNotEmpty()) {
+                    if (lifestyleFlags.isNotEmpty()) {
                         Column(
                             modifier = Modifier
                                 .padding(horizontal = 16.dp)
@@ -105,14 +106,14 @@ fun EntryDetailScreen(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                                 verticalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
-                                flags.forEach { tag ->
+                                lifestyleFlags.forEach { label ->
                                     Box(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(999.dp))
                                             .background(palette.surfaceHigh)
                                             .padding(horizontal = 10.dp, vertical = 5.dp),
                                     ) {
-                                        Text(tag, color = palette.fgMuted, fontSize = 11.sp,
+                                        Text(label, color = palette.fgMuted, fontSize = 11.sp,
                                             fontWeight = FontWeight.SemiBold)
                                     }
                                 }
@@ -321,6 +322,48 @@ private fun TwoColCard(label: String, value: String, sub: String?, modifier: Mod
             Text(sub, color = palette.fgMuted, fontSize = 11.sp)
         }
     }
+}
+
+@Composable
+private fun NoteTagsCard(tags: List<ExtrasTagEntity>) {
+    if (tags.isEmpty()) return
+    val palette = LocalAppPalette.current
+    Column(
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(palette.surfaceRaised)
+            .border(1.dp, palette.border, RoundedCornerShape(14.dp))
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+    ) {
+        Text("TAGS", color = palette.fgMuted,
+            fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.1.sp)
+        Spacer(modifier = Modifier.height(8.dp))
+        @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+        androidx.compose.foundation.layout.FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            tags.forEach { tag ->
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(palette.surfaceHigh)
+                        .border(1.dp, palette.border, RoundedCornerShape(999.dp))
+                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                ) {
+                    Text(
+                        text = if (tag.isDeleted) "${tag.name} (removed)" else tag.name,
+                        color = if (tag.isDeleted) palette.fgFaint else palette.fgMuted,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+        }
+    }
+    Spacer(modifier = Modifier.height(12.dp))
 }
 
 @Composable

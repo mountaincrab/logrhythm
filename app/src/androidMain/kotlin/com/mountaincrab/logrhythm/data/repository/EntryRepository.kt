@@ -1,9 +1,11 @@
 package com.mountaincrab.logrhythm.data.repository
 
+import com.mountaincrab.logrhythm.data.local.dao.ExtrasTagDao
 import com.mountaincrab.logrhythm.data.local.dao.FoodEntryDao
 import com.mountaincrab.logrhythm.data.local.dao.NoteEntryDao
 import com.mountaincrab.logrhythm.data.local.dao.PoopEntryDao
 import com.mountaincrab.logrhythm.data.local.dao.StoolTagDao
+import com.mountaincrab.logrhythm.data.local.entity.ExtrasTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.FoodEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.NoteEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryEntity
@@ -29,6 +31,7 @@ class EntryRepository(
     private val foodDao: FoodEntryDao,
     private val noteDao: NoteEntryDao,
     private val stoolTagDao: StoolTagDao,
+    private val extrasTagDao: ExtrasTagDao,
 ) {
 
     fun observeTimeline(): Flow<List<TimelineEntry>> = combine(
@@ -68,6 +71,19 @@ class EntryRepository(
     }
 
     suspend fun deleteStoolTag(id: String) = stoolTagDao.softDelete(id)
+
+    fun observeAllExtrasTags(): Flow<List<ExtrasTagEntity>> = extrasTagDao.observeAll()
+
+    suspend fun getNoteExtrasTags(entryId: String): List<ExtrasTagEntity> =
+        extrasTagDao.getTagsForEntry(entryId)
+
+    suspend fun createExtrasTag(name: String): ExtrasTagEntity {
+        val tag = ExtrasTagEntity(name = name.trim())
+        extrasTagDao.upsert(tag)
+        return tag
+    }
+
+    suspend fun deleteExtrasTag(id: String) = extrasTagDao.softDelete(id)
 
     suspend fun savePoop(
         id: String? = null,
@@ -120,27 +136,26 @@ class EntryRepository(
         id: String? = null,
         occurredAt: Long,
         content: String,
-        medsMissed: Boolean = false,
         caffeine: Boolean = false,
         alcohol: Boolean = false,
+        extrasTagIds: Set<String> = emptySet(),
     ) {
         val now = currentTimeMillis()
         val existing = id?.let { noteDao.getById(it) }
         val entry = existing?.copy(
             occurredAt = occurredAt,
             content = content,
-            medsMissed = medsMissed,
             caffeine = caffeine,
             alcohol = alcohol,
             updatedAt = now,
         ) ?: NoteEntryEntity(
             occurredAt = occurredAt,
             content = content,
-            medsMissed = medsMissed,
             caffeine = caffeine,
             alcohol = alcohol,
         )
         noteDao.upsert(entry)
+        extrasTagDao.replaceTagsForEntry(entry.id, extrasTagIds.toList())
     }
 
     suspend fun deletePoop(id: String) = poopDao.softDelete(id)

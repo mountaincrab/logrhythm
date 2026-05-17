@@ -2,6 +2,7 @@ package com.mountaincrab.logrhythm.ui.detail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mountaincrab.logrhythm.data.local.entity.ExtrasTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.FoodEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.NoteEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryEntity
@@ -18,6 +19,7 @@ data class EntryDetailUiState(
     val poopTags: List<StoolTagEntity> = emptyList(),
     val food: FoodEntryEntity? = null,
     val note: NoteEntryEntity? = null,
+    val noteExtrasTags: List<ExtrasTagEntity> = emptyList(),
     val foodWindow: List<FoodEntryEntity> = emptyList(),
     val deleted: Boolean = false,
 )
@@ -47,7 +49,11 @@ class EntryDetailViewModel(
                     _state.update { it.copy(poop = p, poopTags = tags, foodWindow = foods) }
                 }
                 "food" -> _state.update { it.copy(food = repository.getFood(entryId)) }
-                "note" -> _state.update { it.copy(note = repository.getNote(entryId)) }
+                "note" -> {
+                    val n = repository.getNote(entryId) ?: return@launch
+                    val tags = repository.getNoteExtrasTags(entryId)
+                    _state.update { it.copy(note = n, noteExtrasTags = tags) }
+                }
             }
         }
     }

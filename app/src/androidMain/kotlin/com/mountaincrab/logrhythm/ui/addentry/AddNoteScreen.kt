@@ -7,13 +7,14 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.*
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mountaincrab.logrhythm.data.local.entity.ExtrasTagEntity
 import com.mountaincrab.logrhythm.ui.components.FieldLabel
 import com.mountaincrab.logrhythm.ui.components.SaveBar
 import com.mountaincrab.logrhythm.ui.components.SheetHeader
@@ -37,6 +39,7 @@ fun AddNoteScreen(
     viewModel: AddNoteViewModel = koinViewModel(parameters = { parametersOf(editId) }),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val allExtrasTags by viewModel.allExtrasTags.collectAsStateWithLifecycle()
     val palette = LocalAppPalette.current
 
     LaunchedEffect(state.saved) { if (state.saved) onDismiss() }
@@ -86,18 +89,21 @@ fun AddNoteScreen(
             }
 
             Column(modifier = Modifier.padding(bottom = 18.dp)) {
+                FieldLabel("Tags")
+                ExtrasTagsRow(
+                    tags = allExtrasTags,
+                    selectedIds = state.selectedExtrasTagIds,
+                    onToggle = viewModel::onExtrasTagToggle,
+                    onAddNew = viewModel::createExtrasTagAndSelect,
+                )
+            }
+
+            Column(modifier = Modifier.padding(bottom = 18.dp)) {
                 FieldLabel("Lifestyle")
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    LifestyleCard(
-                        title = "Medication",
-                        subtitle = if (state.medsMissed) "Missed today" else "None missed",
-                        on = state.medsMissed,
-                        onClick = viewModel::onMedsToggle,
-                        modifier = Modifier.weight(1f),
-                    )
                     LifestyleCard(
                         title = "Caffeine",
                         subtitle = if (state.caffeine) "Yes today" else "Not today",
@@ -105,12 +111,6 @@ fun AddNoteScreen(
                         onClick = viewModel::onCaffeineToggle,
                         modifier = Modifier.weight(1f),
                     )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
                     LifestyleCard(
                         title = "Alcohol",
                         subtitle = if (state.alcohol) "Yes today" else "Not today",
@@ -118,7 +118,6 @@ fun AddNoteScreen(
                         onClick = viewModel::onAlcoholToggle,
                         modifier = Modifier.weight(1f),
                     )
-                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
 
@@ -129,8 +128,90 @@ fun AddNoteScreen(
             onCancel = onDismiss,
             onSave = viewModel::save,
             saveLabel = "Save",
-            saveEnabled = !state.saving && (state.content.isNotBlank() || state.medsMissed || state.caffeine || state.alcohol),
+            saveEnabled = !state.saving && (state.content.isNotBlank() || state.caffeine || state.alcohol || state.selectedExtrasTagIds.isNotEmpty()),
         )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ExtrasTagsRow(
+    tags: List<ExtrasTagEntity>,
+    selectedIds: Set<String>,
+    onToggle: (String) -> Unit,
+    onAddNew: (String) -> Unit,
+) {
+    val palette = LocalAppPalette.current
+    var showDialog by remember { mutableStateOf(false) }
+    var newTagName by remember { mutableStateOf("") }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false; newTagName = "" },
+            title = { Text("New tag") },
+            text = {
+                OutlinedTextField(
+                    value = newTagName,
+                    onValueChange = { newTagName = it },
+                    placeholder = { Text("e.g. No suppository") },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (newTagName.isNotBlank()) onAddNew(newTagName)
+                        showDialog = false
+                        newTagName = ""
+                    }
+                ) { Text("Add") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialog = false; newTagName = "" }) { Text("Cancel") }
+            },
+        )
+    }
+
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        tags.forEach { tag ->
+            val on = tag.id in selectedIds
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(if (on) palette.accentSoft else palette.surfaceRaised)
+                    .border(
+                        1.dp,
+                        if (on) MaterialTheme.colorScheme.primary else palette.border,
+                        RoundedCornerShape(999.dp),
+                    )
+                    .clickable { onToggle(tag.id) }
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
+            ) {
+                Text(
+                    text = tag.name,
+                    color = if (on) palette.accentText else MaterialTheme.colorScheme.onSurface,
+                    fontSize = 13.sp,
+                    fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(999.dp))
+                .background(palette.surfaceRaised)
+                .border(1.dp, palette.borderSubtle, RoundedCornerShape(999.dp))
+                .clickable { showDialog = true }
+                .padding(horizontal = 10.dp, vertical = 7.dp),
+        ) {
+            Text(
+                text = "+ New tag",
+                color = palette.fgMuted,
+                fontSize = 12.sp,
+            )
+        }
     }
 }
 
