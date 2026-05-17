@@ -28,6 +28,9 @@ interface StoolTagDao {
     """)
     suspend fun getTagsForEntry(entryId: String): List<StoolTagEntity>
 
+    @Query("SELECT * FROM poop_entry_stool_tags")
+    fun observeAllCrossRefs(): Flow<List<PoopEntryStoolTagCrossRef>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCrossRefs(refs: List<PoopEntryStoolTagCrossRef>)
 

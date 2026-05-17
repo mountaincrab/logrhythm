@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalLayoutApi::class)
+
 package com.mountaincrab.logrhythm.ui.components
 
 import androidx.compose.foundation.background
@@ -72,12 +74,10 @@ fun TimelineEntryRow(
 @Composable
 private fun PoopBody(entry: TimelineEntry.Poop) {
     val palette = LocalAppPalette.current
-    val bloodColor = RatingColors[entry.entity.blood]?.bg ?: palette.fgMuted
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(text = entry.entity.occurredAt.formatTime(), color = MaterialTheme.colorScheme.onSurface,
             fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        Text(text = "· Poop", color = bloodColor, fontSize = 11.sp,
-            fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+        Text(text = "💩", fontSize = 14.sp)
     }
     val bristolNums = entry.entity.bristolTypes.sorted()
     val bodyText = buildString {
@@ -93,11 +93,24 @@ private fun PoopBody(entry: TimelineEntry.Poop) {
         }
     }
     if (bodyText.isNotEmpty()) {
-        Text(text = bodyText, color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 14.sp, lineHeight = 20.sp)
+        Text(text = bodyText, color = palette.fgMuted, fontSize = 14.sp, lineHeight = 20.sp)
     }
     Spacer(modifier = Modifier.height(2.dp))
-    RatingPill(rating = entry.entity.blood)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        RatingPill(rating = entry.entity.blood)
+        entry.tags.forEach { tag ->
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(palette.surfaceHigh)
+                    .border(1.dp, palette.borderSubtle, RoundedCornerShape(999.dp))
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(tag.name, color = palette.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
 }
 
 @Composable
@@ -106,11 +119,9 @@ private fun FoodBody(entry: TimelineEntry.Food) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(text = entry.entity.occurredAt.formatTime(), color = MaterialTheme.colorScheme.onSurface,
             fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        Text(text = "· Food", color = palette.fgFaint, fontSize = 11.sp,
-            fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+        Text(text = "🍴", fontSize = 14.sp)
     }
-    Text(text = entry.entity.items, color = MaterialTheme.colorScheme.onSurface,
-        fontSize = 14.sp, lineHeight = 20.sp)
+    Text(text = entry.entity.items, color = palette.fgMuted, fontSize = 14.sp, lineHeight = 20.sp)
 }
 
 @Composable
@@ -119,9 +130,7 @@ private fun NoteBody(entry: TimelineEntry.Note) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(text = entry.entity.occurredAt.formatTime(), color = MaterialTheme.colorScheme.onSurface,
             fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        Text(text = "· Note", color = palette.warning, fontSize = 11.sp,
-            fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
+        Text(text = "📝", fontSize = 14.sp)
     }
-    Text(text = entry.entity.content, color = palette.fgMuted,
-        fontSize = 14.sp, lineHeight = 20.sp)
+    Text(text = entry.entity.content, color = palette.fgMuted, fontSize = 14.sp, lineHeight = 20.sp)
 }
