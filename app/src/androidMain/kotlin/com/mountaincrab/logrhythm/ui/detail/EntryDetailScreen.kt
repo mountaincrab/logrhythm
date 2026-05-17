@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryEntity
+import com.mountaincrab.logrhythm.data.local.entity.StoolTagEntity
 import com.mountaincrab.logrhythm.data.model.bristol
 import com.mountaincrab.logrhythm.ui.theme.LocalAppPalette
 import com.mountaincrab.logrhythm.ui.theme.RatingColors
@@ -68,7 +69,7 @@ fun EntryDetailScreen(
                 .padding(top = 4.dp, bottom = 20.dp),
         ) {
             when (kind) {
-                "poop" -> state.poop?.let { PoopDetail(it, state.foodWindow.map { f ->
+                "poop" -> state.poop?.let { PoopDetail(it, state.poopTags, state.foodWindow.map { f ->
                     FoodRow(time = f.occurredAt.formatTime(), items = f.items)
                 }) }
                 "food" -> state.food?.let { f ->
@@ -172,7 +173,7 @@ private fun IconBtn(icon: ImageVector, onClick: () -> Unit) {
 data class FoodRow(val time: String, val items: String)
 
 @Composable
-private fun PoopDetail(p: PoopEntryEntity, foods: List<FoodRow>) {
+private fun PoopDetail(p: PoopEntryEntity, tags: List<StoolTagEntity>, foods: List<FoodRow>) {
     val palette = LocalAppPalette.current
     val rc = RatingColors[p.blood] ?: RatingColors.getValue(1)
 
@@ -208,12 +209,14 @@ private fun PoopDetail(p: PoopEntryEntity, foods: List<FoodRow>) {
     Spacer(modifier = Modifier.height(12.dp))
 
     // Two-column time + bristol
-    val bristolList = p.bristolTypes.split(",")
-        .mapNotNull { it.trim().toIntOrNull() }
+    val bristolList = p.bristolTypes.sorted()
         .mapNotNull { runCatching { bristol(it) }.getOrNull() }
-    val stoolValue = if (bristolList.size == 1) "Bristol ${bristolList[0].n}"
-        else "Bristol ${bristolList.joinToString(", ") { "${it.n}" }}"
-    val stoolSub = bristolList.joinToString(" · ") { it.plain }
+    val stoolValue = when {
+        bristolList.isEmpty() -> "Not recorded"
+        bristolList.size == 1 -> "Bristol ${bristolList[0].n}"
+        else -> "Bristol ${bristolList.joinToString(", ") { "${it.n}" }}"
+    }
+    val stoolSub = bristolList.joinToString(" · ") { it.plain }.ifEmpty { null }
     Row(
         modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -225,6 +228,45 @@ private fun PoopDetail(p: PoopEntryEntity, foods: List<FoodRow>) {
 
     if (!p.notes.isNullOrBlank()) {
         DetailNotesCard("Notes", p.notes)
+    }
+
+    if (tags.isNotEmpty()) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(palette.surfaceRaised)
+                .border(1.dp, palette.border, RoundedCornerShape(14.dp))
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+        ) {
+            Text("TAGS", color = palette.fgMuted,
+                fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.1.sp)
+            Spacer(modifier = Modifier.height(8.dp))
+            @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+            androidx.compose.foundation.layout.FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                tags.forEach { tag ->
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(palette.surfaceHigh)
+                            .border(1.dp, palette.border, RoundedCornerShape(999.dp))
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                    ) {
+                        Text(
+                            text = if (tag.isDeleted) "${tag.name} (removed)" else tag.name,
+                            color = if (tag.isDeleted) palette.fgFaint else palette.fgMuted,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
     }
 
     if (foods.isNotEmpty()) {

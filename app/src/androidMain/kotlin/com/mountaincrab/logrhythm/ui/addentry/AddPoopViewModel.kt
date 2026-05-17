@@ -2,6 +2,7 @@ package com.mountaincrab.logrhythm.ui.addentry
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mountaincrab.logrhythm.data.local.entity.StoolTagEntity
 import com.mountaincrab.logrhythm.data.model.StoolSystem
 import com.mountaincrab.logrhythm.data.repository.EntryRepository
 import com.mountaincrab.logrhythm.preferences.UserPreferencesRepository
@@ -17,8 +18,9 @@ import kotlinx.coroutines.launch
 
 data class AddPoopUiState(
     val occurredAt: Long = currentTimeMillis(),
-    val bristolTypes: Set<Int> = setOf(4),
+    val bristolTypes: Set<Int> = emptySet(),
     val blood: Int = 1,
+    val selectedTagIds: Set<String> = emptySet(),
     val notes: String = "",
     val saving: Boolean = false,
     val saved: Boolean = false,
@@ -37,18 +39,19 @@ class AddPoopViewModel(
         .map { StoolSystem.fromName(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StoolSystem.BRISTOL)
 
+    val allTags: StateFlow<List<StoolTagEntity>> = repository.observeAllStoolTags()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     init {
         if (existingId != null) {
             viewModelScope.launch {
                 repository.getPoop(existingId)?.let { e ->
-                    val types = e.bristolTypes.split(",")
-                        .mapNotNull { it.trim().toIntOrNull() }
-                        .toSet()
-                        .ifEmpty { setOf(4) }
+                    val existingTags = repository.getPoopTags(existingId)
                     _state.value = AddPoopUiState(
                         occurredAt = e.occurredAt,
-                        bristolTypes = types,
+                        bristolTypes = e.bristolTypes,
                         blood = e.blood,
+                        selectedTagIds = existingTags.map { it.id }.toSet(),
                         notes = e.notes.orEmpty(),
                     )
                 }
@@ -60,14 +63,27 @@ class AddPoopViewModel(
 
     fun onBristolToggle(value: Int) = _state.update {
         val new = if (value in it.bristolTypes) it.bristolTypes - value else it.bristolTypes + value
-        it.copy(bristolTypes = new.ifEmpty { setOf(value) })
+        it.copy(bristolTypes = new)
     }
 
     fun onBloodChange(value: Int) = _state.update { it.copy(blood = value) }
+
+    fun onTagToggle(tagId: String) = _state.update {
+        val new = if (tagId in it.selectedTagIds) it.selectedTagIds - tagId else it.selectedTagIds + tagId
+        it.copy(selectedTagIds = new)
+    }
+
     fun onNotesChange(value: String) = _state.update { it.copy(notes = value) }
 
     fun onStoolSystemChange(system: StoolSystem) {
         viewModelScope.launch { prefs.setStoolSystem(system.name) }
+    }
+
+    fun createTagAndSelect(name: String) {
+        viewModelScope.launch {
+            val tag = repository.createStoolTag(name)
+            _state.update { it.copy(selectedTagIds = it.selectedTagIds + tag.id) }
+        }
     }
 
     fun save() {
@@ -81,6 +97,7 @@ class AddPoopViewModel(
                 bristolTypes = s.bristolTypes,
                 blood = s.blood,
                 notes = s.notes,
+                stoolTagIds = s.selectedTagIds,
             )
             _state.update { it.copy(saving = false, saved = true) }
         }

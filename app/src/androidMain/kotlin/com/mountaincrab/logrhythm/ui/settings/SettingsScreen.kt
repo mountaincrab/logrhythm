@@ -8,10 +8,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -20,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mountaincrab.logrhythm.data.local.entity.StoolTagEntity
 import com.mountaincrab.logrhythm.data.model.StoolSystem
 import com.mountaincrab.logrhythm.ui.components.BottomTabBar
 import com.mountaincrab.logrhythm.ui.navigation.Screen
@@ -35,6 +42,7 @@ fun SettingsScreen(
     val palette = LocalAppPalette.current
     val theme by viewModel.appTheme.collectAsStateWithLifecycle()
     val stoolSystem by viewModel.stoolSystem.collectAsStateWithLifecycle()
+    val tags by viewModel.tags.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(
@@ -72,6 +80,13 @@ fun SettingsScreen(
                     if (i < StoolSystem.entries.size - 1) Divider(palette.borderSubtle)
                 }
             }
+            Spacer(modifier = Modifier.height(18.dp))
+
+            StoolTagsSection(
+                tags = tags,
+                onAdd = viewModel::addTag,
+                onDelete = viewModel::deleteTag,
+            )
             Spacer(modifier = Modifier.height(18.dp))
 
             SectionLabel("Theme")
@@ -259,6 +274,116 @@ private fun DataRow(label: String, enabled: Boolean) {
             color = if (enabled) MaterialTheme.colorScheme.onSurface else palette.fgMuted,
             fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
         Text(if (enabled) "" else "soon", color = palette.fgFaint, fontSize = 11.sp)
+    }
+}
+
+@Composable
+private fun StoolTagsSection(
+    tags: List<StoolTagEntity>,
+    onAdd: (String) -> Unit,
+    onDelete: (String) -> Unit,
+) {
+    val palette = LocalAppPalette.current
+    var showDialog by remember { mutableStateOf(false) }
+    var newTagName by remember { mutableStateOf("") }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false; newTagName = "" },
+            title = { Text("New tag") },
+            text = {
+                OutlinedTextField(
+                    value = newTagName,
+                    onValueChange = { newTagName = it },
+                    placeholder = { Text("e.g. Tiny bits") },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (newTagName.isNotBlank()) onAdd(newTagName)
+                        showDialog = false
+                        newTagName = ""
+                    }
+                ) { Text("Add") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialog = false; newTagName = "" }) { Text("Cancel") }
+            },
+        )
+    }
+
+    SectionLabel("Stool tags")
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(palette.surfaceRaised)
+            .border(1.dp, palette.border, RoundedCornerShape(14.dp)),
+    ) {
+        if (tags.isEmpty()) {
+            Text(
+                "No tags yet",
+                color = palette.fgFaint,
+                fontSize = 14.sp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            )
+        } else {
+            tags.forEachIndexed { i, tag ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        tag.name,
+                        modifier = Modifier.weight(1f),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onDelete(tag.id) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Outlined.Close,
+                            contentDescription = "Remove tag",
+                            tint = palette.fgMuted,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                }
+                if (i < tags.size - 1) Divider(palette.borderSubtle)
+            }
+        }
+        Divider(palette.borderSubtle)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { showDialog = true }
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Icon(
+                Icons.Outlined.Add,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(18.dp),
+            )
+            Text(
+                "Add tag",
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
     }
 }
 

@@ -11,11 +11,15 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.WaterDrop
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,6 +31,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mountaincrab.logrhythm.data.local.entity.StoolTagEntity
 import com.mountaincrab.logrhythm.data.model.BRISTOL_TYPES
 import com.mountaincrab.logrhythm.data.model.StoolSystem
 import com.mountaincrab.logrhythm.data.model.bristol
@@ -47,6 +52,7 @@ fun AddPoopScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val stoolSystem by viewModel.stoolSystem.collectAsStateWithLifecycle()
+    val allTags by viewModel.allTags.collectAsStateWithLifecycle()
     val palette = LocalAppPalette.current
 
     LaunchedEffect(state.saved) { if (state.saved) onDismiss() }
@@ -88,6 +94,15 @@ fun AddPoopScreen(
                         color = palette.fgMuted,
                         fontSize = 12.sp,
                         lineHeight = 17.sp,
+                    )
+                }
+                if (allTags.isNotEmpty() || true) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    PersonalTagsRow(
+                        tags = allTags,
+                        selectedIds = state.selectedTagIds,
+                        onToggle = viewModel::onTagToggle,
+                        onAddNew = viewModel::createTagAndSelect,
                     )
                 }
             }
@@ -290,6 +305,97 @@ private fun NotesField(value: String, onChange: (String) -> Unit, placeholder: S
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
             modifier = Modifier.fillMaxWidth(),
         )
+    }
+}
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun PersonalTagsRow(
+    tags: List<StoolTagEntity>,
+    selectedIds: Set<String>,
+    onToggle: (String) -> Unit,
+    onAddNew: (String) -> Unit,
+) {
+    val palette = LocalAppPalette.current
+    var showDialog by remember { mutableStateOf(false) }
+    var newTagName by remember { mutableStateOf("") }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false; newTagName = "" },
+            title = { Text("New tag") },
+            text = {
+                OutlinedTextField(
+                    value = newTagName,
+                    onValueChange = { newTagName = it },
+                    placeholder = { Text("e.g. Tiny bits") },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (newTagName.isNotBlank()) onAddNew(newTagName)
+                        showDialog = false
+                        newTagName = ""
+                    }
+                ) { Text("Add") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDialog = false; newTagName = "" }) { Text("Cancel") }
+            },
+        )
+    }
+
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        tags.forEach { tag ->
+            val on = tag.id in selectedIds
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(if (on) palette.accentSoft else palette.surfaceRaised)
+                    .border(
+                        1.dp,
+                        if (on) MaterialTheme.colorScheme.primary else palette.border,
+                        RoundedCornerShape(999.dp),
+                    )
+                    .clickable { onToggle(tag.id) }
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
+            ) {
+                Text(
+                    text = tag.name,
+                    color = if (on) palette.accentText else MaterialTheme.colorScheme.onSurface,
+                    fontSize = 13.sp,
+                    fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
+                )
+            }
+        }
+        // "+ New tag" chip
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(999.dp))
+                .background(palette.surfaceRaised)
+                .border(1.dp, palette.borderSubtle, RoundedCornerShape(999.dp))
+                .clickable { showDialog = true }
+                .padding(horizontal = 10.dp, vertical = 7.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Icon(
+                    Icons.Outlined.Add,
+                    contentDescription = null,
+                    tint = palette.fgMuted,
+                    modifier = Modifier.size(13.dp),
+                )
+                Text("New tag", color = palette.fgMuted, fontSize = 13.sp)
+            }
+        }
     }
 }
 

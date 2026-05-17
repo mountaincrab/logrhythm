@@ -3,9 +3,11 @@ package com.mountaincrab.logrhythm.data.repository
 import com.mountaincrab.logrhythm.data.local.dao.FoodEntryDao
 import com.mountaincrab.logrhythm.data.local.dao.NoteEntryDao
 import com.mountaincrab.logrhythm.data.local.dao.PoopEntryDao
+import com.mountaincrab.logrhythm.data.local.dao.StoolTagDao
 import com.mountaincrab.logrhythm.data.local.entity.FoodEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.NoteEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryEntity
+import com.mountaincrab.logrhythm.data.local.entity.StoolTagEntity
 import com.mountaincrab.logrhythm.data.model.MealTag
 import com.mountaincrab.logrhythm.util.currentTimeMillis
 import kotlinx.coroutines.flow.Flow
@@ -26,6 +28,7 @@ class EntryRepository(
     private val poopDao: PoopEntryDao,
     private val foodDao: FoodEntryDao,
     private val noteDao: NoteEntryDao,
+    private val stoolTagDao: StoolTagDao,
 ) {
 
     fun observeTimeline(): Flow<List<TimelineEntry>> = combine(
@@ -53,29 +56,43 @@ class EntryRepository(
     suspend fun recentFoodItems(limit: Int = 30): List<String> =
         foodDao.recentItems(limit)
 
+    fun observeAllStoolTags(): Flow<List<StoolTagEntity>> = stoolTagDao.observeAll()
+
+    suspend fun getPoopTags(entryId: String): List<StoolTagEntity> =
+        stoolTagDao.getTagsForEntry(entryId)
+
+    suspend fun createStoolTag(name: String): StoolTagEntity {
+        val tag = StoolTagEntity(name = name.trim())
+        stoolTagDao.upsert(tag)
+        return tag
+    }
+
+    suspend fun deleteStoolTag(id: String) = stoolTagDao.softDelete(id)
+
     suspend fun savePoop(
         id: String? = null,
         occurredAt: Long,
         bristolTypes: Set<Int>,
         blood: Int,
         notes: String?,
+        stoolTagIds: Set<String> = emptySet(),
     ) {
         val now = currentTimeMillis()
-        val bristolTypesStr = bristolTypes.sorted().joinToString(",")
         val existing = id?.let { poopDao.getById(it) }
         val entry = existing?.copy(
             occurredAt = occurredAt,
-            bristolTypes = bristolTypesStr,
+            bristolTypes = bristolTypes,
             blood = blood,
             notes = notes?.takeIf { it.isNotBlank() },
             updatedAt = now,
         ) ?: PoopEntryEntity(
             occurredAt = occurredAt,
-            bristolTypes = bristolTypesStr,
+            bristolTypes = bristolTypes,
             blood = blood,
             notes = notes?.takeIf { it.isNotBlank() },
         )
         poopDao.upsert(entry)
+        stoolTagDao.replaceTagsForEntry(entry.id, stoolTagIds.toList())
     }
 
     suspend fun saveFood(

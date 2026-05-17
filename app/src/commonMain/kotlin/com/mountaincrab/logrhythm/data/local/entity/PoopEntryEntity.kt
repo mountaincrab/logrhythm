@@ -11,8 +11,8 @@ data class PoopEntryEntity(
     @PrimaryKey val id: String = randomUUID(),
     val userId: String = "local",
     val occurredAt: Long,
-    /** Comma-separated selected Bristol type numbers, e.g. "3,5". */
-    val bristolTypes: String = "",
+    /** Selected Bristol stool types; stored as a bitmask integer (type N = bit N-1). */
+    val bristolTypes: Set<Int> = emptySet(),
     /** 1..5 blood rating; matches phone.jsx RATING_COLORS. 1 = no blood, 5 = loads. */
     val blood: Int,
     val notes: String? = null,

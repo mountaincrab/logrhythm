@@ -79,8 +79,7 @@ private fun PoopBody(entry: TimelineEntry.Poop) {
         Text(text = "· Poop", color = bloodColor, fontSize = 11.sp,
             fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp)
     }
-    val bristolNums = entry.entity.bristolTypes.split(",")
-        .mapNotNull { it.trim().toIntOrNull() }
+    val bristolNums = entry.entity.bristolTypes.sorted()
     val bodyText = buildString {
         if (bristolNums.isNotEmpty()) {
             append("Bristol ")
