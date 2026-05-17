@@ -371,7 +371,7 @@ private fun ExtrasTagsSection(
         )
     }
 
-    SectionLabel("Extras tags")
+    SectionLabel("Note tags")
     Column(
         modifier = Modifier
             .fillMaxWidth()

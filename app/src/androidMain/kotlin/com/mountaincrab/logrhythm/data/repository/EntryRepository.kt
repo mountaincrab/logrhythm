@@ -9,6 +9,7 @@ import com.mountaincrab.logrhythm.data.local.entity.ExtrasTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.FoodEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.NoteEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryEntity
+import com.mountaincrab.logrhythm.data.local.entity.PoopEntryStoolTagCrossRef
 import com.mountaincrab.logrhythm.data.local.entity.StoolTagEntity
 import com.mountaincrab.logrhythm.data.model.MealTag
 import com.mountaincrab.logrhythm.util.currentTimeMillis
@@ -21,7 +22,7 @@ import kotlinx.coroutines.flow.map
  * Sorted by occurredAt descending (most recent first), matching the V2 home design.
  */
 sealed class TimelineEntry(open val id: String, open val occurredAt: Long) {
-    data class Poop(val entity: PoopEntryEntity) : TimelineEntry(entity.id, entity.occurredAt)
+    data class Poop(val entity: PoopEntryEntity, val tags: List<StoolTagEntity> = emptyList()) : TimelineEntry(entity.id, entity.occurredAt)
     data class Food(val entity: FoodEntryEntity) : TimelineEntry(entity.id, entity.occurredAt)
     data class Note(val entity: NoteEntryEntity) : TimelineEntry(entity.id, entity.occurredAt)
 }
@@ -34,16 +35,26 @@ class EntryRepository(
     private val extrasTagDao: ExtrasTagDao,
 ) {
 
-    fun observeTimeline(): Flow<List<TimelineEntry>> = combine(
-        poopDao.observeAll(),
-        foodDao.observeAll(),
-        noteDao.observeAll(),
-    ) { poops, foods, notes ->
-        buildList<TimelineEntry> {
-            poops.forEach { add(TimelineEntry.Poop(it)) }
-            foods.forEach { add(TimelineEntry.Food(it)) }
-            notes.forEach { add(TimelineEntry.Note(it)) }
-        }.sortedByDescending { it.occurredAt }
+    fun observeTimeline(): Flow<List<TimelineEntry>> {
+        val tagsFlow = combine(
+            stoolTagDao.observeAll(),
+            stoolTagDao.observeAllCrossRefs(),
+        ) { tags, refs ->
+            val tagMap = tags.associateBy { it.id }
+            refs.groupBy { it.entryId }.mapValues { (_, r) -> r.mapNotNull { tagMap[it.tagId] } }
+        }
+        return combine(
+            poopDao.observeAll(),
+            foodDao.observeAll(),
+            noteDao.observeAll(),
+            tagsFlow,
+        ) { poops, foods, notes, entryTagMap ->
+            buildList<TimelineEntry> {
+                poops.forEach { add(TimelineEntry.Poop(it, entryTagMap[it.id] ?: emptyList())) }
+                foods.forEach { add(TimelineEntry.Food(it)) }
+                notes.forEach { add(TimelineEntry.Note(it)) }
+            }.sortedByDescending { it.occurredAt }
+        }
     }
 
     fun observePoops(): Flow<List<PoopEntryEntity>> = poopDao.observeAll()

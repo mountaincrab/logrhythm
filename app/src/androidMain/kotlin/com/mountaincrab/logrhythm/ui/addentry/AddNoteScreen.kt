@@ -45,7 +45,7 @@ fun AddNoteScreen(
     LaunchedEffect(state.saved) { if (state.saved) onDismiss() }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        SheetHeader(title = if (editId == null) "Log extras" else "Edit extras", onClose = onDismiss)
+        SheetHeader(title = if (editId == null) "Log note" else "Edit note", onClose = onDismiss)
 
         Column(
             modifier = Modifier
