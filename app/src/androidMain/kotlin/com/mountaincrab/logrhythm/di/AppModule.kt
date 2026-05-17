@@ -35,10 +35,10 @@ val appModule = module {
     single { get<AppDatabase>().poopEntryDao() }
     single { get<AppDatabase>().foodEntryDao() }
     single { get<AppDatabase>().noteEntryDao() }
-    single { get<AppDatabase>().stoolTagDao() }
-    single { get<AppDatabase>().extrasTagDao() }
+    single { get<AppDatabase>().poopTagDao() }
+    single { get<AppDatabase>().noteTagDao() }
 
-    single { EntryRepository(poopDao = get(), foodDao = get(), noteDao = get(), stoolTagDao = get(), extrasTagDao = get()) }
+    single { EntryRepository(poopDao = get(), foodDao = get(), noteDao = get(), poopTagDao = get(), noteTagDao = get()) }
 
     viewModel { ThemeViewModel(prefs = get()) }
     viewModel { HomeViewModel(repository = get()) }

@@ -2,11 +2,11 @@ package com.mountaincrab.logrhythm.ui.detail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.mountaincrab.logrhythm.data.local.entity.ExtrasTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.FoodEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.NoteEntryEntity
+import com.mountaincrab.logrhythm.data.local.entity.NoteTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryEntity
-import com.mountaincrab.logrhythm.data.local.entity.StoolTagEntity
+import com.mountaincrab.logrhythm.data.local.entity.PoopTagEntity
 import com.mountaincrab.logrhythm.data.repository.EntryRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,10 +16,10 @@ import kotlinx.coroutines.launch
 
 data class EntryDetailUiState(
     val poop: PoopEntryEntity? = null,
-    val poopTags: List<StoolTagEntity> = emptyList(),
+    val poopTags: List<PoopTagEntity> = emptyList(),
     val food: FoodEntryEntity? = null,
     val note: NoteEntryEntity? = null,
-    val noteExtrasTags: List<ExtrasTagEntity> = emptyList(),
+    val noteTags: List<NoteTagEntity> = emptyList(),
     val foodWindow: List<FoodEntryEntity> = emptyList(),
     val deleted: Boolean = false,
 )
@@ -51,8 +51,8 @@ class EntryDetailViewModel(
                 "food" -> _state.update { it.copy(food = repository.getFood(entryId)) }
                 "note" -> {
                     val n = repository.getNote(entryId) ?: return@launch
-                    val tags = repository.getNoteExtrasTags(entryId)
-                    _state.update { it.copy(note = n, noteExtrasTags = tags) }
+                    val tags = repository.getNoteTags(entryId)
+                    _state.update { it.copy(note = n, noteTags = tags) }
                 }
             }
         }

@@ -1,16 +1,15 @@
 package com.mountaincrab.logrhythm.data.repository
 
-import com.mountaincrab.logrhythm.data.local.dao.ExtrasTagDao
 import com.mountaincrab.logrhythm.data.local.dao.FoodEntryDao
 import com.mountaincrab.logrhythm.data.local.dao.NoteEntryDao
+import com.mountaincrab.logrhythm.data.local.dao.NoteTagDao
 import com.mountaincrab.logrhythm.data.local.dao.PoopEntryDao
-import com.mountaincrab.logrhythm.data.local.dao.StoolTagDao
-import com.mountaincrab.logrhythm.data.local.entity.ExtrasTagEntity
+import com.mountaincrab.logrhythm.data.local.dao.PoopTagDao
 import com.mountaincrab.logrhythm.data.local.entity.FoodEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.NoteEntryEntity
+import com.mountaincrab.logrhythm.data.local.entity.NoteTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryEntity
-import com.mountaincrab.logrhythm.data.local.entity.PoopEntryStoolTagCrossRef
-import com.mountaincrab.logrhythm.data.local.entity.StoolTagEntity
+import com.mountaincrab.logrhythm.data.local.entity.PoopTagEntity
 import com.mountaincrab.logrhythm.data.model.MealTag
 import com.mountaincrab.logrhythm.util.currentTimeMillis
 import kotlinx.coroutines.flow.Flow
@@ -22,7 +21,7 @@ import kotlinx.coroutines.flow.map
  * Sorted by occurredAt descending (most recent first), matching the V2 home design.
  */
 sealed class TimelineEntry(open val id: String, open val occurredAt: Long) {
-    data class Poop(val entity: PoopEntryEntity, val tags: List<StoolTagEntity> = emptyList()) : TimelineEntry(entity.id, entity.occurredAt)
+    data class Poop(val entity: PoopEntryEntity, val tags: List<PoopTagEntity> = emptyList()) : TimelineEntry(entity.id, entity.occurredAt)
     data class Food(val entity: FoodEntryEntity) : TimelineEntry(entity.id, entity.occurredAt)
     data class Note(val entity: NoteEntryEntity) : TimelineEntry(entity.id, entity.occurredAt)
 }
@@ -31,14 +30,14 @@ class EntryRepository(
     private val poopDao: PoopEntryDao,
     private val foodDao: FoodEntryDao,
     private val noteDao: NoteEntryDao,
-    private val stoolTagDao: StoolTagDao,
-    private val extrasTagDao: ExtrasTagDao,
+    private val poopTagDao: PoopTagDao,
+    private val noteTagDao: NoteTagDao,
 ) {
 
     fun observeTimeline(): Flow<List<TimelineEntry>> {
         val tagsFlow = combine(
-            stoolTagDao.observeAll(),
-            stoolTagDao.observeAllCrossRefs(),
+            poopTagDao.observeAll(),
+            poopTagDao.observeAllCrossRefs(),
         ) { tags, refs ->
             val tagMap = tags.associateBy { it.id }
             refs.groupBy { it.entryId }.mapValues { (_, r) -> r.mapNotNull { tagMap[it.tagId] } }
@@ -70,31 +69,31 @@ class EntryRepository(
     suspend fun recentFoodItems(limit: Int = 30): List<String> =
         foodDao.recentItems(limit)
 
-    fun observeAllStoolTags(): Flow<List<StoolTagEntity>> = stoolTagDao.observeAll()
+    fun observeAllPoopTags(): Flow<List<PoopTagEntity>> = poopTagDao.observeAll()
 
-    suspend fun getPoopTags(entryId: String): List<StoolTagEntity> =
-        stoolTagDao.getTagsForEntry(entryId)
+    suspend fun getPoopTags(entryId: String): List<PoopTagEntity> =
+        poopTagDao.getTagsForEntry(entryId)
 
-    suspend fun createStoolTag(name: String): StoolTagEntity {
-        val tag = StoolTagEntity(name = name.trim())
-        stoolTagDao.upsert(tag)
+    suspend fun createPoopTag(name: String): PoopTagEntity {
+        val tag = PoopTagEntity(name = name.trim())
+        poopTagDao.upsert(tag)
         return tag
     }
 
-    suspend fun deleteStoolTag(id: String) = stoolTagDao.softDelete(id)
+    suspend fun deletePoopTag(id: String) = poopTagDao.softDelete(id)
 
-    fun observeAllExtrasTags(): Flow<List<ExtrasTagEntity>> = extrasTagDao.observeAll()
+    fun observeAllNoteTags(): Flow<List<NoteTagEntity>> = noteTagDao.observeAll()
 
-    suspend fun getNoteExtrasTags(entryId: String): List<ExtrasTagEntity> =
-        extrasTagDao.getTagsForEntry(entryId)
+    suspend fun getNoteTags(entryId: String): List<NoteTagEntity> =
+        noteTagDao.getTagsForEntry(entryId)
 
-    suspend fun createExtrasTag(name: String): ExtrasTagEntity {
-        val tag = ExtrasTagEntity(name = name.trim())
-        extrasTagDao.upsert(tag)
+    suspend fun createNoteTag(name: String): NoteTagEntity {
+        val tag = NoteTagEntity(name = name.trim())
+        noteTagDao.upsert(tag)
         return tag
     }
 
-    suspend fun deleteExtrasTag(id: String) = extrasTagDao.softDelete(id)
+    suspend fun deleteNoteTag(id: String) = noteTagDao.softDelete(id)
 
     suspend fun savePoop(
         id: String? = null,
@@ -102,7 +101,7 @@ class EntryRepository(
         bristolTypes: Set<Int>,
         blood: Int,
         notes: String?,
-        stoolTagIds: Set<String> = emptySet(),
+        poopTagIds: Set<String> = emptySet(),
     ) {
         val now = currentTimeMillis()
         val existing = id?.let { poopDao.getById(it) }
@@ -119,7 +118,7 @@ class EntryRepository(
             notes = notes?.takeIf { it.isNotBlank() },
         )
         poopDao.upsert(entry)
-        stoolTagDao.replaceTagsForEntry(entry.id, stoolTagIds.toList())
+        poopTagDao.replaceTagsForEntry(entry.id, poopTagIds.toList())
     }
 
     suspend fun saveFood(
@@ -149,7 +148,7 @@ class EntryRepository(
         content: String,
         caffeine: Boolean = false,
         alcohol: Boolean = false,
-        extrasTagIds: Set<String> = emptySet(),
+        noteTagIds: Set<String> = emptySet(),
     ) {
         val now = currentTimeMillis()
         val existing = id?.let { noteDao.getById(it) }
@@ -166,7 +165,7 @@ class EntryRepository(
             alcohol = alcohol,
         )
         noteDao.upsert(entry)
-        extrasTagDao.replaceTagsForEntry(entry.id, extrasTagIds.toList())
+        noteTagDao.replaceTagsForEntry(entry.id, noteTagIds.toList())
     }
 
     suspend fun deletePoop(id: String) = poopDao.softDelete(id)

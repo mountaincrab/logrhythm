@@ -40,7 +40,7 @@ private val MIGRATION_3_4 = object : Migration(3, 4) {
         db.execSQL("DROP TABLE poop_entries")
         db.execSQL("ALTER TABLE poop_entries_new RENAME TO poop_entries")
 
-        // User-defined stool tags
+        // User-defined stool tags (later renamed to poop_tags in migration 5→6)
         db.execSQL("""
             CREATE TABLE stool_tags (
                 id TEXT NOT NULL PRIMARY KEY,
@@ -51,7 +51,7 @@ private val MIGRATION_3_4 = object : Migration(3, 4) {
             )
         """.trimIndent())
 
-        // Junction table: poop entries ↔ stool tags
+        // Junction table: poop entries ↔ stool tags (later renamed in migration 5→6)
         db.execSQL("""
             CREATE TABLE poop_entry_stool_tags (
                 entryId TEXT NOT NULL,
@@ -62,4 +62,16 @@ private val MIGRATION_3_4 = object : Migration(3, 4) {
     }
 }
 
-val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_3_4)
+private val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        // Rename poop-entry tag tables
+        db.execSQL("ALTER TABLE stool_tags RENAME TO poop_tags")
+        db.execSQL("ALTER TABLE poop_entry_stool_tags RENAME TO poop_entry_tag_refs")
+
+        // Rename note-entry tag tables
+        db.execSQL("ALTER TABLE extras_tags RENAME TO note_tags")
+        db.execSQL("ALTER TABLE note_entry_extras_tags RENAME TO note_entry_tag_refs")
+    }
+}
+
+val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_3_4, MIGRATION_5_6)

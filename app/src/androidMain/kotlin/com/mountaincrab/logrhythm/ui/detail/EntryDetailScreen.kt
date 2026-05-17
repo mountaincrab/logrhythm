@@ -29,9 +29,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.mountaincrab.logrhythm.data.local.entity.ExtrasTagEntity
+import com.mountaincrab.logrhythm.data.local.entity.NoteTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryEntity
-import com.mountaincrab.logrhythm.data.local.entity.StoolTagEntity
+import com.mountaincrab.logrhythm.data.local.entity.PoopTagEntity
 import com.mountaincrab.logrhythm.data.model.bristol
 import com.mountaincrab.logrhythm.ui.theme.LocalAppPalette
 import com.mountaincrab.logrhythm.ui.theme.RatingColors
@@ -96,7 +96,7 @@ fun EntryDetailScreen(
                     DetailNotesCard("Time", n.occurredAt.formatTime())
                     DetailNotesCard("Date", n.occurredAt.formatFullDay())
                     if (n.content.isNotBlank()) DetailNotesCard("Note", n.content)
-                    NoteTagsCard(state.noteExtrasTags)
+                    NoteTagsCard(state.noteTags)
                     val lifestyleFlags = listOfNotNull(
                         if (n.caffeine) "Caffeine" else null,
                         if (n.alcohol) "Alcohol" else null,
@@ -187,7 +187,7 @@ private fun IconBtn(icon: ImageVector, onClick: () -> Unit) {
 data class FoodRow(val time: String, val items: String)
 
 @Composable
-private fun PoopDetail(p: PoopEntryEntity, tags: List<StoolTagEntity>, foods: List<FoodRow>) {
+private fun PoopDetail(p: PoopEntryEntity, tags: List<PoopTagEntity>, foods: List<FoodRow>) {
     val palette = LocalAppPalette.current
     val rc = RatingColors[p.blood] ?: RatingColors.getValue(1)
 
@@ -338,7 +338,7 @@ private fun TwoColCard(label: String, value: String, sub: String?, modifier: Mod
 }
 
 @Composable
-private fun NoteTagsCard(tags: List<ExtrasTagEntity>) {
+private fun NoteTagsCard(tags: List<NoteTagEntity>) {
     if (tags.isEmpty()) return
     val palette = LocalAppPalette.current
     Column(

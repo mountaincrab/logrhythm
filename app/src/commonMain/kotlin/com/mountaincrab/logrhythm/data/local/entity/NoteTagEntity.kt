@@ -5,8 +5,8 @@ import androidx.room.PrimaryKey
 import com.mountaincrab.logrhythm.util.currentTimeMillis
 import com.mountaincrab.logrhythm.util.randomUUID
 
-@Entity(tableName = "extras_tags")
-data class ExtrasTagEntity(
+@Entity(tableName = "note_tags")
+data class NoteTagEntity(
     @PrimaryKey val id: String = randomUUID(),
     val name: String,
     val isDeleted: Boolean = false,
