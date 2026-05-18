@@ -4,18 +4,18 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
-import com.mountaincrab.logrhythm.data.local.dao.ExtrasTagDao
 import com.mountaincrab.logrhythm.data.local.dao.FoodEntryDao
 import com.mountaincrab.logrhythm.data.local.dao.NoteEntryDao
+import com.mountaincrab.logrhythm.data.local.dao.NoteTagDao
 import com.mountaincrab.logrhythm.data.local.dao.PoopEntryDao
-import com.mountaincrab.logrhythm.data.local.dao.StoolTagDao
-import com.mountaincrab.logrhythm.data.local.entity.ExtrasTagEntity
+import com.mountaincrab.logrhythm.data.local.dao.PoopTagDao
 import com.mountaincrab.logrhythm.data.local.entity.FoodEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.NoteEntryEntity
-import com.mountaincrab.logrhythm.data.local.entity.NoteEntryExtrasTagCrossRef
+import com.mountaincrab.logrhythm.data.local.entity.NoteEntryTagCrossRef
+import com.mountaincrab.logrhythm.data.local.entity.NoteTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryEntity
-import com.mountaincrab.logrhythm.data.local.entity.PoopEntryStoolTagCrossRef
-import com.mountaincrab.logrhythm.data.local.entity.StoolTagEntity
+import com.mountaincrab.logrhythm.data.local.entity.PoopEntryTagCrossRef
+import com.mountaincrab.logrhythm.data.local.entity.PoopTagEntity
 import com.mountaincrab.logrhythm.data.model.MealTag
 import com.mountaincrab.logrhythm.data.model.SyncStatus
 
@@ -24,12 +24,12 @@ import com.mountaincrab.logrhythm.data.model.SyncStatus
         PoopEntryEntity::class,
         FoodEntryEntity::class,
         NoteEntryEntity::class,
-        StoolTagEntity::class,
-        PoopEntryStoolTagCrossRef::class,
-        ExtrasTagEntity::class,
-        NoteEntryExtrasTagCrossRef::class,
+        PoopTagEntity::class,
+        PoopEntryTagCrossRef::class,
+        NoteTagEntity::class,
+        NoteEntryTagCrossRef::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -37,8 +37,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun poopEntryDao(): PoopEntryDao
     abstract fun foodEntryDao(): FoodEntryDao
     abstract fun noteEntryDao(): NoteEntryDao
-    abstract fun stoolTagDao(): StoolTagDao
-    abstract fun extrasTagDao(): ExtrasTagDao
+    abstract fun poopTagDao(): PoopTagDao
+    abstract fun noteTagDao(): NoteTagDao
 }
 
 class Converters {

@@ -35,8 +35,8 @@ app/src/
   commonMain/kotlin/com/mountaincrab/logrhythm/
     data/
       local/AppDatabase.kt, Migrations.kt
-      local/dao/{Poop,Food,Note}EntryDao.kt
-      local/entity/{Poop,Food,Note}EntryEntity.kt
+      local/dao/{Poop,Food,Note}EntryDao.kt, {Poop,Note}TagDao.kt
+      local/entity/{Poop,Food,Note}EntryEntity.kt, {Poop,Note}TagEntity.kt, {PoopEntry,NoteEntry}TagCrossRef.kt
       model/{Bristol,EntryKind,MealTag,StoolSystem,SyncStatus}.kt
     util/Platform.kt           ← expect: currentTimeMillis(), randomUUID()
   androidMain/kotlin/com/mountaincrab/logrhythm/
@@ -60,9 +60,13 @@ app/src/
 ## Data model
 
 ```
-poop_entries   ← id, userId, occurredAt, bristol, rating, notes, medsMissed, caffeine, alcohol, syncStatus, isDeleted, …
-food_entries   ← id, userId, occurredAt, items, mealTag, syncStatus, isDeleted, …
-note_entries   ← id, userId, occurredAt, content, syncStatus, isDeleted, …
+poop_entries            ← id, userId, occurredAt, bristolTypes (Set<Int> bitmask), blood (Int 1–5), notes?, createdAt, updatedAt, syncStatus, isDeleted
+food_entries            ← id, userId, occurredAt, items (String), mealTag (MealTag?), createdAt, updatedAt, syncStatus, isDeleted
+note_entries            ← id, userId, occurredAt, content (String), caffeine (Boolean), alcohol (Boolean), createdAt, updatedAt, syncStatus, isDeleted
+poop_tags               ← id, name, isDeleted, sortOrder, createdAt
+note_tags               ← id, name, isDeleted, sortOrder, createdAt
+poop_entry_tag_refs     ← entryId, tagId  (composite PK — many-to-many join)
+note_entry_tag_refs     ← entryId, tagId  (composite PK — many-to-many join)
 ```
 
 Repository: `EntryRepository` (Android-only because it uses Android-style Flow combine). When we wire Firestore later, that's the place. The DAOs already expose `getUnsynced`-style queries are not yet added — keep `syncStatus = PENDING` on every write so a future SyncWorker can scan for pending rows.

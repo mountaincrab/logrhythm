@@ -26,8 +26,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.mountaincrab.logrhythm.data.local.entity.ExtrasTagEntity
-import com.mountaincrab.logrhythm.data.local.entity.StoolTagEntity
+import com.mountaincrab.logrhythm.data.local.entity.NoteTagEntity
+import com.mountaincrab.logrhythm.data.local.entity.PoopTagEntity
 import com.mountaincrab.logrhythm.ui.components.BottomTabBar
 import com.mountaincrab.logrhythm.ui.navigation.Screen
 import com.mountaincrab.logrhythm.ui.theme.AppTheme
@@ -41,8 +41,8 @@ fun SettingsScreen(
 ) {
     val palette = LocalAppPalette.current
     val theme by viewModel.appTheme.collectAsStateWithLifecycle()
-    val stoolTags by viewModel.stoolTags.collectAsStateWithLifecycle()
-    val extrasTags by viewModel.extrasTags.collectAsStateWithLifecycle()
+    val poopTags by viewModel.poopTags.collectAsStateWithLifecycle()
+    val noteTags by viewModel.noteTags.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(
@@ -62,17 +62,17 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 16.dp),
         ) {
-            StoolTagsSection(
-                tags = stoolTags,
-                onAdd = viewModel::addStoolTag,
-                onDelete = viewModel::deleteStoolTag,
+            PoopTagsSection(
+                tags = poopTags,
+                onAdd = viewModel::addPoopTag,
+                onDelete = viewModel::deletePoopTag,
             )
             Spacer(modifier = Modifier.height(18.dp))
 
-            ExtrasTagsSection(
-                tags = extrasTags,
-                onAdd = viewModel::addExtrasTag,
-                onDelete = viewModel::deleteExtrasTag,
+            NoteTagsSection(
+                tags = noteTags,
+                onAdd = viewModel::addNoteTag,
+                onDelete = viewModel::deleteNoteTag,
             )
             Spacer(modifier = Modifier.height(18.dp))
 
@@ -225,8 +225,8 @@ private fun DataRow(label: String, enabled: Boolean) {
 }
 
 @Composable
-private fun StoolTagsSection(
-    tags: List<StoolTagEntity>,
+private fun PoopTagsSection(
+    tags: List<PoopTagEntity>,
     onAdd: (String) -> Unit,
     onDelete: (String) -> Unit,
 ) {
@@ -261,7 +261,7 @@ private fun StoolTagsSection(
         )
     }
 
-    SectionLabel("Stool tags")
+    SectionLabel("Poop tags")
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -335,8 +335,8 @@ private fun StoolTagsSection(
 }
 
 @Composable
-private fun ExtrasTagsSection(
-    tags: List<ExtrasTagEntity>,
+private fun NoteTagsSection(
+    tags: List<NoteTagEntity>,
     onAdd: (String) -> Unit,
     onDelete: (String) -> Unit,
 ) {

@@ -2,7 +2,7 @@ package com.mountaincrab.logrhythm.ui.addentry
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.mountaincrab.logrhythm.data.local.entity.StoolTagEntity
+import com.mountaincrab.logrhythm.data.local.entity.PoopTagEntity
 import com.mountaincrab.logrhythm.data.repository.EntryRepository
 import com.mountaincrab.logrhythm.util.currentTimeMillis
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,7 +32,7 @@ class AddPoopViewModel(
     private val _state = MutableStateFlow(AddPoopUiState())
     val state: StateFlow<AddPoopUiState> = _state.asStateFlow()
 
-    val allTags: StateFlow<List<StoolTagEntity>> = repository.observeAllStoolTags()
+    val allTags: StateFlow<List<PoopTagEntity>> = repository.observeAllPoopTags()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     init {
@@ -70,7 +70,7 @@ class AddPoopViewModel(
 
     fun createTagAndSelect(name: String) {
         viewModelScope.launch {
-            val tag = repository.createStoolTag(name)
+            val tag = repository.createPoopTag(name)
             _state.update { it.copy(selectedTagIds = it.selectedTagIds + tag.id) }
         }
     }
@@ -86,7 +86,7 @@ class AddPoopViewModel(
                 bristolTypes = s.bristolTypes,
                 blood = s.blood,
                 notes = s.notes,
-                stoolTagIds = s.selectedTagIds,
+                poopTagIds = s.selectedTagIds,
             )
             _state.update { it.copy(saving = false, saved = true) }
         }

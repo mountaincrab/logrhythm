@@ -3,10 +3,10 @@ package com.mountaincrab.logrhythm.data.local.entity
 import androidx.room.Entity
 
 @Entity(
-    tableName = "poop_entry_stool_tags",
+    tableName = "note_entry_tag_refs",
     primaryKeys = ["entryId", "tagId"],
 )
-data class PoopEntryStoolTagCrossRef(
+data class NoteEntryTagCrossRef(
     val entryId: String,
     val tagId: String,
 )

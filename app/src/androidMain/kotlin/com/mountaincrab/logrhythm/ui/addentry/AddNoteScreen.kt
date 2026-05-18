@@ -23,7 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.mountaincrab.logrhythm.data.local.entity.ExtrasTagEntity
+import com.mountaincrab.logrhythm.data.local.entity.NoteTagEntity
 import com.mountaincrab.logrhythm.ui.components.FieldLabel
 import com.mountaincrab.logrhythm.ui.components.SaveBar
 import com.mountaincrab.logrhythm.ui.components.SheetHeader
@@ -39,7 +39,7 @@ fun AddNoteScreen(
     viewModel: AddNoteViewModel = koinViewModel(parameters = { parametersOf(editId) }),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val allExtrasTags by viewModel.allExtrasTags.collectAsStateWithLifecycle()
+    val allNoteTags by viewModel.allNoteTags.collectAsStateWithLifecycle()
     val palette = LocalAppPalette.current
 
     LaunchedEffect(state.saved) { if (state.saved) onDismiss() }
@@ -90,11 +90,11 @@ fun AddNoteScreen(
 
             Column(modifier = Modifier.padding(bottom = 18.dp)) {
                 FieldLabel("Tags")
-                ExtrasTagsRow(
-                    tags = allExtrasTags,
-                    selectedIds = state.selectedExtrasTagIds,
-                    onToggle = viewModel::onExtrasTagToggle,
-                    onAddNew = viewModel::createExtrasTagAndSelect,
+                NoteTagsRow(
+                    tags = allNoteTags,
+                    selectedIds = state.selectedNoteTagIds,
+                    onToggle = viewModel::onNoteTagToggle,
+                    onAddNew = viewModel::createNoteTagAndSelect,
                 )
             }
 
@@ -128,15 +128,15 @@ fun AddNoteScreen(
             onCancel = onDismiss,
             onSave = viewModel::save,
             saveLabel = "Save",
-            saveEnabled = !state.saving && (state.content.isNotBlank() || state.caffeine || state.alcohol || state.selectedExtrasTagIds.isNotEmpty()),
+            saveEnabled = !state.saving && (state.content.isNotBlank() || state.caffeine || state.alcohol || state.selectedNoteTagIds.isNotEmpty()),
         )
     }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ExtrasTagsRow(
-    tags: List<ExtrasTagEntity>,
+private fun NoteTagsRow(
+    tags: List<NoteTagEntity>,
     selectedIds: Set<String>,
     onToggle: (String) -> Unit,
     onAddNew: (String) -> Unit,

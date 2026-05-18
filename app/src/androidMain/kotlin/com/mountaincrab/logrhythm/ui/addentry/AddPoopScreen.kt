@@ -30,7 +30,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.mountaincrab.logrhythm.data.local.entity.StoolTagEntity
+import com.mountaincrab.logrhythm.data.local.entity.PoopTagEntity
 import com.mountaincrab.logrhythm.data.model.BRISTOL_TYPES
 import com.mountaincrab.logrhythm.ui.components.FieldLabel
 import com.mountaincrab.logrhythm.ui.components.SaveBar
@@ -237,7 +237,7 @@ private fun NotesField(value: String, onChange: (String) -> Unit, placeholder: S
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun PersonalTagsRow(
-    tags: List<StoolTagEntity>,
+    tags: List<PoopTagEntity>,
     selectedIds: Set<String>,
     onToggle: (String) -> Unit,
     onAddNew: (String) -> Unit,
