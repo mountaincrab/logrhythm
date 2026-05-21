@@ -1,20 +1,28 @@
 package com.mountaincrab.logrhythm.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.mountaincrab.logrhythm.auth.AuthRepository
 import com.mountaincrab.logrhythm.ui.addentry.AddFoodScreen
 import com.mountaincrab.logrhythm.ui.addentry.AddNoteScreen
 import com.mountaincrab.logrhythm.ui.addentry.AddPoopScreen
+import com.mountaincrab.logrhythm.ui.auth.SignInScreen
 import com.mountaincrab.logrhythm.ui.detail.EntryDetailScreen
 import com.mountaincrab.logrhythm.ui.history.HistoryScreen
 import com.mountaincrab.logrhythm.ui.home.HomeScreen
 import com.mountaincrab.logrhythm.ui.settings.SettingsScreen
+import org.koin.compose.koinInject
 
 sealed class Screen(val route: String) {
+    data object SignIn : Screen("signIn")
     data object Home : Screen("home")
     data object History : Screen("history")
     data object Settings : Screen("settings")
@@ -41,7 +49,34 @@ sealed class Screen(val route: String) {
 
 @Composable
 fun AppNavigation(navController: NavHostController) {
-    NavHost(navController = navController, startDestination = Screen.Home.route) {
+    val authRepo: AuthRepository = koinInject()
+    val currentUser by authRepo.currentUser.collectAsStateWithLifecycle()
+
+    // startDestination uses the synchronous currentUserId so there's no sign-in flash
+    // for users who are already authenticated.
+    val startDestination = remember {
+        if (authRepo.currentUserId != null) Screen.Home.route else Screen.SignIn.route
+    }
+
+    // React to auth state changes: sign-in navigates to Home, sign-out returns to SignIn.
+    LaunchedEffect(currentUser) {
+        val route = navController.currentDestination?.route
+        when {
+            currentUser != null && route == Screen.SignIn.route ->
+                navController.navigate(Screen.Home.route) {
+                    popUpTo(Screen.SignIn.route) { inclusive = true }
+                }
+            currentUser == null && route != Screen.SignIn.route && route != null ->
+                navController.navigate(Screen.SignIn.route) {
+                    popUpTo(0) { inclusive = true }
+                }
+        }
+    }
+
+    NavHost(navController = navController, startDestination = startDestination) {
+        composable(Screen.SignIn.route) {
+            SignInScreen()
+        }
         composable(Screen.Home.route) {
             HomeScreen(
                 onOpenAddPoop = { navController.navigate(Screen.AddPoop.route()) },

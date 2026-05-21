@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">LogRhythm</string>
+    <!-- Overridden by google-services.json when Google Sign-In is enabled in Firebase Auth -->
+    <string name="default_web_client_id"></string>
 </resources>

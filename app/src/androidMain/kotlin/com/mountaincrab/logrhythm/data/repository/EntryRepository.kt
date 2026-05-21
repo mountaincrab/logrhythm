@@ -32,6 +32,8 @@ class EntryRepository(
     private val noteDao: NoteEntryDao,
     private val poopTagDao: PoopTagDao,
     private val noteTagDao: NoteTagDao,
+    private val syncScheduler: com.mountaincrab.logrhythm.sync.SyncScheduler,
+    private val getUserId: () -> String,
 ) {
 
     fun observeTimeline(): Flow<List<TimelineEntry>> {
@@ -111,7 +113,9 @@ class EntryRepository(
             blood = blood,
             notes = notes?.takeIf { it.isNotBlank() },
             updatedAt = now,
+            syncStatus = com.mountaincrab.logrhythm.data.model.SyncStatus.PENDING,
         ) ?: PoopEntryEntity(
+            userId = getUserId(),
             occurredAt = occurredAt,
             bristolTypes = bristolTypes,
             blood = blood,
@@ -119,6 +123,7 @@ class EntryRepository(
         )
         poopDao.upsert(entry)
         poopTagDao.replaceTagsForEntry(entry.id, poopTagIds.toList())
+        syncScheduler.enqueue()
     }
 
     suspend fun saveFood(
@@ -134,12 +139,15 @@ class EntryRepository(
             items = items,
             mealTag = mealTag,
             updatedAt = now,
+            syncStatus = com.mountaincrab.logrhythm.data.model.SyncStatus.PENDING,
         ) ?: FoodEntryEntity(
+            userId = getUserId(),
             occurredAt = occurredAt,
             items = items,
             mealTag = mealTag,
         )
         foodDao.upsert(entry)
+        syncScheduler.enqueue()
     }
 
     suspend fun saveNote(
@@ -158,7 +166,9 @@ class EntryRepository(
             caffeine = caffeine,
             alcohol = alcohol,
             updatedAt = now,
+            syncStatus = com.mountaincrab.logrhythm.data.model.SyncStatus.PENDING,
         ) ?: NoteEntryEntity(
+            userId = getUserId(),
             occurredAt = occurredAt,
             content = content,
             caffeine = caffeine,
@@ -166,9 +176,10 @@ class EntryRepository(
         )
         noteDao.upsert(entry)
         noteTagDao.replaceTagsForEntry(entry.id, noteTagIds.toList())
+        syncScheduler.enqueue()
     }
 
-    suspend fun deletePoop(id: String) = poopDao.softDelete(id)
-    suspend fun deleteFood(id: String) = foodDao.softDelete(id)
-    suspend fun deleteNote(id: String) = noteDao.softDelete(id)
+    suspend fun deletePoop(id: String) { poopDao.softDelete(id); syncScheduler.enqueue() }
+    suspend fun deleteFood(id: String) { foodDao.softDelete(id); syncScheduler.enqueue() }
+    suspend fun deleteNote(id: String) { noteDao.softDelete(id); syncScheduler.enqueue() }
 }

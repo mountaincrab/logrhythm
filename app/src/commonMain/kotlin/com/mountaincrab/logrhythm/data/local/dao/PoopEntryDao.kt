@@ -24,4 +24,10 @@ interface PoopEntryDao {
 
     @Query("UPDATE poop_entries SET isDeleted = 1, updatedAt = :updatedAt, syncStatus = 'PENDING' WHERE id = :id")
     suspend fun softDelete(id: String, updatedAt: Long = currentTimeMillis())
+
+    @Query("SELECT * FROM poop_entries WHERE syncStatus = 'PENDING'")
+    suspend fun getPending(): List<PoopEntryEntity>
+
+    @Query("UPDATE poop_entries SET syncStatus = 'SYNCED', userId = :userId WHERE id = :id")
+    suspend fun markSynced(id: String, userId: String)
 }

@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.google.services)
 }
 
 kotlin {
@@ -44,6 +45,18 @@ android {
     namespace = "com.mountaincrab.logrhythm"
     compileSdk = 35
 
+    val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+    if (keystorePath != null) {
+        signingConfigs {
+            getByName("debug") {
+                storeFile = file(keystorePath)
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     defaultConfig {
         applicationId = "com.mountaincrab.logrhythm"
         minSdk = 26
@@ -72,6 +85,11 @@ android {
 dependencies {
     add("kspAndroid", libs.room.compiler)
     add("debugImplementation", libs.compose.ui.tooling)
+    add("androidMainImplementation", platform(libs.firebase.bom))
+    add("androidMainImplementation", libs.firebase.auth)
+    add("androidMainImplementation", libs.firebase.firestore)
+    add("androidMainImplementation", libs.play.services.auth)
+    add("androidMainImplementation", libs.work.runtime.ktx)
 }
 
 ksp {
