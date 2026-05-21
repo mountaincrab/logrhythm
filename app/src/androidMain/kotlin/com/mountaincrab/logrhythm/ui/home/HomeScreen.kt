@@ -7,8 +7,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -32,6 +34,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import java.time.format.DateTimeFormatter
 import java.time.LocalDate
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onOpenAddPoop: () -> Unit,
@@ -42,6 +45,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = koinViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val isSyncing by viewModel.isSyncing.collectAsStateWithLifecycle()
     val palette = LocalAppPalette.current
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -69,42 +73,48 @@ fun HomeScreen(
             }
         }
 
-        // Timeline
-        LazyColumn(
+        // Timeline with pull-to-refresh
+        PullToRefreshBox(
+            isRefreshing = isSyncing,
+            onRefresh = { viewModel.sync() },
             modifier = Modifier.weight(1f).fillMaxWidth(),
-            contentPadding = PaddingValues(bottom = 20.dp),
         ) {
-            if (state.days.isEmpty()) {
-                item { EmptyState() }
-            }
-            state.days.forEach { day ->
-                item(key = "header-${day.date}") {
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
-                            .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 10.dp),
-                        verticalAlignment = Alignment.Bottom,
-                    ) {
-                        Text(
-                            text = startOfDayMillis(day.date).formatDayLabel(),
-                            modifier = Modifier.weight(1f),
-                            fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.1.sp,
-                            color = palette.fgMuted,
-                        )
-                        Text(
-                            text = "${day.entries.size} ${if (day.entries.size == 1) "entry" else "entries"}",
-                            fontSize = 11.sp, color = palette.fgFaint, fontWeight = FontWeight.SemiBold,
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 20.dp),
+            ) {
+                if (state.days.isEmpty()) {
+                    item { EmptyState() }
+                }
+                state.days.forEach { day ->
+                    item(key = "header-${day.date}") {
+                        Row(
+                            modifier = Modifier.fillMaxWidth()
+                                .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 10.dp),
+                            verticalAlignment = Alignment.Bottom,
+                        ) {
+                            Text(
+                                text = startOfDayMillis(day.date).formatDayLabel(),
+                                modifier = Modifier.weight(1f),
+                                fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.1.sp,
+                                color = palette.fgMuted,
+                            )
+                            Text(
+                                text = "${day.entries.size} ${if (day.entries.size == 1) "entry" else "entries"}",
+                                fontSize = 11.sp, color = palette.fgFaint, fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    }
+                    items(day.entries, key = { it.id }) { entry ->
+                        TimelineEntryRow(
+                            entry = entry,
+                            modifier = Modifier
+                                .padding(start = 20.dp, end = 20.dp, bottom = 8.dp)
+                                .drawTimelineLine(palette.border),
+                            onClick = { onOpenEntry(entry.kindKey(), entry.id) },
                         )
                     }
-                }
-                items(day.entries, key = { it.id }) { entry ->
-                    TimelineEntryRow(
-                        entry = entry,
-                        modifier = Modifier
-                            .padding(start = 20.dp, end = 20.dp, bottom = 8.dp)
-                            .drawTimelineLine(palette.border),
-                        onClick = { onOpenEntry(entry.kindKey(), entry.id) },
-                    )
                 }
             }
         }

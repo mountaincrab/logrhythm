@@ -2,6 +2,7 @@ package com.mountaincrab.logrhythm.di
 
 import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import androidx.work.WorkManager
 import com.mountaincrab.logrhythm.auth.AuthRepository
 import com.mountaincrab.logrhythm.data.local.ALL_MIGRATIONS
 import com.mountaincrab.logrhythm.data.local.AppDatabase
@@ -26,6 +27,7 @@ val appModule = module {
     single { AuthRepository() }
     single { FirestoreRepository() }
     single { SyncScheduler(androidContext()) }
+    single { WorkManager.getInstance(androidContext()) }
 
     single { UserPreferencesRepository(androidContext()) }
 
@@ -60,7 +62,7 @@ val appModule = module {
 
     viewModel { SignInViewModel(authRepo = get()) }
     viewModel { ThemeViewModel(prefs = get()) }
-    viewModel { HomeViewModel(repository = get()) }
+    viewModel { HomeViewModel(repository = get(), syncScheduler = get(), workManager = get()) }
     viewModel { HistoryViewModel(repository = get()) }
     viewModel { SettingsViewModel(prefs = get(), repository = get(), authRepository = get()) }
     viewModel { (entryId: String?) -> AddPoopViewModel(repository = get(), existingId = entryId) }

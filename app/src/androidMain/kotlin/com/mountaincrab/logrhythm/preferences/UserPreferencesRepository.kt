@@ -2,9 +2,11 @@ package com.mountaincrab.logrhythm.preferences
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "logrhythm_prefs")
@@ -13,6 +15,7 @@ class UserPreferencesRepository(private val context: Context) {
 
     private val keyAppTheme = stringPreferencesKey("app_theme")
     private val keyStoolSystem = stringPreferencesKey("stool_type_system")
+    private val keyLastSyncTimestamp = longPreferencesKey("last_sync_timestamp")
 
     val appTheme: Flow<String?> = context.dataStore.data.map { it[keyAppTheme] }
 
@@ -25,5 +28,12 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun setStoolSystem(value: String) {
         context.dataStore.edit { it[keyStoolSystem] = value }
+    }
+
+    suspend fun getLastSyncTimestamp(): Long =
+        context.dataStore.data.map { it[keyLastSyncTimestamp] ?: 0L }.first()
+
+    suspend fun setLastSyncTimestamp(millis: Long) {
+        context.dataStore.edit { it[keyLastSyncTimestamp] = millis }
     }
 }
