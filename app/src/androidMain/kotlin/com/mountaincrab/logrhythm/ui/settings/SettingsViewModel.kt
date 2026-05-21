@@ -2,6 +2,7 @@ package com.mountaincrab.logrhythm.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mountaincrab.logrhythm.auth.AuthRepository
 import com.mountaincrab.logrhythm.data.local.entity.NoteTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopTagEntity
 import com.mountaincrab.logrhythm.data.repository.EntryRepository
@@ -16,7 +17,15 @@ import kotlinx.coroutines.launch
 class SettingsViewModel(
     private val prefs: UserPreferencesRepository,
     private val repository: EntryRepository,
+    private val authRepository: AuthRepository,
 ) : ViewModel() {
+
+    val userEmail: String? get() = authRepository.currentUser.value?.email
+    val userDisplayName: String? get() = authRepository.currentUser.value?.displayName
+
+    fun signOut() {
+        authRepository.signOut()
+    }
 
     val appTheme: StateFlow<AppTheme> = prefs.appTheme
         .map { AppTheme.fromName(it) }

@@ -62,6 +62,37 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 16.dp),
         ) {
+            SectionLabel("Account")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(palette.surfaceRaised)
+                    .border(1.dp, palette.border, RoundedCornerShape(14.dp))
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        viewModel.userDisplayName ?: viewModel.userEmail ?: "Signed in",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    if (viewModel.userDisplayName != null && viewModel.userEmail != null) {
+                        Text(
+                            viewModel.userEmail!!,
+                            color = palette.fgMuted,
+                            fontSize = 12.sp,
+                        )
+                    }
+                }
+                TextButton(onClick = { viewModel.signOut() }) {
+                    Text("Sign out", color = palette.dangerText, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            Spacer(modifier = Modifier.height(18.dp))
+
             PoopTagsSection(
                 tags = poopTags,
                 onAdd = viewModel::addPoopTag,
