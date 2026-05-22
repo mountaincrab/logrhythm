@@ -29,7 +29,7 @@ import com.mountaincrab.logrhythm.data.model.SyncStatus
         NoteTagEntity::class,
         NoteEntryTagCrossRef::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

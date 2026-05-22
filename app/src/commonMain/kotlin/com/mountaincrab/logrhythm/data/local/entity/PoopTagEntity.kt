@@ -2,6 +2,7 @@ package com.mountaincrab.logrhythm.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.mountaincrab.logrhythm.data.model.SyncStatus
 import com.mountaincrab.logrhythm.util.currentTimeMillis
 import com.mountaincrab.logrhythm.util.randomUUID
 
@@ -12,4 +13,6 @@ data class PoopTagEntity(
     val isDeleted: Boolean = false,
     val sortOrder: Int = 0,
     val createdAt: Long = currentTimeMillis(),
+    val updatedAt: Long = currentTimeMillis(),
+    val syncStatus: SyncStatus = SyncStatus.PENDING,
 )
