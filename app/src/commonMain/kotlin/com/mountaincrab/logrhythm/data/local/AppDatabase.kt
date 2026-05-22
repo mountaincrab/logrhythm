@@ -39,6 +39,10 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun noteEntryDao(): NoteEntryDao
     abstract fun poopTagDao(): PoopTagDao
     abstract fun noteTagDao(): NoteTagDao
+
+    companion object {
+        const val CURRENT_VERSION = 8
+    }
 }
 
 class Converters {

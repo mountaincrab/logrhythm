@@ -63,6 +63,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -80,10 +81,16 @@ android {
     buildFeatures {
         compose = true
     }
+
+    sourceSets {
+        getByName("androidTest").assets.srcDirs += files("$projectDir/schemas")
+    }
 }
 
 dependencies {
     add("kspAndroid", libs.room.compiler)
+    add("androidTestImplementation", libs.room.testing)
+    add("androidTestImplementation", libs.androidx.test.runner)
     add("debugImplementation", libs.compose.ui.tooling)
     add("androidMainImplementation", platform(libs.firebase.bom))
     add("androidMainImplementation", libs.firebase.auth)
