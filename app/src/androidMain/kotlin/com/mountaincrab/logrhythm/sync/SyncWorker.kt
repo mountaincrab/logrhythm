@@ -32,8 +32,20 @@ class SyncWorker(
         val uid = Firebase.auth.currentUser?.uid ?: return Result.success()
 
         return try {
+            // Push tags before entries so Firestore has them when entries reference them.
+            db.poopTagDao().getPending().forEach { tag ->
+                firestoreRepo.pushPoopTag(uid, tag)
+                db.poopTagDao().markSynced(tag.id, System.currentTimeMillis())
+            }
+            db.noteTagDao().getPending().forEach { tag ->
+                firestoreRepo.pushNoteTag(uid, tag)
+                db.noteTagDao().markSynced(tag.id, System.currentTimeMillis())
+            }
+
+            // Push entries with their current tag associations embedded.
             db.poopEntryDao().getPending().forEach { entry ->
-                firestoreRepo.pushPoop(uid, entry)
+                val tagIds = db.poopTagDao().getTagsForEntry(entry.id).map { it.id }
+                firestoreRepo.pushPoop(uid, entry, tagIds)
                 db.poopEntryDao().markSynced(entry.id, uid)
             }
             db.foodEntryDao().getPending().forEach { entry ->
@@ -41,9 +53,11 @@ class SyncWorker(
                 db.foodEntryDao().markSynced(entry.id, uid)
             }
             db.noteEntryDao().getPending().forEach { entry ->
-                firestoreRepo.pushNote(uid, entry)
+                val tagIds = db.noteTagDao().getTagsForEntry(entry.id).map { it.id }
+                firestoreRepo.pushNote(uid, entry, tagIds)
                 db.noteEntryDao().markSynced(entry.id, uid)
             }
+
             pullRemoteChanges(uid)
             Result.success()
         } catch (e: Exception) {
@@ -54,9 +68,21 @@ class SyncWorker(
     private suspend fun pullRemoteChanges(uid: String) {
         val sinceMillis = prefs.getLastSyncTimestamp()
         val since = Timestamp(sinceMillis / 1000, 0)
-        firestoreRepo.pullPoop(uid, since).forEach { db.poopEntryDao().upsert(it) }
+
+        // Pull tags first so entries pulled afterwards can resolve their tag references.
+        firestoreRepo.pullPoopTags(uid, since).forEach { db.poopTagDao().upsert(it) }
+        firestoreRepo.pullNoteTags(uid, since).forEach { db.noteTagDao().upsert(it) }
+
+        firestoreRepo.pullPoop(uid, since).forEach { (entity, tagIds) ->
+            db.poopEntryDao().upsert(entity)
+            db.poopTagDao().replaceTagsForEntry(entity.id, tagIds)
+        }
         firestoreRepo.pullFood(uid, since).forEach { db.foodEntryDao().upsert(it) }
-        firestoreRepo.pullNote(uid, since).forEach { db.noteEntryDao().upsert(it) }
+        firestoreRepo.pullNote(uid, since).forEach { (entity, tagIds) ->
+            db.noteEntryDao().upsert(entity)
+            db.noteTagDao().replaceTagsForEntry(entity.id, tagIds)
+        }
+
         prefs.setLastSyncTimestamp(System.currentTimeMillis())
     }
 

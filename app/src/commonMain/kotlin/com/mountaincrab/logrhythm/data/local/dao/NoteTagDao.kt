@@ -17,8 +17,14 @@ interface NoteTagDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(tag: NoteTagEntity)
 
-    @Query("UPDATE note_tags SET isDeleted = 1 WHERE id = :id")
-    suspend fun softDelete(id: String)
+    @Query("SELECT * FROM note_tags WHERE syncStatus = 'PENDING'")
+    suspend fun getPending(): List<NoteTagEntity>
+
+    @Query("UPDATE note_tags SET syncStatus = 'SYNCED', updatedAt = :updatedAt WHERE id = :id")
+    suspend fun markSynced(id: String, updatedAt: Long)
+
+    @Query("UPDATE note_tags SET isDeleted = 1, syncStatus = 'PENDING', updatedAt = :updatedAt WHERE id = :id")
+    suspend fun softDelete(id: String, updatedAt: Long)
 
     @Query("""
         SELECT t.* FROM note_tags t

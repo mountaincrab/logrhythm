@@ -79,10 +79,14 @@ class EntryRepository(
     suspend fun createPoopTag(name: String): PoopTagEntity {
         val tag = PoopTagEntity(name = name.trim())
         poopTagDao.upsert(tag)
+        syncScheduler.enqueue()
         return tag
     }
 
-    suspend fun deletePoopTag(id: String) = poopTagDao.softDelete(id)
+    suspend fun deletePoopTag(id: String) {
+        poopTagDao.softDelete(id, currentTimeMillis())
+        syncScheduler.enqueue()
+    }
 
     fun observeAllNoteTags(): Flow<List<NoteTagEntity>> = noteTagDao.observeAll()
 
@@ -92,10 +96,14 @@ class EntryRepository(
     suspend fun createNoteTag(name: String): NoteTagEntity {
         val tag = NoteTagEntity(name = name.trim())
         noteTagDao.upsert(tag)
+        syncScheduler.enqueue()
         return tag
     }
 
-    suspend fun deleteNoteTag(id: String) = noteTagDao.softDelete(id)
+    suspend fun deleteNoteTag(id: String) {
+        noteTagDao.softDelete(id, currentTimeMillis())
+        syncScheduler.enqueue()
+    }
 
     suspend fun savePoop(
         id: String? = null,

@@ -74,4 +74,13 @@ private val MIGRATION_5_6 = object : Migration(5, 6) {
     }
 }
 
-val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_3_4, MIGRATION_5_6)
+private val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE poop_tags ADD COLUMN syncStatus TEXT NOT NULL DEFAULT 'PENDING'")
+        db.execSQL("ALTER TABLE poop_tags ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE note_tags ADD COLUMN syncStatus TEXT NOT NULL DEFAULT 'PENDING'")
+        db.execSQL("ALTER TABLE note_tags ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_3_4, MIGRATION_5_6, MIGRATION_6_7)

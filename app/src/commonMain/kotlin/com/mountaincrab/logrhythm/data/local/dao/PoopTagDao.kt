@@ -17,8 +17,14 @@ interface PoopTagDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(tag: PoopTagEntity)
 
-    @Query("UPDATE poop_tags SET isDeleted = 1 WHERE id = :id")
-    suspend fun softDelete(id: String)
+    @Query("SELECT * FROM poop_tags WHERE syncStatus = 'PENDING'")
+    suspend fun getPending(): List<PoopTagEntity>
+
+    @Query("UPDATE poop_tags SET syncStatus = 'SYNCED', updatedAt = :updatedAt WHERE id = :id")
+    suspend fun markSynced(id: String, updatedAt: Long)
+
+    @Query("UPDATE poop_tags SET isDeleted = 1, syncStatus = 'PENDING', updatedAt = :updatedAt WHERE id = :id")
+    suspend fun softDelete(id: String, updatedAt: Long)
 
     @Query("""
         SELECT t.* FROM poop_tags t
