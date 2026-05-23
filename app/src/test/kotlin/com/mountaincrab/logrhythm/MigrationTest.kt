@@ -9,10 +9,12 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
 
 /**
- * Instrumented migration tests. Run on a device or emulator:
- *   ./gradlew :app:connectedDebugAndroidTest
+ * Room migration tests — run on the JVM via Robolectric (no device needed).
+ *
+ *   ./gradlew :app:testDebugUnitTest
  *
  * IMPORTANT — schema files must exist before these tests compile.
  * Generate them by building the project at the target version:
@@ -27,6 +29,7 @@ import org.junit.runner.RunWith
  *      before it ever reaches a user's device.
  */
 @RunWith(AndroidJUnit4::class)
+@Config(sdk = [34], application = android.app.Application::class)
 class MigrationTest {
 
     companion object {

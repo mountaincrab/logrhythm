@@ -82,8 +82,12 @@ android {
         compose = true
     }
 
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+
     sourceSets {
-        getByName("androidTest") {
+        getByName("debug") {
             assets.srcDir("$projectDir/schemas")
         }
     }
@@ -91,8 +95,10 @@ android {
 
 dependencies {
     add("kspAndroid", libs.room.compiler)
-    add("androidTestImplementation", libs.room.testing)
-    add("androidTestImplementation", libs.androidx.test.runner)
+    add("testImplementation", libs.room.testing)
+    add("testImplementation", libs.androidx.test.runner)
+    add("testImplementation", libs.androidx.test.ext.junit)
+    add("testImplementation", libs.robolectric)
     add("debugImplementation", libs.compose.ui.tooling)
     add("androidMainImplementation", platform(libs.firebase.bom))
     add("androidMainImplementation", libs.firebase.auth)
