@@ -29,7 +29,7 @@ import com.mountaincrab.logrhythm.data.model.SyncStatus
         NoteTagEntity::class,
         NoteEntryTagCrossRef::class,
     ],
-    version = 8,
+    version = 7,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -41,7 +41,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun noteTagDao(): NoteTagDao
 
     companion object {
-        const val CURRENT_VERSION = 8
+        const val CURRENT_VERSION = 7
     }
 }
 

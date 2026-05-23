@@ -89,34 +89,4 @@ class MigrationTest {
         db.close()
     }
 
-    /**
-     * Tests that v7→v8 (the schema-repair migration) leaves data intact and
-     * produces a schema that passes Room's validation. This migration exists
-     * to fix devices that ran the original MIGRATION_6_7 (ALTER TABLE variant)
-     * before it was corrected to use table recreation.
-     *
-     * Requires: app/schemas/.../7.json.
-     */
-    @Test
-    fun migrate7To8_dataPreserved() {
-        helper.createDatabase(DB_NAME, 7).apply {
-            execSQL("INSERT INTO poop_tags VALUES ('t1', 'urgent', 0, 1, 1000000, 9999, 'SYNCED')")
-            execSQL("INSERT INTO note_tags  VALUES ('t2', 'mood',   0, 1, 1000000, 8888, 'PENDING')")
-            close()
-        }
-
-        val db = helper.runMigrationsAndValidate(DB_NAME, 8, true, *ALL_MIGRATIONS)
-
-        db.query("SELECT syncStatus, updatedAt FROM poop_tags WHERE id = 't1'").use { c ->
-            c.moveToFirst()
-            assertEquals("SYNCED", c.getString(0))
-            assertEquals(9999L, c.getLong(1))
-        }
-        db.query("SELECT syncStatus, updatedAt FROM note_tags WHERE id = 't2'").use { c ->
-            c.moveToFirst()
-            assertEquals("PENDING", c.getString(0))
-            assertEquals(8888L, c.getLong(1))
-        }
-        db.close()
-    }
 }
