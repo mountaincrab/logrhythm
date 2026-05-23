@@ -34,6 +34,9 @@ interface NoteTagDao {
     """)
     suspend fun getTagsForEntry(entryId: String): List<NoteTagEntity>
 
+    @Query("SELECT * FROM note_entry_tag_refs")
+    fun observeAllCrossRefs(): Flow<List<NoteEntryTagCrossRef>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCrossRefs(refs: List<NoteEntryTagCrossRef>)
 

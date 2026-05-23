@@ -23,7 +23,7 @@ import kotlinx.coroutines.flow.map
 sealed class TimelineEntry(open val id: String, open val occurredAt: Long) {
     data class Poop(val entity: PoopEntryEntity, val tags: List<PoopTagEntity> = emptyList()) : TimelineEntry(entity.id, entity.occurredAt)
     data class Food(val entity: FoodEntryEntity) : TimelineEntry(entity.id, entity.occurredAt)
-    data class Note(val entity: NoteEntryEntity) : TimelineEntry(entity.id, entity.occurredAt)
+    data class Note(val entity: NoteEntryEntity, val tags: List<NoteTagEntity> = emptyList()) : TimelineEntry(entity.id, entity.occurredAt)
 }
 
 class EntryRepository(
@@ -37,9 +37,16 @@ class EntryRepository(
 ) {
 
     fun observeTimeline(): Flow<List<TimelineEntry>> {
-        val tagsFlow = combine(
+        val poopTagsFlow = combine(
             poopTagDao.observeAll(),
             poopTagDao.observeAllCrossRefs(),
+        ) { tags, refs ->
+            val tagMap = tags.associateBy { it.id }
+            refs.groupBy { it.entryId }.mapValues { (_, r) -> r.mapNotNull { tagMap[it.tagId] } }
+        }
+        val noteTagsFlow = combine(
+            noteTagDao.observeAll(),
+            noteTagDao.observeAllCrossRefs(),
         ) { tags, refs ->
             val tagMap = tags.associateBy { it.id }
             refs.groupBy { it.entryId }.mapValues { (_, r) -> r.mapNotNull { tagMap[it.tagId] } }
@@ -48,12 +55,13 @@ class EntryRepository(
             poopDao.observeAll(),
             foodDao.observeAll(),
             noteDao.observeAll(),
-            tagsFlow,
-        ) { poops, foods, notes, entryTagMap ->
+            poopTagsFlow,
+            noteTagsFlow,
+        ) { poops, foods, notes, poopTagMap, noteTagMap ->
             buildList<TimelineEntry> {
-                poops.forEach { add(TimelineEntry.Poop(it, entryTagMap[it.id] ?: emptyList())) }
+                poops.forEach { add(TimelineEntry.Poop(it, poopTagMap[it.id] ?: emptyList())) }
                 foods.forEach { add(TimelineEntry.Food(it)) }
-                notes.forEach { add(TimelineEntry.Note(it)) }
+                notes.forEach { add(TimelineEntry.Note(it, noteTagMap[it.id] ?: emptyList())) }
             }.sortedByDescending { it.occurredAt }
         }
     }
