@@ -133,4 +133,46 @@ private fun NoteBody(entry: TimelineEntry.Note) {
         Text(text = "📝", fontSize = 14.sp)
     }
     Text(text = entry.entity.content, color = palette.fgMuted, fontSize = 14.sp, lineHeight = 20.sp)
+    val hasBadges = entry.entity.caffeine || entry.entity.alcohol || entry.tags.isNotEmpty()
+    if (hasBadges) {
+        Spacer(modifier = Modifier.height(2.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (entry.entity.caffeine) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(palette.surfaceHigh)
+                        .border(1.dp, palette.borderSubtle, RoundedCornerShape(999.dp))
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("☕ caffeine", color = palette.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            if (entry.entity.alcohol) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(palette.surfaceHigh)
+                        .border(1.dp, palette.borderSubtle, RoundedCornerShape(999.dp))
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("🍺 alcohol", color = palette.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            entry.tags.forEach { tag ->
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(palette.surfaceHigh)
+                        .border(1.dp, palette.borderSubtle, RoundedCornerShape(999.dp))
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(tag.name, color = palette.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+    }
 }
