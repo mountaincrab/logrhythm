@@ -74,28 +74,28 @@ fun TimelineEntryRow(
 @Composable
 private fun PoopBody(entry: TimelineEntry.Poop) {
     val palette = LocalAppPalette.current
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(text = entry.entity.occurredAt.formatTime(), color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        Text(text = "💩", fontSize = 14.sp)
-    }
     val bristolNums = entry.entity.bristolTypes.sorted()
-    val bodyText = buildString {
+    val bristolText = buildString {
         if (bristolNums.isNotEmpty()) {
             append(bristolNums.joinToString(", "))
             val names = bristolNums.mapNotNull { runCatching { bristol(it) }.getOrNull()?.plain }
             if (names.isNotEmpty()) append(" · ${names.joinToString(", ")}")
         }
-        if (!entry.entity.notes.isNullOrBlank()) {
-            if (isNotEmpty()) append(" · ")
-            append(entry.entity.notes)
+    }
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = entry.entity.occurredAt.formatTime(),
+            color = MaterialTheme.colorScheme.onSurface,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(text = "💩", fontSize = 14.sp)
+        if (bristolText.isNotEmpty()) {
+            Text(text = bristolText, color = palette.fgMuted, fontSize = 13.sp)
         }
-    }
-    if (bodyText.isNotEmpty()) {
-        Text(text = bodyText, color = palette.fgMuted, fontSize = 14.sp, lineHeight = 20.sp)
-    }
-    Spacer(modifier = Modifier.height(2.dp))
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         RatingPill(rating = entry.entity.blood)
         entry.tags.forEach { tag ->
             Box(
@@ -109,6 +109,9 @@ private fun PoopBody(entry: TimelineEntry.Poop) {
                 Text(tag.name, color = palette.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
             }
         }
+    }
+    if (!entry.entity.notes.isNullOrBlank()) {
+        Text(text = entry.entity.notes!!, color = palette.fgMuted, fontSize = 14.sp, lineHeight = 20.sp)
     }
 }
 
