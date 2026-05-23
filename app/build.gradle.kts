@@ -63,6 +63,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -80,10 +81,24 @@ android {
     buildFeatures {
         compose = true
     }
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+
+    sourceSets {
+        getByName("debug") {
+            assets.srcDir("$projectDir/schemas")
+        }
+    }
 }
 
 dependencies {
     add("kspAndroid", libs.room.compiler)
+    add("testImplementation", libs.room.testing)
+    add("testImplementation", libs.androidx.test.runner)
+    add("testImplementation", libs.androidx.test.ext.junit)
+    add("testImplementation", libs.robolectric)
     add("debugImplementation", libs.compose.ui.tooling)
     add("androidMainImplementation", platform(libs.firebase.bom))
     add("androidMainImplementation", libs.firebase.auth)

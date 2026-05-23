@@ -74,13 +74,88 @@ private val MIGRATION_5_6 = object : Migration(5, 6) {
     }
 }
 
+// ALTER TABLE can't add NOT NULL columns without a DEFAULT, but Room 2.7 compares
+// default values strictly. Use recreate-table so the schema matches entity definitions exactly.
 private val MIGRATION_6_7 = object : Migration(6, 7) {
     override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL("ALTER TABLE poop_tags ADD COLUMN syncStatus TEXT NOT NULL DEFAULT 'PENDING'")
-        db.execSQL("ALTER TABLE poop_tags ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
-        db.execSQL("ALTER TABLE note_tags ADD COLUMN syncStatus TEXT NOT NULL DEFAULT 'PENDING'")
-        db.execSQL("ALTER TABLE note_tags ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("""
+            CREATE TABLE poop_tags_new (
+                id TEXT NOT NULL PRIMARY KEY,
+                name TEXT NOT NULL,
+                isDeleted INTEGER NOT NULL,
+                sortOrder INTEGER NOT NULL,
+                createdAt INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL,
+                syncStatus TEXT NOT NULL
+            )
+        """.trimIndent())
+        db.execSQL("""
+            INSERT INTO poop_tags_new (id, name, isDeleted, sortOrder, createdAt, updatedAt, syncStatus)
+            SELECT id, name, isDeleted, sortOrder, createdAt, 0, 'PENDING' FROM poop_tags
+        """.trimIndent())
+        db.execSQL("DROP TABLE poop_tags")
+        db.execSQL("ALTER TABLE poop_tags_new RENAME TO poop_tags")
+
+        db.execSQL("""
+            CREATE TABLE note_tags_new (
+                id TEXT NOT NULL PRIMARY KEY,
+                name TEXT NOT NULL,
+                isDeleted INTEGER NOT NULL,
+                sortOrder INTEGER NOT NULL,
+                createdAt INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL,
+                syncStatus TEXT NOT NULL
+            )
+        """.trimIndent())
+        db.execSQL("""
+            INSERT INTO note_tags_new (id, name, isDeleted, sortOrder, createdAt, updatedAt, syncStatus)
+            SELECT id, name, isDeleted, sortOrder, createdAt, 0, 'PENDING' FROM note_tags
+        """.trimIndent())
+        db.execSQL("DROP TABLE note_tags")
+        db.execSQL("ALTER TABLE note_tags_new RENAME TO note_tags")
     }
 }
 
-val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_3_4, MIGRATION_5_6, MIGRATION_6_7)
+// Fixes devices that ran the original MIGRATION_6_7 (which used ALTER TABLE and produced
+// columns with DEFAULT clauses that Room 2.7 schema validation rejects).
+private val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE poop_tags_new (
+                id TEXT NOT NULL PRIMARY KEY,
+                name TEXT NOT NULL,
+                isDeleted INTEGER NOT NULL,
+                sortOrder INTEGER NOT NULL,
+                createdAt INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL,
+                syncStatus TEXT NOT NULL
+            )
+        """.trimIndent())
+        db.execSQL("""
+            INSERT INTO poop_tags_new (id, name, isDeleted, sortOrder, createdAt, updatedAt, syncStatus)
+            SELECT id, name, isDeleted, sortOrder, createdAt, updatedAt, syncStatus FROM poop_tags
+        """.trimIndent())
+        db.execSQL("DROP TABLE poop_tags")
+        db.execSQL("ALTER TABLE poop_tags_new RENAME TO poop_tags")
+
+        db.execSQL("""
+            CREATE TABLE note_tags_new (
+                id TEXT NOT NULL PRIMARY KEY,
+                name TEXT NOT NULL,
+                isDeleted INTEGER NOT NULL,
+                sortOrder INTEGER NOT NULL,
+                createdAt INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL,
+                syncStatus TEXT NOT NULL
+            )
+        """.trimIndent())
+        db.execSQL("""
+            INSERT INTO note_tags_new (id, name, isDeleted, sortOrder, createdAt, updatedAt, syncStatus)
+            SELECT id, name, isDeleted, sortOrder, createdAt, updatedAt, syncStatus FROM note_tags
+        """.trimIndent())
+        db.execSQL("DROP TABLE note_tags")
+        db.execSQL("ALTER TABLE note_tags_new RENAME TO note_tags")
+    }
+}
+
+val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_3_4, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
