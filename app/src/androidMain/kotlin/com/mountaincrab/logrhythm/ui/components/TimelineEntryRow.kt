@@ -118,9 +118,16 @@ private fun PoopBody(entry: TimelineEntry.Poop) {
 @Composable
 private fun FoodBody(entry: TimelineEntry.Food) {
     val palette = LocalAppPalette.current
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(text = entry.entity.occurredAt.formatTime(), color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 13.sp, fontWeight = FontWeight.Bold)
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = entry.entity.occurredAt.formatTime(),
+            color = MaterialTheme.colorScheme.onSurface,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+        )
         Text(text = "🍴", fontSize = 14.sp)
     }
     Text(text = entry.entity.items, color = palette.fgMuted, fontSize = 14.sp, lineHeight = 20.sp)
