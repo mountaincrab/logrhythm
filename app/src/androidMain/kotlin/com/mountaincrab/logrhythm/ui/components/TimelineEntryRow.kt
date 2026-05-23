@@ -91,15 +91,29 @@ private fun PoopBody(entry: TimelineEntry.Poop) {
             color = MaterialTheme.colorScheme.onSurface,
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
+            modifier = Modifier.align(Alignment.CenterVertically),
         )
-        Text(text = "💩", fontSize = 14.sp)
+        Text(
+            text = "💩",
+            fontSize = 14.sp,
+            modifier = Modifier.align(Alignment.CenterVertically),
+        )
         if (bristolText.isNotEmpty()) {
-            Text(text = bristolText, color = palette.fgMuted, fontSize = 13.sp)
+            Text(
+                text = bristolText,
+                color = palette.fgMuted,
+                fontSize = 13.sp,
+                modifier = Modifier.align(Alignment.CenterVertically),
+            )
         }
-        RatingPill(rating = entry.entity.blood)
+        RatingPill(
+            rating = entry.entity.blood,
+            modifier = Modifier.align(Alignment.CenterVertically),
+        )
         entry.tags.forEach { tag ->
             Box(
                 modifier = Modifier
+                    .align(Alignment.CenterVertically)
                     .clip(RoundedCornerShape(999.dp))
                     .background(palette.surfaceHigh)
                     .border(1.dp, palette.borderSubtle, RoundedCornerShape(999.dp))
@@ -127,8 +141,13 @@ private fun FoodBody(entry: TimelineEntry.Food) {
             color = MaterialTheme.colorScheme.onSurface,
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
+            modifier = Modifier.align(Alignment.CenterVertically),
         )
-        Text(text = "🍴", fontSize = 14.sp)
+        Text(
+            text = "🍴",
+            fontSize = 14.sp,
+            modifier = Modifier.align(Alignment.CenterVertically),
+        )
     }
     Text(text = entry.entity.items, color = palette.fgMuted, fontSize = 14.sp, lineHeight = 20.sp)
 }
@@ -145,11 +164,17 @@ private fun NoteBody(entry: TimelineEntry.Note) {
             color = MaterialTheme.colorScheme.onSurface,
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
+            modifier = Modifier.align(Alignment.CenterVertically),
         )
-        Text(text = "📝", fontSize = 14.sp)
+        Text(
+            text = "📝",
+            fontSize = 14.sp,
+            modifier = Modifier.align(Alignment.CenterVertically),
+        )
         if (entry.entity.caffeine) {
             Box(
                 modifier = Modifier
+                    .align(Alignment.CenterVertically)
                     .clip(RoundedCornerShape(999.dp))
                     .background(palette.surfaceHigh)
                     .border(1.dp, palette.borderSubtle, RoundedCornerShape(999.dp))
@@ -162,6 +187,7 @@ private fun NoteBody(entry: TimelineEntry.Note) {
         if (entry.entity.alcohol) {
             Box(
                 modifier = Modifier
+                    .align(Alignment.CenterVertically)
                     .clip(RoundedCornerShape(999.dp))
                     .background(palette.surfaceHigh)
                     .border(1.dp, palette.borderSubtle, RoundedCornerShape(999.dp))
@@ -174,6 +200,7 @@ private fun NoteBody(entry: TimelineEntry.Note) {
         entry.tags.forEach { tag ->
             Box(
                 modifier = Modifier
+                    .align(Alignment.CenterVertically)
                     .clip(RoundedCornerShape(999.dp))
                     .background(palette.surfaceHigh)
                     .border(1.dp, palette.borderSubtle, RoundedCornerShape(999.dp))
