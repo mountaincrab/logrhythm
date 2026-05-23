@@ -129,54 +129,55 @@ private fun FoodBody(entry: TimelineEntry.Food) {
 @Composable
 private fun NoteBody(entry: TimelineEntry.Note) {
     val palette = LocalAppPalette.current
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(text = entry.entity.occurredAt.formatTime(), color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 13.sp, fontWeight = FontWeight.Bold)
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = entry.entity.occurredAt.formatTime(),
+            color = MaterialTheme.colorScheme.onSurface,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+        )
         Text(text = "📝", fontSize = 14.sp)
+        if (entry.entity.caffeine) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(palette.surfaceHigh)
+                    .border(1.dp, palette.borderSubtle, RoundedCornerShape(999.dp))
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("☕", color = palette.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+        if (entry.entity.alcohol) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(palette.surfaceHigh)
+                    .border(1.dp, palette.borderSubtle, RoundedCornerShape(999.dp))
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("🍺", color = palette.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+        entry.tags.forEach { tag ->
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(palette.surfaceHigh)
+                    .border(1.dp, palette.borderSubtle, RoundedCornerShape(999.dp))
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(tag.name, color = palette.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
     }
     if (entry.entity.content.isNotBlank()) {
         Text(text = entry.entity.content, color = palette.fgMuted, fontSize = 14.sp, lineHeight = 20.sp)
-    }
-    val hasBadges = entry.entity.caffeine || entry.entity.alcohol || entry.tags.isNotEmpty()
-    if (hasBadges) {
-        Spacer(modifier = Modifier.height(2.dp))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (entry.entity.caffeine) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(palette.surfaceHigh)
-                        .border(1.dp, palette.borderSubtle, RoundedCornerShape(999.dp))
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("☕", color = palette.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
-            if (entry.entity.alcohol) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(palette.surfaceHigh)
-                        .border(1.dp, palette.borderSubtle, RoundedCornerShape(999.dp))
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("🍺", color = palette.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
-            entry.tags.forEach { tag ->
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(palette.surfaceHigh)
-                        .border(1.dp, palette.borderSubtle, RoundedCornerShape(999.dp))
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(tag.name, color = palette.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
-        }
     }
 }
