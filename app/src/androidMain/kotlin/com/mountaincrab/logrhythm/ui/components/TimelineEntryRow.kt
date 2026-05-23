@@ -82,7 +82,6 @@ private fun PoopBody(entry: TimelineEntry.Poop) {
     val bristolNums = entry.entity.bristolTypes.sorted()
     val bodyText = buildString {
         if (bristolNums.isNotEmpty()) {
-            append("Bristol ")
             append(bristolNums.joinToString(", "))
             val names = bristolNums.mapNotNull { runCatching { bristol(it) }.getOrNull()?.plain }
             if (names.isNotEmpty()) append(" · ${names.joinToString(", ")}")
@@ -132,7 +131,9 @@ private fun NoteBody(entry: TimelineEntry.Note) {
             fontSize = 13.sp, fontWeight = FontWeight.Bold)
         Text(text = "📝", fontSize = 14.sp)
     }
-    Text(text = entry.entity.content, color = palette.fgMuted, fontSize = 14.sp, lineHeight = 20.sp)
+    if (entry.entity.content.isNotBlank()) {
+        Text(text = entry.entity.content, color = palette.fgMuted, fontSize = 14.sp, lineHeight = 20.sp)
+    }
     val hasBadges = entry.entity.caffeine || entry.entity.alcohol || entry.tags.isNotEmpty()
     if (hasBadges) {
         Spacer(modifier = Modifier.height(2.dp))
@@ -146,7 +147,7 @@ private fun NoteBody(entry: TimelineEntry.Note) {
                         .padding(horizontal = 8.dp, vertical = 3.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("☕ caffeine", color = palette.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    Text("☕", color = palette.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
             if (entry.entity.alcohol) {
@@ -158,7 +159,7 @@ private fun NoteBody(entry: TimelineEntry.Note) {
                         .padding(horizontal = 8.dp, vertical = 3.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("🍺 alcohol", color = palette.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    Text("🍺", color = palette.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
             entry.tags.forEach { tag ->
