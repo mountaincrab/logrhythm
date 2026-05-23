@@ -1,7 +1,8 @@
 package com.mountaincrab.logrhythm.data.local
 
 import androidx.room.migration.Migration
-import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.execSQL
 
 /**
  * Room migration registry. Add Migration(oldVer, newVer) { ... }
@@ -11,12 +12,15 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * 1. Change entity, bump @Database(version = N).
  * 2. ./gradlew :app:compileDebugKotlinAndroid — emits schema JSON.
  * 3. Diff N-1.json vs N.json, add Migration here.
+ *
+ * Room 2.7 + BundledSQLiteDriver: override migrate(SQLiteConnection),
+ * NOT migrate(SupportSQLiteDatabase). Use androidx.sqlite.execSQL extension.
  */
 
 private val MIGRATION_3_4 = object : Migration(3, 4) {
-    override fun migrate(db: SupportSQLiteDatabase) {
+    override fun migrate(connection: SQLiteConnection) {
         // Recreate poop_entries: bristolTypes TEXT → INTEGER (bitmask)
-        db.execSQL("""
+        connection.execSQL("""
             CREATE TABLE poop_entries_new (
                 id TEXT NOT NULL PRIMARY KEY,
                 userId TEXT NOT NULL DEFAULT 'local',
@@ -31,17 +35,17 @@ private val MIGRATION_3_4 = object : Migration(3, 4) {
             )
         """.trimIndent())
         // Migrate existing rows; old bristolTypes CSV becomes 0 (no selection)
-        db.execSQL("""
+        connection.execSQL("""
             INSERT INTO poop_entries_new
                 (id, userId, occurredAt, bristolTypes, blood, notes, createdAt, updatedAt, syncStatus, isDeleted)
             SELECT id, userId, occurredAt, 0, blood, notes, createdAt, updatedAt, syncStatus, isDeleted
             FROM poop_entries
         """.trimIndent())
-        db.execSQL("DROP TABLE poop_entries")
-        db.execSQL("ALTER TABLE poop_entries_new RENAME TO poop_entries")
+        connection.execSQL("DROP TABLE poop_entries")
+        connection.execSQL("ALTER TABLE poop_entries_new RENAME TO poop_entries")
 
         // User-defined stool tags (later renamed to poop_tags in migration 5→6)
-        db.execSQL("""
+        connection.execSQL("""
             CREATE TABLE stool_tags (
                 id TEXT NOT NULL PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -52,7 +56,7 @@ private val MIGRATION_3_4 = object : Migration(3, 4) {
         """.trimIndent())
 
         // Junction table: poop entries ↔ stool tags (later renamed in migration 5→6)
-        db.execSQL("""
+        connection.execSQL("""
             CREATE TABLE poop_entry_stool_tags (
                 entryId TEXT NOT NULL,
                 tagId TEXT NOT NULL,
@@ -63,22 +67,22 @@ private val MIGRATION_3_4 = object : Migration(3, 4) {
 }
 
 private val MIGRATION_5_6 = object : Migration(5, 6) {
-    override fun migrate(db: SupportSQLiteDatabase) {
+    override fun migrate(connection: SQLiteConnection) {
         // Rename poop-entry tag tables
-        db.execSQL("ALTER TABLE stool_tags RENAME TO poop_tags")
-        db.execSQL("ALTER TABLE poop_entry_stool_tags RENAME TO poop_entry_tag_refs")
+        connection.execSQL("ALTER TABLE stool_tags RENAME TO poop_tags")
+        connection.execSQL("ALTER TABLE poop_entry_stool_tags RENAME TO poop_entry_tag_refs")
 
         // Rename note-entry tag tables
-        db.execSQL("ALTER TABLE extras_tags RENAME TO note_tags")
-        db.execSQL("ALTER TABLE note_entry_extras_tags RENAME TO note_entry_tag_refs")
+        connection.execSQL("ALTER TABLE extras_tags RENAME TO note_tags")
+        connection.execSQL("ALTER TABLE note_entry_extras_tags RENAME TO note_entry_tag_refs")
     }
 }
 
-// ALTER TABLE can't add NOT NULL columns without a DEFAULT, but Room 2.7 compares
-// default values strictly. Use recreate-table so the schema matches entity definitions exactly.
+// Recreate-table approach: ALTER TABLE can't add NOT NULL columns without a DEFAULT,
+// but Room 2.7 compares default values strictly. No DEFAULT clauses = exact schema match.
 private val MIGRATION_6_7 = object : Migration(6, 7) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL("""
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("""
             CREATE TABLE poop_tags_new (
                 id TEXT NOT NULL PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -89,14 +93,14 @@ private val MIGRATION_6_7 = object : Migration(6, 7) {
                 syncStatus TEXT NOT NULL
             )
         """.trimIndent())
-        db.execSQL("""
+        connection.execSQL("""
             INSERT INTO poop_tags_new (id, name, isDeleted, sortOrder, createdAt, updatedAt, syncStatus)
             SELECT id, name, isDeleted, sortOrder, createdAt, 0, 'PENDING' FROM poop_tags
         """.trimIndent())
-        db.execSQL("DROP TABLE poop_tags")
-        db.execSQL("ALTER TABLE poop_tags_new RENAME TO poop_tags")
+        connection.execSQL("DROP TABLE poop_tags")
+        connection.execSQL("ALTER TABLE poop_tags_new RENAME TO poop_tags")
 
-        db.execSQL("""
+        connection.execSQL("""
             CREATE TABLE note_tags_new (
                 id TEXT NOT NULL PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -107,20 +111,20 @@ private val MIGRATION_6_7 = object : Migration(6, 7) {
                 syncStatus TEXT NOT NULL
             )
         """.trimIndent())
-        db.execSQL("""
+        connection.execSQL("""
             INSERT INTO note_tags_new (id, name, isDeleted, sortOrder, createdAt, updatedAt, syncStatus)
             SELECT id, name, isDeleted, sortOrder, createdAt, 0, 'PENDING' FROM note_tags
         """.trimIndent())
-        db.execSQL("DROP TABLE note_tags")
-        db.execSQL("ALTER TABLE note_tags_new RENAME TO note_tags")
+        connection.execSQL("DROP TABLE note_tags")
+        connection.execSQL("ALTER TABLE note_tags_new RENAME TO note_tags")
     }
 }
 
-// Fixes devices that ran the original MIGRATION_6_7 (which used ALTER TABLE and produced
-// columns with DEFAULT clauses that Room 2.7 schema validation rejects).
+// Fixes devices that ran the original MIGRATION_6_7 (ALTER TABLE variant, which produced
+// DEFAULT clauses that Room 2.7 schema validation rejects).
 private val MIGRATION_7_8 = object : Migration(7, 8) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL("""
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("""
             CREATE TABLE poop_tags_new (
                 id TEXT NOT NULL PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -131,14 +135,14 @@ private val MIGRATION_7_8 = object : Migration(7, 8) {
                 syncStatus TEXT NOT NULL
             )
         """.trimIndent())
-        db.execSQL("""
+        connection.execSQL("""
             INSERT INTO poop_tags_new (id, name, isDeleted, sortOrder, createdAt, updatedAt, syncStatus)
             SELECT id, name, isDeleted, sortOrder, createdAt, updatedAt, syncStatus FROM poop_tags
         """.trimIndent())
-        db.execSQL("DROP TABLE poop_tags")
-        db.execSQL("ALTER TABLE poop_tags_new RENAME TO poop_tags")
+        connection.execSQL("DROP TABLE poop_tags")
+        connection.execSQL("ALTER TABLE poop_tags_new RENAME TO poop_tags")
 
-        db.execSQL("""
+        connection.execSQL("""
             CREATE TABLE note_tags_new (
                 id TEXT NOT NULL PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -149,12 +153,12 @@ private val MIGRATION_7_8 = object : Migration(7, 8) {
                 syncStatus TEXT NOT NULL
             )
         """.trimIndent())
-        db.execSQL("""
+        connection.execSQL("""
             INSERT INTO note_tags_new (id, name, isDeleted, sortOrder, createdAt, updatedAt, syncStatus)
             SELECT id, name, isDeleted, sortOrder, createdAt, updatedAt, syncStatus FROM note_tags
         """.trimIndent())
-        db.execSQL("DROP TABLE note_tags")
-        db.execSQL("ALTER TABLE note_tags_new RENAME TO note_tags")
+        connection.execSQL("DROP TABLE note_tags")
+        connection.execSQL("ALTER TABLE note_tags_new RENAME TO note_tags")
     }
 }
 
