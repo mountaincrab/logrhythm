@@ -158,4 +158,39 @@ private val MIGRATION_7_8 = object : Migration(7, 8) {
     }
 }
 
-val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_3_4, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+// Adds local sub-profiles: a profiles table + profileId on every per-profile table.
+// profileId uses @ColumnInfo(defaultValue = "default") on the entities so the ALTER TABLE
+// DEFAULT matches Room 2.7's strict default-value validation.
+private val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        val now = System.currentTimeMillis()
+
+        // profiles table — no column DEFAULTs, to match ProfileEntity exactly.
+        db.execSQL("""
+            CREATE TABLE profiles (
+                id TEXT NOT NULL PRIMARY KEY,
+                name TEXT NOT NULL,
+                theme TEXT NOT NULL,
+                createdAt INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL,
+                syncStatus TEXT NOT NULL,
+                isDeleted INTEGER NOT NULL
+            )
+        """.trimIndent())
+
+        // Default profile that owns all pre-existing data.
+        db.execSQL(
+            "INSERT INTO profiles (id, name, theme, createdAt, updatedAt, syncStatus, isDeleted) " +
+                "VALUES ('default', 'Me', 'DEEP_NAVY', $now, $now, 'PENDING', 0)"
+        )
+
+        // Backfill profileId on every per-profile table (existing rows → default profile).
+        db.execSQL("ALTER TABLE poop_entries ADD COLUMN profileId TEXT NOT NULL DEFAULT 'default'")
+        db.execSQL("ALTER TABLE food_entries ADD COLUMN profileId TEXT NOT NULL DEFAULT 'default'")
+        db.execSQL("ALTER TABLE note_entries ADD COLUMN profileId TEXT NOT NULL DEFAULT 'default'")
+        db.execSQL("ALTER TABLE poop_tags ADD COLUMN profileId TEXT NOT NULL DEFAULT 'default'")
+        db.execSQL("ALTER TABLE note_tags ADD COLUMN profileId TEXT NOT NULL DEFAULT 'default'")
+    }
+}
+
+val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_3_4, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)

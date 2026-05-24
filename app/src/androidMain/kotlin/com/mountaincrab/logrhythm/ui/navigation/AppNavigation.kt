@@ -18,6 +18,7 @@ import com.mountaincrab.logrhythm.ui.auth.SignInScreen
 import com.mountaincrab.logrhythm.ui.detail.EntryDetailScreen
 import com.mountaincrab.logrhythm.ui.history.HistoryScreen
 import com.mountaincrab.logrhythm.ui.home.HomeScreen
+import com.mountaincrab.logrhythm.ui.profiles.ProfilesScreen
 import com.mountaincrab.logrhythm.ui.settings.SettingsScreen
 import org.koin.compose.koinInject
 
@@ -26,6 +27,7 @@ sealed class Screen(val route: String) {
     data object Home : Screen("home")
     data object History : Screen("history")
     data object Settings : Screen("settings")
+    data object Profiles : Screen("profiles")
 
     /** kind: "poop" | "food" | "note", optional editId. */
     data object AddPoop : Screen("addPoop?editId={editId}") {
@@ -120,7 +122,11 @@ fun AppNavigation(navController: NavHostController) {
                         }
                     }
                 },
+                onOpenProfiles = { navController.navigate(Screen.Profiles.route) },
             )
+        }
+        composable(Screen.Profiles.route) {
+            ProfilesScreen(onBack = { navController.popBackStack() })
         }
         composable(
             route = Screen.AddPoop.route,

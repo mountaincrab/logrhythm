@@ -32,6 +32,12 @@ class SyncWorker(
         val uid = Firebase.auth.currentUser?.uid ?: return Result.success()
 
         return try {
+            // Push profiles first so entries/tags reference an existing profile.
+            db.profileDao().getPending().forEach { profile ->
+                firestoreRepo.pushProfile(uid, profile)
+                db.profileDao().markSynced(profile.id)
+            }
+
             // Push tags before entries so Firestore has them when entries reference them.
             db.poopTagDao().getPending().forEach { tag ->
                 firestoreRepo.pushPoopTag(uid, tag)
@@ -68,8 +74,9 @@ class SyncWorker(
     private suspend fun pullRemoteChanges(uid: String) {
         val sinceMillis = prefs.getLastSyncTimestamp()
         val since = Timestamp(sinceMillis / 1000, 0)
+        // Pull profiles first, then tags, so entries pulled afterwards resolve both.
+        firestoreRepo.pullProfile(uid, since).forEach { db.profileDao().upsert(it) }
 
-        // Pull tags first so entries pulled afterwards can resolve their tag references.
         firestoreRepo.pullPoopTags(uid, since).forEach { db.poopTagDao().upsert(it) }
         firestoreRepo.pullNoteTags(uid, since).forEach { db.noteTagDao().upsert(it) }
 

@@ -5,11 +5,13 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import com.mountaincrab.logrhythm.data.local.entity.DEFAULT_PROFILE_ID
 import com.mountaincrab.logrhythm.data.local.entity.FoodEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.NoteEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.NoteTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopTagEntity
+import com.mountaincrab.logrhythm.data.local.entity.ProfileEntity
 import com.mountaincrab.logrhythm.data.model.MealTag
 import com.mountaincrab.logrhythm.data.model.SyncStatus
 import kotlinx.coroutines.tasks.await
@@ -20,10 +22,41 @@ class FirestoreRepository {
     private fun userCol(uid: String, collection: String) =
         db.collection("users").document(uid).collection(collection)
 
+    suspend fun pushProfile(uid: String, entity: ProfileEntity) {
+        userCol(uid, "profiles").document(entity.id).set(
+            mapOf(
+                "name" to entity.name,
+                "theme" to entity.theme,
+                "createdAt" to entity.createdAt,
+                "updatedAt" to FieldValue.serverTimestamp(),
+                "isDeleted" to entity.isDeleted,
+            ),
+            SetOptions.merge(),
+        ).await()
+    }
+
+    suspend fun pullProfile(uid: String, since: Timestamp): List<ProfileEntity> =
+        userCol(uid, "profiles")
+            .whereGreaterThan("updatedAt", since)
+            .get().await().documents.mapNotNull { doc ->
+                try {
+                    ProfileEntity(
+                        id = doc.id,
+                        name = doc.getString("name") ?: return@mapNotNull null,
+                        theme = doc.getString("theme") ?: "DEEP_NAVY",
+                        createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis(),
+                        updatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time ?: System.currentTimeMillis(),
+                        syncStatus = SyncStatus.SYNCED,
+                        isDeleted = doc.getBoolean("isDeleted") ?: false,
+                    )
+                } catch (_: Exception) { null }
+            }
+
     suspend fun pushPoop(uid: String, entity: PoopEntryEntity, tagIds: List<String>) {
         userCol(uid, "poop_entries").document(entity.id).set(
             mapOf(
                 "userId" to uid,
+                "profileId" to entity.profileId,
                 "occurredAt" to entity.occurredAt,
                 "bristolTypes" to entity.bristolTypes.sorted(),
                 "blood" to entity.blood,
@@ -41,6 +74,7 @@ class FirestoreRepository {
         userCol(uid, "food_entries").document(entity.id).set(
             mapOf(
                 "userId" to uid,
+                "profileId" to entity.profileId,
                 "occurredAt" to entity.occurredAt,
                 "items" to entity.items,
                 "mealTag" to entity.mealTag?.name,
@@ -56,6 +90,7 @@ class FirestoreRepository {
         userCol(uid, "note_entries").document(entity.id).set(
             mapOf(
                 "userId" to uid,
+                "profileId" to entity.profileId,
                 "occurredAt" to entity.occurredAt,
                 "content" to entity.content,
                 "caffeine" to entity.caffeine,
@@ -103,6 +138,7 @@ class FirestoreRepository {
                     val entity = PoopEntryEntity(
                         id = doc.id,
                         userId = uid,
+                        profileId = doc.getString("profileId") ?: DEFAULT_PROFILE_ID,
                         occurredAt = doc.getLong("occurredAt") ?: return@mapNotNull null,
                         bristolTypes = (doc.get("bristolTypes") as? List<*>)
                             ?.mapNotNull { (it as? Long)?.toInt() }?.toSet() ?: emptySet(),
@@ -126,6 +162,7 @@ class FirestoreRepository {
                     FoodEntryEntity(
                         id = doc.id,
                         userId = uid,
+                        profileId = doc.getString("profileId") ?: DEFAULT_PROFILE_ID,
                         occurredAt = doc.getLong("occurredAt") ?: return@mapNotNull null,
                         items = doc.getString("items") ?: return@mapNotNull null,
                         mealTag = doc.getString("mealTag")?.let { runCatching { MealTag.valueOf(it) }.getOrNull() },
@@ -145,6 +182,7 @@ class FirestoreRepository {
                     val entity = NoteEntryEntity(
                         id = doc.id,
                         userId = uid,
+                        profileId = doc.getString("profileId") ?: DEFAULT_PROFILE_ID,
                         occurredAt = doc.getLong("occurredAt") ?: return@mapNotNull null,
                         content = doc.getString("content") ?: return@mapNotNull null,
                         caffeine = doc.getBoolean("caffeine") ?: false,

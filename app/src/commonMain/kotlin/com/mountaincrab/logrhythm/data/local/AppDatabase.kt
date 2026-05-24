@@ -9,6 +9,7 @@ import com.mountaincrab.logrhythm.data.local.dao.NoteEntryDao
 import com.mountaincrab.logrhythm.data.local.dao.NoteTagDao
 import com.mountaincrab.logrhythm.data.local.dao.PoopEntryDao
 import com.mountaincrab.logrhythm.data.local.dao.PoopTagDao
+import com.mountaincrab.logrhythm.data.local.dao.ProfileDao
 import com.mountaincrab.logrhythm.data.local.entity.FoodEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.NoteEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.NoteEntryTagCrossRef
@@ -16,6 +17,7 @@ import com.mountaincrab.logrhythm.data.local.entity.NoteTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryTagCrossRef
 import com.mountaincrab.logrhythm.data.local.entity.PoopTagEntity
+import com.mountaincrab.logrhythm.data.local.entity.ProfileEntity
 import com.mountaincrab.logrhythm.data.model.MealTag
 import com.mountaincrab.logrhythm.data.model.SyncStatus
 
@@ -28,8 +30,9 @@ import com.mountaincrab.logrhythm.data.model.SyncStatus
         PoopEntryTagCrossRef::class,
         NoteTagEntity::class,
         NoteEntryTagCrossRef::class,
+        ProfileEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -39,9 +42,10 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun noteEntryDao(): NoteEntryDao
     abstract fun poopTagDao(): PoopTagDao
     abstract fun noteTagDao(): NoteTagDao
+    abstract fun profileDao(): ProfileDao
 
     companion object {
-        const val CURRENT_VERSION = 8
+        const val CURRENT_VERSION = 9
     }
 }
 

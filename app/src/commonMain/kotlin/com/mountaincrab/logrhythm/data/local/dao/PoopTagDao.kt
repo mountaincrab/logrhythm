@@ -11,8 +11,8 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface PoopTagDao {
-    @Query("SELECT * FROM poop_tags WHERE isDeleted = 0 ORDER BY sortOrder ASC, createdAt ASC")
-    fun observeAll(): Flow<List<PoopTagEntity>>
+    @Query("SELECT * FROM poop_tags WHERE isDeleted = 0 AND profileId = :profileId ORDER BY sortOrder ASC, createdAt ASC")
+    fun observeAll(profileId: String): Flow<List<PoopTagEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(tag: PoopTagEntity)
@@ -25,6 +25,9 @@ interface PoopTagDao {
 
     @Query("UPDATE poop_tags SET isDeleted = 1, syncStatus = 'PENDING', updatedAt = :updatedAt WHERE id = :id")
     suspend fun softDelete(id: String, updatedAt: Long)
+
+    @Query("UPDATE poop_tags SET isDeleted = 1 WHERE profileId = :profileId AND isDeleted = 0")
+    suspend fun softDeleteByProfile(profileId: String)
 
     @Query("""
         SELECT t.* FROM poop_tags t

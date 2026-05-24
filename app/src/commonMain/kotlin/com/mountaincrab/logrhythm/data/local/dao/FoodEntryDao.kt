@@ -10,21 +10,21 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface FoodEntryDao {
-    @Query("SELECT * FROM food_entries WHERE isDeleted = 0 ORDER BY occurredAt DESC")
-    fun observeAll(): Flow<List<FoodEntryEntity>>
+    @Query("SELECT * FROM food_entries WHERE isDeleted = 0 AND profileId = :profileId ORDER BY occurredAt DESC")
+    fun observeAll(profileId: String): Flow<List<FoodEntryEntity>>
 
-    @Query("SELECT * FROM food_entries WHERE isDeleted = 0 AND occurredAt >= :sinceMillis ORDER BY occurredAt DESC")
-    fun observeSince(sinceMillis: Long): Flow<List<FoodEntryEntity>>
+    @Query("SELECT * FROM food_entries WHERE isDeleted = 0 AND profileId = :profileId AND occurredAt >= :sinceMillis ORDER BY occurredAt DESC")
+    fun observeSince(profileId: String, sinceMillis: Long): Flow<List<FoodEntryEntity>>
 
     @Query("""
         SELECT * FROM food_entries
-        WHERE isDeleted = 0 AND occurredAt BETWEEN :startMillis AND :endMillis
+        WHERE isDeleted = 0 AND profileId = :profileId AND occurredAt BETWEEN :startMillis AND :endMillis
         ORDER BY occurredAt DESC
     """)
-    suspend fun getInRange(startMillis: Long, endMillis: Long): List<FoodEntryEntity>
+    suspend fun getInRange(profileId: String, startMillis: Long, endMillis: Long): List<FoodEntryEntity>
 
-    @Query("SELECT items FROM food_entries WHERE isDeleted = 0 ORDER BY occurredAt DESC LIMIT :limit")
-    suspend fun recentItems(limit: Int): List<String>
+    @Query("SELECT items FROM food_entries WHERE isDeleted = 0 AND profileId = :profileId ORDER BY occurredAt DESC LIMIT :limit")
+    suspend fun recentItems(profileId: String, limit: Int): List<String>
 
     @Query("SELECT * FROM food_entries WHERE id = :id")
     suspend fun getById(id: String): FoodEntryEntity?
@@ -34,6 +34,9 @@ interface FoodEntryDao {
 
     @Query("UPDATE food_entries SET isDeleted = 1, updatedAt = :updatedAt, syncStatus = 'PENDING' WHERE id = :id")
     suspend fun softDelete(id: String, updatedAt: Long = currentTimeMillis())
+
+    @Query("UPDATE food_entries SET isDeleted = 1, updatedAt = :updatedAt, syncStatus = 'PENDING' WHERE profileId = :profileId AND isDeleted = 0")
+    suspend fun softDeleteByProfile(profileId: String, updatedAt: Long = currentTimeMillis())
 
     @Query("SELECT * FROM food_entries WHERE syncStatus = 'PENDING'")
     suspend fun getPending(): List<FoodEntryEntity>

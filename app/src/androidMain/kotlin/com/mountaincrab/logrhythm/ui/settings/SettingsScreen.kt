@@ -37,6 +37,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun SettingsScreen(
     onTabSelect: (route: String) -> Unit,
+    onOpenProfiles: () -> Unit,
     viewModel: SettingsViewModel = koinViewModel(),
 ) {
     val palette = LocalAppPalette.current
@@ -90,6 +91,24 @@ fun SettingsScreen(
                 TextButton(onClick = { viewModel.signOut() }) {
                     Text("Sign out", color = palette.dangerText, fontWeight = FontWeight.SemiBold)
                 }
+            }
+            Spacer(modifier = Modifier.height(18.dp))
+
+            SectionLabel("Profiles")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(palette.surfaceRaised)
+                    .border(1.dp, palette.border, RoundedCornerShape(14.dp))
+                    .clickable(onClick = onOpenProfiles)
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Manage profiles", modifier = Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text("›", color = palette.fgMuted, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(modifier = Modifier.height(18.dp))
 

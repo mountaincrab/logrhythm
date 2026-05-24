@@ -6,13 +6,26 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,10 +36,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mountaincrab.logrhythm.data.local.entity.ProfileEntity
 import com.mountaincrab.logrhythm.data.repository.TimelineEntry
 import com.mountaincrab.logrhythm.ui.components.BottomTabBar
 import com.mountaincrab.logrhythm.ui.components.TimelineEntryRow
 import com.mountaincrab.logrhythm.ui.navigation.Screen
+import com.mountaincrab.logrhythm.ui.profiles.ProfileAvatar
 import com.mountaincrab.logrhythm.ui.theme.LocalAppPalette
 import com.mountaincrab.logrhythm.ui.util.formatDayLabel
 import com.mountaincrab.logrhythm.ui.util.startOfDayMillis
@@ -46,7 +61,28 @@ fun HomeScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val isSyncing by viewModel.isSyncing.collectAsStateWithLifecycle()
+    val profiles by viewModel.profiles.collectAsStateWithLifecycle()
+    val activeProfile by viewModel.activeProfile.collectAsStateWithLifecycle()
     val palette = LocalAppPalette.current
+
+    var showProfileSheet by remember { mutableStateOf(false) }
+    var showAddDialog by remember { mutableStateOf(false) }
+
+    if (showProfileSheet) {
+        ProfileSwitcherSheet(
+            profiles = profiles,
+            activeId = activeProfile?.id,
+            onSelect = { viewModel.selectProfile(it); showProfileSheet = false },
+            onAdd = { showProfileSheet = false; showAddDialog = true },
+            onDismiss = { showProfileSheet = false },
+        )
+    }
+    if (showAddDialog) {
+        AddProfileDialog(
+            onConfirm = { viewModel.addProfile(it); showAddDialog = false },
+            onDismiss = { showAddDialog = false },
+        )
+    }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         // Top bar
@@ -70,6 +106,9 @@ fun HomeScreen(
                     state.todayWorstRating?.let { append(" · rating $it") }
                 }
                 Text(text = summary, fontSize = 13.sp, color = palette.fgMuted)
+            }
+            Box(modifier = Modifier.clip(CircleShape).clickable { showProfileSheet = true }) {
+                ProfileAvatar(name = activeProfile?.name ?: "?", highlighted = true, size = 38)
             }
         }
 
@@ -177,6 +216,106 @@ private fun EmptyState() {
             color = palette.fgMuted, fontSize = 13.sp,
         )
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ProfileSwitcherSheet(
+    profiles: List<ProfileEntity>,
+    activeId: String?,
+    onSelect: (String) -> Unit,
+    onAdd: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val palette = LocalAppPalette.current
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(),
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
+            Text(
+                "Profiles",
+                fontSize = 18.sp, fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 12.dp),
+            )
+            profiles.forEach { profile ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { onSelect(profile.id) }
+                        .padding(vertical = 10.dp, horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    ProfileAvatar(name = profile.name, highlighted = profile.id == activeId)
+                    Text(
+                        profile.name,
+                        modifier = Modifier.weight(1f),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                    )
+                    if (profile.id == activeId) {
+                        Icon(
+                            Icons.Outlined.Check,
+                            contentDescription = "Active",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(onClick = onAdd)
+                    .padding(vertical = 12.dp, horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Box(
+                    modifier = Modifier.size(36.dp).clip(CircleShape).background(palette.surfaceHigh),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Outlined.Add,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+                Text(
+                    "Add profile",
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddProfileDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+    var name by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("New profile") },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                placeholder = { Text("e.g. Alex") },
+                singleLine = true,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { if (name.isNotBlank()) onConfirm(name.trim()) }) { Text("Add") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 private fun Modifier.drawTimelineLine(color: androidx.compose.ui.graphics.Color): Modifier = drawBehind {

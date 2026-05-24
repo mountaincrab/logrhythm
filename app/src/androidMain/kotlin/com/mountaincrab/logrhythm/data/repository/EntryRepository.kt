@@ -12,9 +12,11 @@ import com.mountaincrab.logrhythm.data.local.entity.PoopEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopTagEntity
 import com.mountaincrab.logrhythm.data.model.MealTag
 import com.mountaincrab.logrhythm.util.currentTimeMillis
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flatMapLatest
 
 /**
  * Unified timeline view combining poop / food / note entries.
@@ -26,6 +28,7 @@ sealed class TimelineEntry(open val id: String, open val occurredAt: Long) {
     data class Note(val entity: NoteEntryEntity, val tags: List<NoteTagEntity> = emptyList()) : TimelineEntry(entity.id, entity.occurredAt)
 }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class EntryRepository(
     private val poopDao: PoopEntryDao,
     private val foodDao: FoodEntryDao,
@@ -33,59 +36,66 @@ class EntryRepository(
     private val poopTagDao: PoopTagDao,
     private val noteTagDao: NoteTagDao,
     private val syncScheduler: com.mountaincrab.logrhythm.sync.SyncScheduler,
+    private val activeProfileId: StateFlow<String>,
     private val getUserId: () -> String,
 ) {
 
-    fun observeTimeline(): Flow<List<TimelineEntry>> {
-        val poopTagsFlow = combine(
-            poopTagDao.observeAll(),
-            poopTagDao.observeAllCrossRefs(),
-        ) { tags, refs ->
-            val tagMap = tags.associateBy { it.id }
-            refs.groupBy { it.entryId }.mapValues { (_, r) -> r.mapNotNull { tagMap[it.tagId] } }
-        }
-        val noteTagsFlow = combine(
-            noteTagDao.observeAll(),
-            noteTagDao.observeAllCrossRefs(),
-        ) { tags, refs ->
-            val tagMap = tags.associateBy { it.id }
-            refs.groupBy { it.entryId }.mapValues { (_, r) -> r.mapNotNull { tagMap[it.tagId] } }
-        }
-        return combine(
-            poopDao.observeAll(),
-            foodDao.observeAll(),
-            noteDao.observeAll(),
-            poopTagsFlow,
-            noteTagsFlow,
-        ) { poops, foods, notes, poopTagMap, noteTagMap ->
-            buildList<TimelineEntry> {
-                poops.forEach { add(TimelineEntry.Poop(it, poopTagMap[it.id] ?: emptyList())) }
-                foods.forEach { add(TimelineEntry.Food(it)) }
-                notes.forEach { add(TimelineEntry.Note(it, noteTagMap[it.id] ?: emptyList())) }
-            }.sortedByDescending { it.occurredAt }
-        }
-    }
+    private fun profileId(): String = activeProfileId.value
 
-    fun observePoops(): Flow<List<PoopEntryEntity>> = poopDao.observeAll()
-    fun observePoopsSince(sinceMillis: Long): Flow<List<PoopEntryEntity>> = poopDao.observeSince(sinceMillis)
+    fun observeTimeline(): Flow<List<TimelineEntry>> =
+        activeProfileId.flatMapLatest { pid ->
+            val poopTagsFlow = combine(
+                poopTagDao.observeAll(pid),
+                poopTagDao.observeAllCrossRefs(),
+            ) { tags, refs ->
+                val tagMap = tags.associateBy { it.id }
+                refs.groupBy { it.entryId }.mapValues { (_, r) -> r.mapNotNull { tagMap[it.tagId] } }
+            }
+            val noteTagsFlow = combine(
+                noteTagDao.observeAll(pid),
+                noteTagDao.observeAllCrossRefs(),
+            ) { tags, refs ->
+                val tagMap = tags.associateBy { it.id }
+                refs.groupBy { it.entryId }.mapValues { (_, r) -> r.mapNotNull { tagMap[it.tagId] } }
+            }
+            combine(
+                poopDao.observeAll(pid),
+                foodDao.observeAll(pid),
+                noteDao.observeAll(pid),
+                poopTagsFlow,
+                noteTagsFlow,
+            ) { poops, foods, notes, poopTagMap, noteTagMap ->
+                buildList<TimelineEntry> {
+                    poops.forEach { add(TimelineEntry.Poop(it, poopTagMap[it.id] ?: emptyList())) }
+                    foods.forEach { add(TimelineEntry.Food(it)) }
+                    notes.forEach { add(TimelineEntry.Note(it, noteTagMap[it.id] ?: emptyList())) }
+                }.sortedByDescending { it.occurredAt }
+            }
+        }
+
+    fun observePoops(): Flow<List<PoopEntryEntity>> =
+        activeProfileId.flatMapLatest { poopDao.observeAll(it) }
+    fun observePoopsSince(sinceMillis: Long): Flow<List<PoopEntryEntity>> =
+        activeProfileId.flatMapLatest { poopDao.observeSince(it, sinceMillis) }
 
     suspend fun getPoop(id: String): PoopEntryEntity? = poopDao.getById(id)
     suspend fun getFood(id: String): FoodEntryEntity? = foodDao.getById(id)
     suspend fun getNote(id: String): NoteEntryEntity? = noteDao.getById(id)
 
     suspend fun foodsInRange(startMillis: Long, endMillis: Long): List<FoodEntryEntity> =
-        foodDao.getInRange(startMillis, endMillis)
+        foodDao.getInRange(profileId(), startMillis, endMillis)
 
     suspend fun recentFoodItems(limit: Int = 30): List<String> =
-        foodDao.recentItems(limit)
+        foodDao.recentItems(profileId(), limit)
 
-    fun observeAllPoopTags(): Flow<List<PoopTagEntity>> = poopTagDao.observeAll()
+    fun observeAllPoopTags(): Flow<List<PoopTagEntity>> =
+        activeProfileId.flatMapLatest { poopTagDao.observeAll(it) }
 
     suspend fun getPoopTags(entryId: String): List<PoopTagEntity> =
         poopTagDao.getTagsForEntry(entryId)
 
     suspend fun createPoopTag(name: String): PoopTagEntity {
-        val tag = PoopTagEntity(name = name.trim())
+        val tag = PoopTagEntity(profileId = profileId(), name = name.trim())
         poopTagDao.upsert(tag)
         syncScheduler.enqueue()
         return tag
@@ -96,13 +106,14 @@ class EntryRepository(
         syncScheduler.enqueue()
     }
 
-    fun observeAllNoteTags(): Flow<List<NoteTagEntity>> = noteTagDao.observeAll()
+    fun observeAllNoteTags(): Flow<List<NoteTagEntity>> =
+        activeProfileId.flatMapLatest { noteTagDao.observeAll(it) }
 
     suspend fun getNoteTags(entryId: String): List<NoteTagEntity> =
         noteTagDao.getTagsForEntry(entryId)
 
     suspend fun createNoteTag(name: String): NoteTagEntity {
-        val tag = NoteTagEntity(name = name.trim())
+        val tag = NoteTagEntity(profileId = profileId(), name = name.trim())
         noteTagDao.upsert(tag)
         syncScheduler.enqueue()
         return tag
@@ -132,6 +143,7 @@ class EntryRepository(
             syncStatus = com.mountaincrab.logrhythm.data.model.SyncStatus.PENDING,
         ) ?: PoopEntryEntity(
             userId = getUserId(),
+            profileId = profileId(),
             occurredAt = occurredAt,
             bristolTypes = bristolTypes,
             blood = blood,
@@ -158,6 +170,7 @@ class EntryRepository(
             syncStatus = com.mountaincrab.logrhythm.data.model.SyncStatus.PENDING,
         ) ?: FoodEntryEntity(
             userId = getUserId(),
+            profileId = profileId(),
             occurredAt = occurredAt,
             items = items,
             mealTag = mealTag,
@@ -185,6 +198,7 @@ class EntryRepository(
             syncStatus = com.mountaincrab.logrhythm.data.model.SyncStatus.PENDING,
         ) ?: NoteEntryEntity(
             userId = getUserId(),
+            profileId = profileId(),
             occurredAt = occurredAt,
             content = content,
             caffeine = caffeine,
@@ -198,4 +212,14 @@ class EntryRepository(
     suspend fun deletePoop(id: String) { poopDao.softDelete(id); syncScheduler.enqueue() }
     suspend fun deleteFood(id: String) { foodDao.softDelete(id); syncScheduler.enqueue() }
     suspend fun deleteNote(id: String) { noteDao.softDelete(id); syncScheduler.enqueue() }
+
+    /** Cascade soft-delete of all entries and tags belonging to a profile. */
+    suspend fun deleteProfileData(profileId: String) {
+        poopDao.softDeleteByProfile(profileId)
+        foodDao.softDeleteByProfile(profileId)
+        noteDao.softDeleteByProfile(profileId)
+        poopTagDao.softDeleteByProfile(profileId)
+        noteTagDao.softDeleteByProfile(profileId)
+        syncScheduler.enqueue()
+    }
 }

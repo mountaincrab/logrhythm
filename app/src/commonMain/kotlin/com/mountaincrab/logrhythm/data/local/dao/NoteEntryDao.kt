@@ -10,8 +10,8 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface NoteEntryDao {
-    @Query("SELECT * FROM note_entries WHERE isDeleted = 0 ORDER BY occurredAt DESC")
-    fun observeAll(): Flow<List<NoteEntryEntity>>
+    @Query("SELECT * FROM note_entries WHERE isDeleted = 0 AND profileId = :profileId ORDER BY occurredAt DESC")
+    fun observeAll(profileId: String): Flow<List<NoteEntryEntity>>
 
     @Query("SELECT * FROM note_entries WHERE id = :id")
     suspend fun getById(id: String): NoteEntryEntity?
@@ -21,6 +21,9 @@ interface NoteEntryDao {
 
     @Query("UPDATE note_entries SET isDeleted = 1, updatedAt = :updatedAt, syncStatus = 'PENDING' WHERE id = :id")
     suspend fun softDelete(id: String, updatedAt: Long = currentTimeMillis())
+
+    @Query("UPDATE note_entries SET isDeleted = 1, updatedAt = :updatedAt, syncStatus = 'PENDING' WHERE profileId = :profileId AND isDeleted = 0")
+    suspend fun softDeleteByProfile(profileId: String, updatedAt: Long = currentTimeMillis())
 
     @Query("SELECT * FROM note_entries WHERE syncStatus = 'PENDING'")
     suspend fun getPending(): List<NoteEntryEntity>
