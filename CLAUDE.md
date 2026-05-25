@@ -1,22 +1,31 @@
 # LogRhythm — Claude guidance
 
-LogRhythm is an Android app for tracking IBD-relevant signal: poop entries (Bristol type + blood rating + notes), food, and free-form notes. It's modeled after [crab-do](~/git/crab-do) and built to share that app's KMP + Compose + Room stack so it can later grow an iOS surface, a webapp, and a Firestore sync layer.
+LogRhythm tracks IBD-relevant signal: poop entries (Bristol type + blood rating + notes), food, and free-form notes. It's modeled after [crab-do](~/git/crab-do) and shares that app's KMP + Compose + Room stack. There are two surfaces: a native **Android** app and a **React web app** (`webapp/`), both backed by the same Firebase project.
 
 ## Project status
 
-- **Android only** so far. iOS / webapp / cloud functions are deliberately out of scope.
-- **No Firebase, no auth.** Single local user; `userId` is hardcoded to `"local"` on every entity. `SyncStatus` columns are kept on every row so sync can be wired later without a Room migration.
-- All v2 screens from `Poop tracker/` designs are implemented: Home, Add poop, Add food, Add note, History (Calendar + Trends), Entry detail, Settings.
+- **Android app** + **web app** (`webapp/`), both live. iOS is still out of scope.
+- **Firebase auth + Firestore sync.** Users sign in (Google); each device syncs through `users/{uid}/…` in Firestore. `userId` is the Firebase uid. `SyncStatus` (PENDING/SYNCED) drives the Android `SyncWorker`; the webapp reads/writes Firestore directly with no local cache.
+- **Multi-profile.** A single Firebase account holds one or more local sub-profiles (e.g. tracking more than one person). Every entry/tag row carries a `profileId` (default profile id is `"default"`). The active profile is a per-device preference.
+- All v2 screens from `Poop tracker/` designs are implemented on Android: Home, Add poop, Add food, Add note, History (Calendar + Trends), Entry detail, Settings, plus Sign-in and Profiles. The webapp mirrors these.
 
 ## Stack
 
+**Android app**
 - Kotlin Multiplatform (Android target only)
 - Jetpack Compose + Material3
 - Room (KMP runtime, schemas exported to `app/schemas/`)
 - Koin DI
-- DataStore-Preferences (theme + stool-system pref)
+- DataStore-Preferences (theme + stool-system pref + active profile)
 - Navigation-Compose
+- Firebase Auth (Google) + Cloud Firestore; WorkManager-driven `SyncWorker`
 - kotlinx-serialization (lightweight, kept for future use)
+
+**Web app** (`webapp/`) — see the "Web app" section below
+- React 18 + TypeScript + Vite
+- Tailwind CSS (semantic CSS-variable theming, mirrors the Android tokens)
+- React Router
+- Firebase JS SDK (Auth + Firestore), same project as Android
 
 ## Build
 
@@ -35,19 +44,24 @@ app/src/
   commonMain/kotlin/com/mountaincrab/logrhythm/
     data/
       local/AppDatabase.kt, Migrations.kt
-      local/dao/{Poop,Food,Note}EntryDao.kt, {Poop,Note}TagDao.kt
-      local/entity/{Poop,Food,Note}EntryEntity.kt, {Poop,Note}TagEntity.kt, {PoopEntry,NoteEntry}TagCrossRef.kt
+      local/dao/{Poop,Food,Note}EntryDao.kt, {Poop,Note}TagDao.kt, ProfileDao.kt
+      local/entity/{Poop,Food,Note}EntryEntity.kt, {Poop,Note}TagEntity.kt, {PoopEntry,NoteEntry}TagCrossRef.kt, ProfileEntity.kt
       model/{Bristol,EntryKind,MealTag,StoolSystem,SyncStatus}.kt
     util/Platform.kt           ← expect: currentTimeMillis(), randomUUID()
   androidMain/kotlin/com/mountaincrab/logrhythm/
     LogRhythmApplication.kt    ← Koin startup
     MainActivity.kt
     di/AppModule.kt
-    data/repository/EntryRepository.kt
+    auth/AuthRepository.kt                  ← Firebase Auth wrapper
+    data/remote/FirestoreRepository.kt      ← push/pull mappers (Firestore doc shapes)
+    data/repository/{EntryRepository,ProfileRepository}.kt
+    sync/{SyncWorker,SyncScheduler}.kt      ← WorkManager push/pull on PENDING rows
     preferences/UserPreferencesRepository.kt
     ui/
       theme/{Theme.kt, ThemeViewModel.kt}   ← AppTheme enum, AppPalette, RatingColors
       navigation/AppNavigation.kt           ← all routes
+      auth/{SignInViewModel,SignInScreen}.kt
+      profiles/{ProfilesViewModel,ProfilesScreen}.kt
       components/{BottomTabBar,SheetHeader,WhenPicker,RatingPill,TimelineEntryRow}.kt
       home/{HomeViewModel,HomeScreen}.kt
       addentry/{AddPoop,AddFood,AddNote}{ViewModel,Screen}.kt
@@ -57,25 +71,72 @@ app/src/
       util/DateUtils.kt
 ```
 
+The Android Firebase config (`app/google-services.json`) is gitignored — pull it from the Firebase console.
+
 ## Data model
 
+Room tables (local, Android):
+
 ```
-poop_entries            ← id, userId, occurredAt, bristolTypes (Set<Int> bitmask), blood (Int 1–5), notes?, createdAt, updatedAt, syncStatus, isDeleted
-food_entries            ← id, userId, occurredAt, items (String), mealTag (MealTag?), createdAt, updatedAt, syncStatus, isDeleted
-note_entries            ← id, userId, occurredAt, content (String), caffeine (Boolean), alcohol (Boolean), createdAt, updatedAt, syncStatus, isDeleted
-poop_tags               ← id, name, isDeleted, sortOrder, createdAt
-note_tags               ← id, name, isDeleted, sortOrder, createdAt
+profiles                ← id, name, theme (AppTheme name), createdAt, updatedAt, syncStatus, isDeleted
+poop_entries            ← id, userId, profileId, occurredAt, bristolTypes (Set<Int> bitmask), blood (Int 1–5), notes?, createdAt, updatedAt, syncStatus, isDeleted
+food_entries            ← id, userId, profileId, occurredAt, items (String), mealTag (MealTag?), createdAt, updatedAt, syncStatus, isDeleted
+note_entries            ← id, userId, profileId, occurredAt, content (String), caffeine (Boolean), alcohol (Boolean), createdAt, updatedAt, syncStatus, isDeleted
+poop_tags               ← id, profileId, name, isDeleted, sortOrder, createdAt, updatedAt, syncStatus
+note_tags               ← id, profileId, name, isDeleted, sortOrder, createdAt, updatedAt, syncStatus
 poop_entry_tag_refs     ← entryId, tagId  (composite PK — many-to-many join)
 note_entry_tag_refs     ← entryId, tagId  (composite PK — many-to-many join)
 ```
 
-Repository: `EntryRepository` (Android-only because it uses Android-style Flow combine). When we wire Firestore later, that's the place. The DAOs already expose `getUnsynced`-style queries are not yet added — keep `syncStatus = PENDING` on every write so a future SyncWorker can scan for pending rows.
+Firestore mirror (the cross-device contract — see `FirestoreRepository.kt`): everything lives under
+`users/{uid}/{profiles, poop_entries, food_entries, note_entries, poop_tags, note_tags}`. Differences from the
+Room shape: `bristolTypes` is stored as a **sorted array of ints** (not a bitmask); poop/note docs carry a
+`tagIds` array instead of join rows; `updatedAt` is a Firestore `serverTimestamp()`. Both surfaces must keep
+these field names/shapes in sync — the webapp writes the same documents the Android `SyncWorker` pulls.
+
+Repository: `EntryRepository` (Android-only because it uses Android-style Flow combine) writes local rows with
+`syncStatus = PENDING`; `SyncScheduler.enqueue()` kicks `SyncWorker`, which pushes pending rows and pulls
+remote deltas via `updatedAt`. The webapp skips Room entirely and talks to Firestore through `onSnapshot`.
 
 ## Theme
 
 `AppTheme` enum (DEEP_NAVY, CHARCOAL, RETRO) maps to a Material3 `darkColorScheme` plus a custom `AppPalette` (provided via `LocalAppPalette` composition local) for tokens Material3 doesn't cover (`surfaceRaised`, `surfaceHigh`, `border`, `borderSubtle`, `fgMuted`, `fgFaint`, `accentText`, `accentSoft`, `successText`, `dangerText`, `warning`, gradient endpoints).
 
 Rating colours (1..5) live in `Theme.kt:RatingColors` — mirror of `phone.jsx:RATING_COLORS`.
+
+The webapp re-implements the same three themes as CSS variables in `webapp/src/index.css` and exposes them to
+Tailwind via `tailwind.config.js`. The active profile's `theme` is applied as a `data-theme` attribute on
+`<html>` (`ProfileContext`). Rating colours / Bristol scale / meal tags live in `webapp/src/lib/`.
+
+## Web app
+
+Lives in `webapp/` (React + TS + Vite + Tailwind + Firebase JS SDK). It reads/writes the same Firestore
+documents as Android, so it needs the **same Firebase project**.
+
+```bash
+cd webapp
+cp .env.local.example .env.local   # fill in the Firebase WEB app config (same project as Android)
+npm install
+npm run dev                        # http://localhost:5173
+npm run build                      # tsc + vite build → dist/
+```
+
+Layout:
+
+```
+webapp/src/
+  firebase.ts                 ← initializes app/auth/db from VITE_FIREBASE_* env vars
+  types.ts                    ← TS mirror of the Firestore document shapes
+  lib/{bristol,ratings,mealTags,dates,theme}.ts
+  contexts/{AuthContext,ProfileContext,EntriesContext}.tsx
+  hooks/{useProfiles,useEntries}.ts   ← onSnapshot listeners + CRUD (soft-delete via isDeleted)
+  components/{AppShell,BottomNav,ProfileMenu,TimelineEntryRow,Sheet,WhenField}.tsx, sheets/Add{Poop,Food,Note}Sheet.tsx
+  pages/{Login,Home,History,EntryDetail,Settings}Page.tsx
+```
+
+Auth is Google sign-in (`signInWithPopup`). Entries are filtered by the active profile + `isDeleted == false`
+client-side (single-field `profileId` query, so no composite Firestore index is required). `crypto.randomUUID()`
+generates doc ids; the default profile id is `"default"` (matches Android's `DEFAULT_PROFILE_ID`).
 
 ## Room migrations
 
