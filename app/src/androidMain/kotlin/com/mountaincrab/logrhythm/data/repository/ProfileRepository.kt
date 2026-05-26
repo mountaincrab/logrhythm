@@ -37,7 +37,10 @@ class ProfileRepository(
         activeProfileId.flatMapLatest { dao.observe(it) }
 
     init {
-        scope.launch { migrateLegacyThemeIfNeeded() }
+        scope.launch {
+            ensureDefaultProfile()
+            migrateLegacyThemeIfNeeded()
+        }
     }
 
     suspend fun setActiveProfile(id: String) = prefs.setActiveProfileId(id)
@@ -71,6 +74,37 @@ class ProfileRepository(
     }
 
     suspend fun profileCount(): Int = dao.getAll().size
+
+    /**
+     * Guarantees a selectable default profile exists. The v8→v9 migration creates one for
+     * upgrading users, but fresh installs never run that migration, and a past destructive
+     * wipe could strand entries on a "default" profile whose row no longer exists. In either
+     * case the active id resolves to nothing (the "?" avatar) and migrated data becomes
+     * unreachable. Recreate (or un-delete) the default profile when it's missing and either
+     * there are no profiles at all or live data still points at it.
+     */
+    private suspend fun ensureDefaultProfile() {
+        val profiles = dao.getAll()
+        if (profiles.any { it.id == DEFAULT_PROFILE_ID }) return
+
+        val needsDefault = profiles.isEmpty() || dao.countDataForProfile(DEFAULT_PROFILE_ID) > 0
+        if (!needsDefault) return
+
+        val now = currentTimeMillis()
+        val existing = dao.getById(DEFAULT_PROFILE_ID) // may be a soft-deleted row
+        val restored = existing?.copy(
+            isDeleted = false,
+            updatedAt = now,
+            syncStatus = SyncStatus.PENDING,
+        ) ?: ProfileEntity(
+            id = DEFAULT_PROFILE_ID,
+            name = "Me",
+            createdAt = now,
+            updatedAt = now,
+        )
+        dao.upsert(restored)
+        syncScheduler.enqueue()
+    }
 
     /** One-time copy of the old DataStore `app_theme` onto the default profile row. */
     private suspend fun migrateLegacyThemeIfNeeded() {
