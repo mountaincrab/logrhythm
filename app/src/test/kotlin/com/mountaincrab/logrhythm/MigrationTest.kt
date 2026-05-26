@@ -1,11 +1,13 @@
 package com.mountaincrab.logrhythm
 
 import androidx.room.testing.MigrationTestHelper
+import androidx.sqlite.SQLiteConnection
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.mountaincrab.logrhythm.data.local.ALL_MIGRATIONS
 import com.mountaincrab.logrhythm.data.local.AppDatabase
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -118,5 +120,32 @@ class MigrationTest {
             assertEquals(8888L, c.getLong(1))
         }
         db.close()
+    }
+
+    /**
+     * Verifies every migration overrides migrate(SQLiteConnection).
+     *
+     * MigrationTestHelper uses SupportSQLiteOpenHelper internally and calls
+     * migrate(SupportSQLiteDatabase), so the schema tests above pass even if
+     * migrate(SQLiteConnection) is missing. The production app uses
+     * BundledSQLiteDriver, which calls migrate(SQLiteConnection); if that isn't
+     * overridden the base class throws NotImplementedError on first migration.
+     * This reflection check catches the wrong signature before it ships.
+     */
+    @Test
+    fun allMigrations_overrideSQLiteConnectionMigrate() {
+        for (migration in ALL_MIGRATIONS) {
+            val method = try {
+                migration.javaClass.getDeclaredMethod("migrate", SQLiteConnection::class.java)
+            } catch (e: NoSuchMethodException) {
+                null
+            }
+            assertNotNull(
+                "Migration ${migration.startVersion}→${migration.endVersion} must override " +
+                    "migrate(SQLiteConnection) for BundledSQLiteDriver. " +
+                    "Only migrate(SupportSQLiteDatabase) was found.",
+                method,
+            )
+        }
     }
 }

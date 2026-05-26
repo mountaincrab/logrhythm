@@ -88,6 +88,17 @@ Same convention as crab-do:
 
 Without a matching migration the app crashes on upgrade — that's the intended safety net. We use `fallbackToDestructiveMigrationOnDowngrade` only; upgrades **must** be migrated.
 
+### CRITICAL: migrations must use `migrate(SQLiteConnection)`
+
+The DB is built with `.setDriver(BundledSQLiteDriver())` (see `di/AppModule.kt`). With a driver, Room calls `Migration.migrate(connection: SQLiteConnection)` — **not** the old `migrate(db: SupportSQLiteDatabase)`. Each `Migration` must:
+
+- override `migrate(connection: SQLiteConnection)`, and
+- use the `androidx.sqlite.execSQL` extension: `connection.execSQL("...")`.
+
+Overriding the `SupportSQLiteDatabase` variant **compiles fine but throws `kotlin.NotImplementedError` on-device** the first time any migration runs (the base class's `migrate(SQLiteConnection)` is a stub that throws). This shipped once already (lost during a branch merge) and crashed the app on every upgrade.
+
+`MigrationTestHelper` runs the framework (`SupportSQLiteOpenHelper`) path, so its schema tests pass **even with the wrong signature** — a false green. The `allMigrations_overrideSQLiteConnectionMigrate()` reflection test in `MigrationTest` exists specifically to catch this; keep it.
+
 ## Designs
 
 Source-of-truth design mockups live under `Poop tracker/` at the repo root (JSX prototype, plus reference d1/d2/d3 alternates). The implemented design is the **v2 (refined)** variant — see `Poop tracker/v2-screens.jsx` and `concepts.html`. d1 and d2 are kept only for reference.
