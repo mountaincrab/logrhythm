@@ -22,6 +22,16 @@ interface ProfileDao {
     @Query("SELECT * FROM profiles WHERE isDeleted = 0 ORDER BY createdAt ASC")
     suspend fun getAll(): List<ProfileEntity>
 
+    /** Count of live (non-deleted) entries and tags owned by a profile across every per-profile table. */
+    @Query(
+        "SELECT (SELECT COUNT(*) FROM poop_entries WHERE profileId = :profileId AND isDeleted = 0)" +
+            " + (SELECT COUNT(*) FROM food_entries WHERE profileId = :profileId AND isDeleted = 0)" +
+            " + (SELECT COUNT(*) FROM note_entries WHERE profileId = :profileId AND isDeleted = 0)" +
+            " + (SELECT COUNT(*) FROM poop_tags WHERE profileId = :profileId AND isDeleted = 0)" +
+            " + (SELECT COUNT(*) FROM note_tags WHERE profileId = :profileId AND isDeleted = 0)"
+    )
+    suspend fun countDataForProfile(profileId: String): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(profile: ProfileEntity)
 

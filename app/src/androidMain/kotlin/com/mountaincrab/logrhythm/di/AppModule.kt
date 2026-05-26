@@ -40,7 +40,9 @@ val appModule = module {
         )
             .setDriver(BundledSQLiteDriver())
             .addMigrations(*ALL_MIGRATIONS)
-            .fallbackToDestructiveMigration(dropAllTables = true)
+            // Upgrades MUST be migrated (a missing migration should crash, not wipe data —
+            // see CLAUDE.md). Destructive fallback is restricted to downgrades only.
+            .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
             .build()
     }
 
