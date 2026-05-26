@@ -86,7 +86,7 @@ Same convention as crab-do:
 3. Diff against `N-1.json` to derive SQL.
 4. Add `Migration(N-1, N) { ... }` to `ALL_MIGRATIONS` in `data/local/Migrations.kt`.
 
-Without a matching migration the app crashes on upgrade — that's the intended safety net. We use `fallbackToDestructiveMigrationOnDowngrade` only; upgrades **must** be migrated.
+Without a matching migration the app crashes on upgrade — that's the intended safety net. In `di/AppModule.kt` use **`fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)`** and nothing else; upgrades **must** be migrated. Never use the unconditional `fallbackToDestructiveMigration(...)` — it silently drops every table when an upgrade migration is missing **or throws**, so a buggy migration becomes total data loss instead of a loud crash. (This shipped once: paired with the wrong `migrate()` signature below, it wiped the migration-seeded default profile — see the scenario section.)
 
 ### CRITICAL: migrations must use `migrate(SQLiteConnection)`
 
@@ -98,6 +98,17 @@ The DB is built with `.setDriver(BundledSQLiteDriver())` (see `di/AppModule.kt`)
 Overriding the `SupportSQLiteDatabase` variant **compiles fine but throws `kotlin.NotImplementedError` on-device** the first time any migration runs (the base class's `migrate(SQLiteConnection)` is a stub that throws). This shipped once already (lost during a branch merge) and crashed the app on every upgrade.
 
 `MigrationTestHelper` runs the framework (`SupportSQLiteOpenHelper`) path, so its schema tests pass **even with the wrong signature** — a false green. The `allMigrations_overrideSQLiteConnectionMigrate()` reflection test in `MigrationTest` exists specifically to catch this; keep it.
+
+### Think through every install scenario, not just the upgrade
+
+A `Migration(N-1, N)` only covers **one** path: an existing user upgrading. When a feature adds a table/column that other code depends on (e.g. a row the new code assumes exists, like the `"default"` profile), walk through each scenario explicitly before shipping:
+
+- **Upgrading user** (old DB → version N): the migration runs. Backfill/seed any rows the new code expects, and stamp `syncStatus = PENDING` so seeded rows eventually sync.
+- **Fresh install** (DB created directly at version N): **migrations do NOT run.** Anything a migration seeds will be absent. Seed it at startup or have the code self-heal — never assume a migration-seeded row exists.
+- **Destructive-fallback / downgrade**: tables are dropped and recreated empty; migration-seeded rows are gone.
+- **Firestore-synced data**: pull only restores what was actually *written remotely*. A row seeded purely locally by a migration is invisible to other devices until its SyncWorker pushes it — and if that device is wiped (destructive fallback) before the push, the row is lost **everywhere**, while entries referencing it come back orphaned (their `profileId` falls back to a profile that exists nowhere).
+
+Concrete failure this caused: the `8→9` profiles migration created a local `"default"` profile owning all existing data. Fresh installs never got it; an earlier destructive-fallback wipe destroyed it before sync pushed it, so pulled entries pointed at a non-existent profile (the "?" avatar / empty profile list). Fix: `ProfileRepository.ensureDefaultProfile()` self-heals on startup (covers fresh install + orphan recovery) and the destructive fallback is now downgrade-only. The lesson: **seeding inside a migration is necessary but never sufficient** — pair it with a startup invariant check that holds for fresh installs and post-wipe states too.
 
 ## Designs
 
