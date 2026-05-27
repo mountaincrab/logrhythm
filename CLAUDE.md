@@ -130,13 +130,22 @@ webapp/src/
   lib/{bristol,ratings,mealTags,dates,theme}.ts
   contexts/{AuthContext,ProfileContext,EntriesContext}.tsx
   hooks/{useProfiles,useEntries}.ts   ← onSnapshot listeners + CRUD (soft-delete via isDeleted)
-  components/{AppShell,BottomNav,ProfileMenu,TimelineEntryRow,Sheet,WhenField}.tsx, sheets/Add{Poop,Food,Note}Sheet.tsx
+  components/{AppShell,Sidebar,TimelineEntryRow,Sheet,WhenField}.tsx, sheets/Add{Poop,Food,Note}Sheet.tsx
   pages/{Login,Home,History,EntryDetail,Settings}Page.tsx
 ```
 
-Auth is Google sign-in (`signInWithPopup`). Entries are filtered by the active profile + `isDeleted == false`
-client-side (single-field `profileId` query, so no composite Firestore index is required). `crypto.randomUUID()`
-generates doc ids; the default profile id is `"default"` (matches Android's `DEFAULT_PROFILE_ID`).
+The layout is a desktop web shell: `AppShell` is a full-height flex row with a left `Sidebar`
+(brand, Home/History nav, profile switcher, Settings + sign-out) and a content column with a top header
+bar. There is no bottom tab bar or phone-width column.
+
+Auth is Google sign-in (`signInWithPopup`). `crypto.randomUUID()` generates doc ids; the default profile id
+is `"default"` (matches Android's `DEFAULT_PROFILE_ID`).
+
+`useEntries` fetches **all** entry docs in each collection (no server-side `where`) and filters by the active
+`profileId` + `isDeleted == false` **client-side**, defaulting a missing `profileId` to `"default"`. This is
+deliberate: a server-side `where('profileId','==',…)` equality filter silently excludes pre-multi-profile docs
+that have no `profileId` field (Android tolerates them via `?: DEFAULT_PROFILE_ID` on pull — the webapp must
+mirror that, or older history disappears). No composite Firestore index is required either way.
 
 ## Room migrations
 

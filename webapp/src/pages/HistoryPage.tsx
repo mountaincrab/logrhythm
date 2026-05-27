@@ -32,9 +32,8 @@ export default function HistoryPage() {
     <AppShell
       title="History"
       subtitle={loading ? undefined : tab === 'calendar' ? 'Worst rating per day' : 'Trends over time'}
-      flushContent
     >
-      <div className="flex bg-surface border border-DEFAULT rounded-xl p-[3px] mx-4 mt-2 mb-3.5">
+      <div className="flex bg-surface border border-DEFAULT rounded-xl p-[3px] mb-5 max-w-xs">
         {(['calendar', 'trends'] as const).map((t) => (
           <button
             key={t}
@@ -76,7 +75,7 @@ function CalendarView({ poopByDay }: { poopByDay: Map<number, DayStat> }) {
 
   return (
     <>
-      <div className="px-5 pb-2 flex items-center gap-2">
+      <div className="pb-3 flex items-center gap-2">
         <span className="text-lg font-extrabold tracking-tightish flex-1">{MONTH_NAMES[month]} {year}</span>
         <span className="text-[11px] text-fg-faint font-semibold mr-1">{loggedDays} day{loggedDays === 1 ? '' : 's'} logged</span>
         <div className="flex gap-1.5">
@@ -89,7 +88,7 @@ function CalendarView({ poopByDay }: { poopByDay: Map<number, DayStat> }) {
         </div>
       </div>
 
-      <div className="mx-4 mb-3 bg-surface-raised border border-DEFAULT rounded-2xl p-3.5">
+      <div className="mb-3 bg-surface-raised border border-DEFAULT rounded-2xl p-3.5">
         <div className="grid grid-cols-7 gap-1.5 mb-1.5">
           {WEEKDAYS.map((d, i) => (
             <div key={i} className="text-center text-[10px] font-extrabold text-fg-faint tracking-wide">{d}</div>
@@ -120,7 +119,7 @@ function CalendarView({ poopByDay }: { poopByDay: Map<number, DayStat> }) {
         </div>
       </div>
 
-      <div className="mx-4 mb-4 px-3.5 py-3 bg-surface-raised border border-DEFAULT rounded-xl flex items-center gap-2 text-[11px] text-fg-muted">
+      <div className="px-3.5 py-3 bg-surface-raised border border-DEFAULT rounded-xl flex items-center gap-2 text-[11px] text-fg-muted">
         <span className="mr-auto">Worst rating per day</span>
         {[1, 2, 3, 4, 5].map((n) => (
           <span key={n} className="flex items-center gap-1">
@@ -179,7 +178,7 @@ function TrendsView({ poops, foods }: { poops: PoopEntry[]; foods: FoodEntry[] }
 
   return (
     <>
-      <div className="flex bg-surface border border-DEFAULT rounded-xl p-[3px] mx-4 mb-3.5">
+      <div className="flex bg-surface border border-DEFAULT rounded-xl p-[3px] mb-4 max-w-xs">
         {RANGES.map((r) => (
           <button
             key={r.days}
@@ -191,8 +190,9 @@ function TrendsView({ poops, foods }: { poops: PoopEntry[]; foods: FoodEntry[] }
         ))}
       </div>
 
+      <div className="grid lg:grid-cols-2 gap-3 mb-3">
       {/* Blood rating */}
-      <div className="mx-4 mb-3 bg-surface-raised border border-DEFAULT rounded-2xl p-4">
+      <div className="bg-surface-raised border border-DEFAULT rounded-2xl p-4">
         <div className="ds-eyebrow mb-1">Blood rating</div>
         <div className="flex items-baseline gap-2 mb-2">
           <span className="text-[32px] font-black tracking-tight leading-none">{rated.length ? avgRating.toFixed(1) : '—'}</span>
@@ -237,7 +237,7 @@ function TrendsView({ poops, foods }: { poops: PoopEntry[]; foods: FoodEntry[] }
       </div>
 
       {/* Frequency */}
-      <div className="mx-4 mb-3 bg-surface-raised border border-DEFAULT rounded-2xl p-4">
+      <div className="bg-surface-raised border border-DEFAULT rounded-2xl p-4">
         <div className="ds-eyebrow mb-1">Poops per day</div>
         <div className="flex items-baseline gap-2 mb-2">
           <span className="text-[32px] font-black tracking-tight leading-none">{avgFreq.toFixed(1)}</span>
@@ -256,9 +256,10 @@ function TrendsView({ poops, foods }: { poops: PoopEntry[]; foods: FoodEntry[] }
           <span>{days}d ago</span><span>today</span>
         </div>
       </div>
+      </div>
 
       {/* Food suspects */}
-      <div className="mx-4 mb-4 bg-surface-raised border border-DEFAULT rounded-2xl p-4">
+      <div className="bg-surface-raised border border-DEFAULT rounded-2xl p-4">
         <div className="ds-eyebrow mb-1">Food suspects</div>
         <p className="text-xs text-fg-muted mb-2.5 leading-snug">
           Foods eaten in the 24h before a rating ≥ 3, ranked by how often they showed up.

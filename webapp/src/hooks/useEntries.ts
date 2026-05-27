@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  collection, doc, query, where, onSnapshot,
+  collection, doc, query, onSnapshot,
   setDoc, updateDoc, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../firebase'
@@ -46,7 +46,7 @@ function mapNote(id: string, d: Record<string, unknown>): NoteEntry {
   }
 }
 
-function useCollection<T>(
+function useCollection<T extends { profileId: string }>(
   userId: string,
   name: string,
   profileId: string,
@@ -57,9 +57,16 @@ function useCollection<T>(
   const [loading, setLoading] = useState(true)
   useEffect(() => {
     setLoading(true)
-    const q = query(collection(db, 'users', userId, name), where('profileId', '==', profileId))
+    // No server-side profileId filter: docs written before multi-profile have no
+    // profileId field, which an equality filter would silently exclude. Fetch all
+    // and filter client-side, where the mapper defaults a missing profileId to 'default'.
+    const q = query(collection(db, 'users', userId, name))
     return onSnapshot(q, (snap) => {
-      setItems(snap.docs.map((d) => mapper(d.id, d.data())).filter((t) => !isDeleted(t)))
+      setItems(
+        snap.docs
+          .map((d) => mapper(d.id, d.data()))
+          .filter((t) => !isDeleted(t) && t.profileId === profileId),
+      )
       setLoading(false)
     })
   }, [userId, name, profileId])

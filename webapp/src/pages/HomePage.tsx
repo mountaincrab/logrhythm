@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppShell from '../components/AppShell'
-import ProfileMenu from '../components/ProfileMenu'
 import TimelineEntryRow from '../components/TimelineEntryRow'
 import AddPoopSheet from '../components/sheets/AddPoopSheet'
 import AddFoodSheet from '../components/sheets/AddFoodSheet'
@@ -11,6 +10,12 @@ import { TimelineEntry } from '../types'
 import { dayKey, formatDayLabel, formatDayShort } from '../lib/dates'
 
 type SheetKind = 'poop' | 'food' | 'note' | null
+
+const LOG_BUTTONS = [
+  ['poop', '💩', 'Poop'],
+  ['food', '🍴', 'Food'],
+  ['note', '📝', 'Note'],
+] as const
 
 export default function HomePage() {
   const { timeline, loading, addPoop, addFood, addNote } = useEntriesContext()
@@ -38,19 +43,15 @@ export default function HomePage() {
 
   const openEntry = (item: TimelineEntry) => navigate(`/entry/${item.kind}/${item.entry.id}`)
 
-  const logBar = (
-    <div className="grid grid-cols-3 gap-2 px-4 pt-2.5 pb-[max(env(safe-area-inset-bottom),10px)] bg-surface border-t border-DEFAULT shrink-0">
-      {([
-        ['poop', '💩', 'Poop'],
-        ['food', '🍴', 'Food'],
-        ['note', '📝', 'Note'],
-      ] as const).map(([kind, emoji, label]) => (
+  const logButtons = (
+    <div className="flex gap-2">
+      {LOG_BUTTONS.map(([kind, emoji, label]) => (
         <button
           key={kind}
           onClick={() => setSheet(kind)}
-          className="py-3 rounded-2xl bg-surface-raised border border-DEFAULT text-fg-muted hover:bg-surface-high flex flex-col items-center gap-1 text-[11px] font-bold transition-colors"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-raised border border-DEFAULT text-fg text-sm font-semibold hover:bg-surface-high transition-colors"
         >
-          <span className="text-[22px] leading-none">{emoji}</span>
+          <span className="text-base leading-none">{emoji}</span>
           {label}
         </button>
       ))}
@@ -58,20 +59,20 @@ export default function HomePage() {
   )
 
   return (
-    <AppShell title="Home" subtitle={subtitle} headerRight={<ProfileMenu />} footer={logBar}>
+    <AppShell title="Home" subtitle={subtitle} headerRight={logButtons}>
       {loading ? (
-        <p className="text-fg-faint text-sm px-5 py-8">Loading…</p>
+        <p className="text-fg-faint text-sm py-8">Loading…</p>
       ) : groups.length === 0 ? (
-        <div className="px-6 py-16 text-center">
+        <div className="py-24 text-center">
           <div className="text-5xl mb-4">🩺</div>
           <p className="text-fg font-semibold">Nothing logged yet</p>
-          <p className="text-fg-muted text-sm mt-1">Tap a button below to log your first entry.</p>
+          <p className="text-fg-muted text-sm mt-1">Use the buttons in the top right to log your first entry.</p>
         </div>
       ) : (
-        <div className="pb-4">
+        <div className="space-y-7">
           {groups.map(([key, items]) => (
-            <div key={key} className="px-5 pt-3.5 pb-1.5">
-              <div className="flex items-baseline justify-between mb-2.5">
+            <div key={key}>
+              <div className="flex items-baseline justify-between mb-3">
                 <span className="ds-eyebrow">{formatDayLabel(key)}</span>
                 <span className="text-[11px] text-fg-faint font-semibold">
                   {items.length} entr{items.length === 1 ? 'y' : 'ies'}

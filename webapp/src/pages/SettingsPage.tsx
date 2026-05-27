@@ -38,7 +38,7 @@ export default function SettingsPage() {
 
   return (
     <AppShell title="Settings">
-      <div className="px-5 py-3 max-w-md">
+      <div className="max-w-2xl">
         {/* Appearance */}
         <section className="mb-9">
           <div className="ds-eyebrow mb-2">Appearance</div>

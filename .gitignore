@@ -9,3 +9,6 @@ captures/
 .cxx/
 app/google-services.json
 debug.keystore
+
+# Firebase Hosting deploy cache
+.firebase/

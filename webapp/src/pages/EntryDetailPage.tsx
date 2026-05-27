@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2 } from 'lucide-react'
+import AppShell from '../components/AppShell'
 import { useEntriesContext } from '../contexts/EntriesContext'
 import { EntryKind, NoteEntry } from '../types'
 import { ratingColor, ratingBlurb } from '../lib/ratings'
@@ -18,29 +19,27 @@ function DetailFrame({
 }) {
   const navigate = useNavigate()
   return (
-    <div className="h-[100dvh] bg-bg flex justify-center">
-      <div className="w-full max-w-md flex flex-col bg-bg overflow-hidden">
-        <header className="px-4 pt-3 pb-2 flex items-center gap-2 shrink-0">
-          <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-xl bg-surface flex items-center justify-center text-fg-muted">
-            <ArrowLeft size={20} />
-          </button>
-          <div className="flex-1 text-center">
-            <div className="ds-eyebrow">{eyebrow}</div>
-            <div className="text-[13px] font-bold">{headerLine}</div>
-          </div>
-          <button onClick={onEdit} className="w-10 h-10 rounded-xl bg-surface flex items-center justify-center text-fg-muted">
-            <Pencil size={18} />
-          </button>
-        </header>
-        <main className="flex-1 min-h-0 overflow-y-auto no-scrollbar pb-6">{children}</main>
-      </div>
-    </div>
+    <AppShell
+      title={eyebrow}
+      subtitle={headerLine}
+      onBack={() => navigate(-1)}
+      headerRight={
+        <button
+          onClick={onEdit}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-raised border border-DEFAULT text-fg text-sm font-semibold hover:bg-surface-high transition-colors"
+        >
+          <Pencil size={16} /> Edit
+        </button>
+      }
+    >
+      <div className="max-w-2xl space-y-3">{children}</div>
+    </AppShell>
   )
 }
 
 function Card({ label, children, className = '' }: { label: string; children: React.ReactNode; className?: string }) {
   return (
-    <div className={'mx-4 mb-3 bg-surface-raised border border-DEFAULT rounded-2xl px-4 py-3.5 ' + className}>
+    <div className={'bg-surface-raised border border-DEFAULT rounded-2xl px-4 py-3.5 ' + className}>
       <div className="ds-eyebrow mb-1">{label}</div>
       {children}
     </div>
@@ -49,14 +48,12 @@ function Card({ label, children, className = '' }: { label: string; children: Re
 
 function DeleteButton({ onDelete }: { onDelete: () => void }) {
   return (
-    <div className="px-4 pt-1 pb-2">
-      <button
-        onClick={onDelete}
-        className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-surface-raised border border-DEFAULT text-danger-text font-bold text-sm"
-      >
-        <Trash2 size={16} /> Delete entry
-      </button>
-    </div>
+    <button
+      onClick={onDelete}
+      className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-surface-raised border border-DEFAULT text-danger-text font-bold text-sm hover:bg-surface-high transition-colors"
+    >
+      <Trash2 size={16} /> Delete entry
+    </button>
   )
 }
 
@@ -81,10 +78,12 @@ export default function EntryDetailPage() {
 
   if (!entry) {
     return (
-      <div className="h-[100dvh] bg-bg flex flex-col items-center justify-center gap-3 px-6 text-center">
-        <p className="text-fg-muted text-sm">This entry no longer exists.</p>
-        <button onClick={() => navigate('/')} className="text-accent-text text-sm font-semibold">Back to home</button>
-      </div>
+      <AppShell title="Entry" onBack={() => navigate(-1)}>
+        <div className="py-24 text-center">
+          <p className="text-fg-muted text-sm">This entry no longer exists.</p>
+          <button onClick={() => navigate('/')} className="text-accent-text text-sm font-semibold mt-3">Back to home</button>
+        </div>
+      </AppShell>
     )
   }
 
@@ -105,7 +104,7 @@ export default function EntryDetailPage() {
     return (
       <>
         <DetailFrame eyebrow="Poop" headerLine={headerLine} onEdit={() => setEditing(true)}>
-          <div className="mx-4 mb-3 bg-surface-raised border border-DEFAULT rounded-3xl p-[18px] flex items-center gap-4">
+          <div className="bg-surface-raised border border-DEFAULT rounded-3xl p-[18px] flex items-center gap-4">
             <div className="w-[88px] h-[88px] rounded-3xl flex items-center justify-center text-5xl font-black shrink-0" style={{ background: c.bg, color: c.fg }}>
               {poop.blood}
             </div>
@@ -116,7 +115,7 @@ export default function EntryDetailPage() {
             </div>
           </div>
 
-          <div className="mx-4 mb-3 grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <div className="bg-surface-raised border border-DEFAULT rounded-2xl px-3.5 py-3">
               <div className="ds-eyebrow">Time</div>
               <div className="text-lg font-extrabold mt-1 tabular-nums">{formatTime(poop.occurredAt)}</div>
