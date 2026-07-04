@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -22,6 +23,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,6 +69,18 @@ fun HomeScreen(
 
     var showProfileSheet by remember { mutableStateOf(false) }
     var showAddDialog by remember { mutableStateOf(false) }
+
+    val listState = rememberLazyListState()
+    // When a new entry becomes the top-most item (e.g. after saving the first
+    // poop of a new day), scroll the timeline back to the top so it's visible.
+    // LazyColumn otherwise keeps the scroll anchored to the previously-visible
+    // items by key, leaving the list stuck on an older day.
+    val topEntryId = state.days.firstOrNull()?.entries?.firstOrNull()?.id
+    LaunchedEffect(topEntryId) {
+        if (topEntryId != null) {
+            listState.animateScrollToItem(0)
+        }
+    }
 
     if (showProfileSheet) {
         ProfileSwitcherSheet(
@@ -119,6 +133,7 @@ fun HomeScreen(
             modifier = Modifier.weight(1f).fillMaxWidth(),
         ) {
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 20.dp),
             ) {
