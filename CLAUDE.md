@@ -37,6 +37,37 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 ./gradlew :app:compileDebugKotlinAndroid
 ```
 
+## CI, versioning & releases
+
+Two GitHub Actions workflows (same setup as crab-do / learning-games):
+
+- **`.github/workflows/android-build.yml`** — runs on **pull requests only** (pushes to
+  `main` are handled by the release workflow). Builds the debug APK and uploads it as an
+  artifact named `logrhythm-<version>`.
+- **`.github/workflows/release.yml`** — runs on **push to `main`**. Job 1 analyses the
+  conventional-commit history with `mathieudutour/github-tag-action`, bumps the semver
+  tag and pushes it; job 2 (only if a tag was created) builds the tagged commit and
+  publishes a GitHub Release with the APK attached and notes generated from the commits.
+
+**Versioning is git-derived** (`app/build.gradle.kts`, mirroring crab-do): `versionCode`
+= commit count; `versionName` = latest `vX.Y.Z` tag (clean `X.Y.Z` on `main`/tagged
+builds, `X.Y.Z-<branch>.<sha>` on branches). No version-bump commits. CI passes
+`VERSION_BRANCH`/`VERSION_SHA` so PR builds version correctly; `./gradlew -q
+:app:printVersionName` prints the computed name (used to name the APK).
+
+**Commit messages must use [Conventional Commits](https://www.conventionalcommits.org/)** —
+the release workflow derives both the version bump and the release notes from them:
+`feat:` → minor, `fix:`/`ci:`/`chore:`/`docs:`/`refactor:`/`perf:`/`test:`/`style:` →
+patch, `feat!:` or a `BREAKING CHANGE:` footer → major. An unprefixed subject is dropped
+from the changelog. On squash-merge the **PR title** becomes the `main` commit subject, so
+the PR title is what needs the prefix.
+
+**Secrets** (both optional — builds succeed without them): `GOOGLE_SERVICES_JSON`
+(base64 of a real `app/google-services.json`; falls back to the committed
+`app/google-services.json.placeholder` so Firebase just won't work at runtime) and
+`DEBUG_KEYSTORE` (base64 of a debug keystore for a stable signing key / working Google
+Sign-In; falls back to an ephemeral key).
+
 ## Source layout
 
 ```
