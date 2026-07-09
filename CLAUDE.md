@@ -130,13 +130,20 @@ webapp/src/
   lib/{bristol,ratings,mealTags,dates,theme}.ts
   contexts/{AuthContext,ProfileContext,EntriesContext}.tsx
   hooks/{useProfiles,useEntries}.ts   ← onSnapshot listeners + CRUD (soft-delete via isDeleted)
-  components/{AppShell,Sidebar,TimelineEntryRow,Sheet,WhenField}.tsx, sheets/Add{Poop,Food,Note}Sheet.tsx
+  components/{AppShell,Sidebar,MobileNav,ProfileSwitcher,TimelineEntryRow,Sheet,WhenField}.tsx, sheets/Add{Poop,Food,Note}Sheet.tsx
   pages/{Login,Home,History,EntryDetail,Settings}Page.tsx
 ```
 
-The layout is a desktop web shell: `AppShell` is a full-height flex row with a left `Sidebar`
-(brand, Home/History nav, profile switcher, Settings + sign-out) and a content column with a top header
-bar. There is no bottom tab bar or phone-width column.
+`AppShell` is responsive and switches chrome at Tailwind's `md` (768px) breakpoint — no JS media queries,
+just CSS via responsive class prefixes:
+
+- **Desktop (≥ md):** a full-height flex row with a left `Sidebar` (brand, Home/History nav, profile switcher,
+  Settings + sign-out) and a content column with a top header bar. Home's log buttons sit in the header (`headerRight`).
+- **Phone (< md):** the `Sidebar` is `hidden`; instead a `MobileNav` bottom tab bar (Home/History/Settings) and a
+  header `ProfileSwitcher` avatar (tap → bottom-sheet profile picker) mirror the **Android app** layout. Home's log
+  buttons move to a full-width `bottomBar` of vertical emoji cards above the tab bar. `AppShell` exposes
+  `showProfileSwitcher` and `bottomBar` props for the phone-only chrome; `ProfileSwitcher` and `MobileNav` are
+  `md:hidden`. The Android app is the visual reference for the phone layout — keep them in step.
 
 Auth is Google sign-in (`signInWithPopup`). `crypto.randomUUID()` generates doc ids; the default profile id
 is `"default"` (matches Android's `DEFAULT_PROFILE_ID`).
