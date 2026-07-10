@@ -43,8 +43,10 @@ export default function HomePage() {
 
   const openEntry = (item: TimelineEntry) => navigate(`/entry/${item.kind}/${item.entry.id}`)
 
-  const logButtons = (
-    <div className="flex gap-2">
+  // Desktop: compact pills in the header. Hidden on phones, where the sidebar
+  // is gone and logging lives in the bottom bar (mirrors the Android app).
+  const desktopLogButtons = (
+    <div className="hidden md:flex gap-2">
       {LOG_BUTTONS.map(([kind, emoji, label]) => (
         <button
           key={kind}
@@ -58,15 +60,33 @@ export default function HomePage() {
     </div>
   )
 
+  // Phone: full-width bar of vertical emoji+label cards above the tab bar.
+  const mobileLogBar = (
+    <div className="border-t border-DEFAULT bg-surface px-3 py-2.5">
+      <div className="mx-auto max-w-4xl grid grid-cols-3 gap-2">
+        {LOG_BUTTONS.map(([kind, emoji, label]) => (
+          <button
+            key={kind}
+            onClick={() => setSheet(kind)}
+            className="flex flex-col items-center gap-1 py-2.5 rounded-2xl bg-surface-raised border border-DEFAULT text-fg-muted hover:bg-surface-high transition-colors"
+          >
+            <span className="text-[22px] leading-none">{emoji}</span>
+            <span className="text-[11px] font-bold">{label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+
   return (
-    <AppShell title="Home" subtitle={subtitle} headerRight={logButtons}>
+    <AppShell title="Home" subtitle={subtitle} headerRight={desktopLogButtons} showProfileSwitcher bottomBar={mobileLogBar}>
       {loading ? (
         <p className="text-fg-faint text-sm py-8">Loading…</p>
       ) : groups.length === 0 ? (
         <div className="py-24 text-center">
           <div className="text-5xl mb-4">🩺</div>
           <p className="text-fg font-semibold">Nothing logged yet</p>
-          <p className="text-fg-muted text-sm mt-1">Use the buttons in the top right to log your first entry.</p>
+          <p className="text-fg-muted text-sm mt-1">Tap a log button to add your first entry.</p>
         </div>
       ) : (
         <div className="space-y-7">

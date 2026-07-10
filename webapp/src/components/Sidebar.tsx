@@ -14,7 +14,7 @@ export default function Sidebar() {
   const { pathname } = useLocation()
 
   return (
-    <aside className="w-60 shrink-0 h-[100dvh] bg-surface border-r border-DEFAULT flex flex-col">
+    <aside className="hidden md:flex w-60 shrink-0 h-[100dvh] bg-surface border-r border-DEFAULT flex-col">
       <Link to="/" className="flex items-center gap-2.5 px-4 h-16 shrink-0 border-b border-DEFAULT">
         <div className="w-8 h-8 rounded-xl bg-grad-accent flex items-center justify-center text-base">📈</div>
         <span className="font-extrabold text-fg text-base tracking-tightish">LogRhythm</span>

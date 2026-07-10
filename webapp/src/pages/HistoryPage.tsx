@@ -32,6 +32,7 @@ export default function HistoryPage() {
     <AppShell
       title="History"
       subtitle={loading ? undefined : tab === 'calendar' ? 'Worst rating per day' : 'Trends over time'}
+      showProfileSwitcher
     >
       <div className="flex bg-surface border border-DEFAULT rounded-xl p-[3px] mb-5 max-w-xs">
         {(['calendar', 'trends'] as const).map((t) => (
