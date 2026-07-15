@@ -1,0 +1,14 @@
+{
+  "name": "logrhythm-backfill-profileid-isdeleted",
+  "version": "1.0.0",
+  "private": true,
+  "description": "One-time Firestore backfill of profileId / isDeleted across all users",
+  "type": "commonjs",
+  "scripts": {
+    "backfill": "node backfill.js",
+    "backfill:dry": "node backfill.js --dry-run"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}
