@@ -13,6 +13,9 @@ interface NoteEntryDao {
     @Query("SELECT * FROM note_entries WHERE isDeleted = 0 AND profileId = :profileId ORDER BY occurredAt DESC")
     fun observeAll(profileId: String): Flow<List<NoteEntryEntity>>
 
+    @Query("SELECT * FROM note_entries WHERE isDeleted = 0 AND profileId = :profileId AND occurredAt >= :sinceMillis ORDER BY occurredAt DESC")
+    fun observeSince(profileId: String, sinceMillis: Long): Flow<List<NoteEntryEntity>>
+
     @Query("SELECT * FROM note_entries WHERE id = :id")
     suspend fun getById(id: String): NoteEntryEntity?
 

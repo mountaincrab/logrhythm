@@ -10,6 +10,7 @@ import com.mountaincrab.logrhythm.data.local.dao.NoteTagDao
 import com.mountaincrab.logrhythm.data.local.dao.PoopEntryDao
 import com.mountaincrab.logrhythm.data.local.dao.PoopTagDao
 import com.mountaincrab.logrhythm.data.local.dao.ProfileDao
+import com.mountaincrab.logrhythm.data.local.dao.TimelineDao
 import com.mountaincrab.logrhythm.data.local.entity.FoodEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.NoteEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.NoteEntryTagCrossRef
@@ -43,6 +44,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun poopTagDao(): PoopTagDao
     abstract fun noteTagDao(): NoteTagDao
     abstract fun profileDao(): ProfileDao
+    abstract fun timelineDao(): TimelineDao
 
     companion object {
         const val CURRENT_VERSION = 9

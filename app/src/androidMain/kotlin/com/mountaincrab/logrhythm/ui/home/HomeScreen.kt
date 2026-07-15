@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -24,6 +25,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -82,6 +84,18 @@ fun HomeScreen(
         }
     }
 
+    // Load the next page when the user scrolls within a few items of the end.
+    val reachedEnd by remember {
+        derivedStateOf {
+            val layout = listState.layoutInfo
+            val last = layout.visibleItemsInfo.lastOrNull()?.index ?: -1
+            layout.totalItemsCount > 0 && last >= layout.totalItemsCount - 3
+        }
+    }
+    LaunchedEffect(reachedEnd, state.hasMore) {
+        if (reachedEnd && state.hasMore) viewModel.loadMore()
+    }
+
     if (showProfileSheet) {
         ProfileSwitcherSheet(
             profiles = profiles,
@@ -137,7 +151,9 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 20.dp),
             ) {
-                if (state.days.isEmpty()) {
+                if (state.loading) {
+                    item { LoadingIndicator() }
+                } else if (state.days.isEmpty()) {
                     item { EmptyState() }
                 }
                 state.days.forEach { day ->
@@ -169,6 +185,9 @@ fun HomeScreen(
                             onClick = { onOpenEntry(entry.kindKey(), entry.id) },
                         )
                     }
+                }
+                if (state.loadingMore) {
+                    item(key = "paging-footer") { LoadingIndicator() }
                 }
             }
         }
@@ -213,6 +232,20 @@ private fun LogButton(emoji: String, label: String, modifier: Modifier, onClick:
         Text(text = emoji, fontSize = 22.sp)
         Text(text = label, color = palette.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold,
             maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun LoadingIndicator() {
+    Box(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(24.dp),
+            strokeWidth = 2.dp,
+            color = LocalAppPalette.current.fgMuted,
+        )
     }
 }
 
