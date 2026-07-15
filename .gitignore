@@ -12,3 +12,8 @@ debug.keystore
 
 # Firebase Hosting deploy cache
 .firebase/
+
+# Service-account keys (Admin SDK backfill scripts) — full Firestore admin, never commit
+service-account.json
+scripts/**/service-account.json
+scripts/**/node_modules/
