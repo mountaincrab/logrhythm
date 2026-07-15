@@ -6,7 +6,7 @@ import {
 import { db } from '../firebase'
 import { PoopEntry, FoodEntry, NoteEntry, MealTag, TimelineEntry } from '../types'
 
-function mapPoop(id: string, d: Record<string, unknown>): PoopEntry {
+export function mapPoop(id: string, d: Record<string, unknown>): PoopEntry {
   return {
     id,
     profileId: (d.profileId as string) ?? 'default',
@@ -20,7 +20,7 @@ function mapPoop(id: string, d: Record<string, unknown>): PoopEntry {
   }
 }
 
-function mapFood(id: string, d: Record<string, unknown>): FoodEntry {
+export function mapFood(id: string, d: Record<string, unknown>): FoodEntry {
   return {
     id,
     profileId: (d.profileId as string) ?? 'default',
@@ -32,7 +32,7 @@ function mapFood(id: string, d: Record<string, unknown>): FoodEntry {
   }
 }
 
-function mapNote(id: string, d: Record<string, unknown>): NoteEntry {
+export function mapNote(id: string, d: Record<string, unknown>): NoteEntry {
   return {
     id,
     profileId: (d.profileId as string) ?? 'default',
