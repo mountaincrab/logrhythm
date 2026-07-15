@@ -34,11 +34,11 @@ val AccentOrange = Color(0xFFF97316)
 // Rating colours 1..5 (green → red) — match phone.jsx RATING_COLORS.
 data class RatingColor(val bg: Color, val fg: Color, val soft: Color, val label: String)
 val RatingColors = mapOf(
-    1 to RatingColor(Color(0xFF10B981), Color.White,        Color(0x2910B981), "No blood"),
-    2 to RatingColor(Color(0xFF84CC16), Color(0xFF0A0A0A),  Color(0x2984CC16), "Trace"),
-    3 to RatingColor(Color(0xFFF59E0B), Color(0xFF0A0A0A),  Color(0x2EF59E0B), "Small amount"),
-    4 to RatingColor(Color(0xFFF97316), Color.White,        Color(0x2EF97316), "Quite a lot"),
-    5 to RatingColor(Color(0xFFEF4444), Color.White,        Color(0x33EF4444), "Loads"),
+    1 to RatingColor(Color(0xFF84CC16), Color(0xFF0A0A0A),  Color(0x2984CC16), "No blood"),
+    2 to RatingColor(Color(0xFFFACC15), Color(0xFF0A0A0A),  Color(0x29FACC15), "Trace"),
+    3 to RatingColor(Color(0xFFF97316), Color.White,        Color(0x2EF97316), "Small amount"),
+    4 to RatingColor(Color(0xFFE64A19), Color.White,        Color(0x2EE64A19), "Quite a lot"),
+    5 to RatingColor(Color(0xFFDC2626), Color.White,        Color(0x33DC2626), "Loads"),
 )
 
 // Surface ladder + extra semantic colours not covered by Material3.
