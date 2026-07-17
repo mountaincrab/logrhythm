@@ -52,6 +52,7 @@ val appModule = module {
     single { get<AppDatabase>().poopTagDao() }
     single { get<AppDatabase>().noteTagDao() }
     single { get<AppDatabase>().profileDao() }
+    single { get<AppDatabase>().timelineDao() }
 
     single { ProfileRepository(dao = get(), prefs = get(), syncScheduler = get()) }
 
@@ -62,6 +63,7 @@ val appModule = module {
             noteDao = get(),
             poopTagDao = get(),
             noteTagDao = get(),
+            timelineDao = get(),
             syncScheduler = get(),
             activeProfileId = get<ProfileRepository>().activeProfileId,
             getUserId = { get<AuthRepository>().currentUserId ?: "local" },

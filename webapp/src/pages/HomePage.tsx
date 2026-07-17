@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import TimelineEntryRow from '../components/TimelineEntryRow'
@@ -6,6 +6,9 @@ import AddPoopSheet from '../components/sheets/AddPoopSheet'
 import AddFoodSheet from '../components/sheets/AddFoodSheet'
 import AddNoteSheet from '../components/sheets/AddNoteSheet'
 import { useEntriesContext } from '../contexts/EntriesContext'
+import { useAuth } from '../contexts/AuthContext'
+import { useProfileContext } from '../contexts/ProfileContext'
+import { usePagedTimeline } from '../hooks/usePagedTimeline'
 import { TimelineEntry } from '../types'
 import { dayKey, formatDayLabel, formatDayShort } from '../lib/dates'
 
@@ -18,9 +21,27 @@ const LOG_BUTTONS = [
 ] as const
 
 export default function HomePage() {
-  const { timeline, loading, addPoop, addFood, addNote } = useEntriesContext()
+  // CRUD stays on the shared context; the timeline feed is paged separately so
+  // Home no longer loads all history (History still reads the full context).
+  const { addPoop, addFood, addNote } = useEntriesContext()
+  const { user } = useAuth()
+  const { activeProfileId } = useProfileContext()
+  const { timeline, loading, hasMore, loadingMore, loadMore } = usePagedTimeline(user!.uid, activeProfileId)
   const [sheet, setSheet] = useState<SheetKind>(null)
   const navigate = useNavigate()
+
+  // Infinite scroll: load the next page when the sentinel scrolls into view.
+  const sentinel = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const el = sentinel.current
+    if (!el || !hasMore) return
+    const io = new IntersectionObserver(
+      (entries) => { if (entries[0]?.isIntersecting) loadMore() },
+      { rootMargin: '400px' },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [hasMore, loadMore])
 
   const groups = useMemo(() => {
     const map = new Map<number, TimelineEntry[]>()
@@ -106,6 +127,9 @@ export default function HomePage() {
               </div>
             </div>
           ))}
+          {/* Infinite-scroll sentinel + paging spinner */}
+          {hasMore && <div ref={sentinel} className="h-px" />}
+          {loadingMore && <p className="text-fg-faint text-sm text-center py-4">Loading…</p>}
         </div>
       )}
 
