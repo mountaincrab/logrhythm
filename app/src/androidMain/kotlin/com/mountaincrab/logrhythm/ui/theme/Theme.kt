@@ -34,7 +34,7 @@ val AccentOrange = Color(0xFFF97316)
 // Rating colours 1..5 (green → red) — match phone.jsx RATING_COLORS.
 data class RatingColor(val bg: Color, val fg: Color, val soft: Color, val label: String)
 val RatingColors = mapOf(
-    1 to RatingColor(Color(0xFF84CC16), Color(0xFF0A0A0A),  Color(0x2984CC16), "No blood"),
+    1 to RatingColor(Color(0xFF24FA07), Color(0xFF0A0A0A),  Color(0x2924FA07), "No blood"),
     2 to RatingColor(Color(0xFFFACC15), Color(0xFF0A0A0A),  Color(0x29FACC15), "Trace"),
     3 to RatingColor(Color(0xFFF97316), Color.White,        Color(0x2EF97316), "Small amount"),
     4 to RatingColor(Color(0xFFE64A19), Color.White,        Color(0x2EE64A19), "Quite a lot"),
