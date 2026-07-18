@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -36,9 +37,12 @@ import com.mountaincrab.logrhythm.ui.theme.LocalAppPalette
 import com.mountaincrab.logrhythm.ui.theme.RatingColors
 import org.koin.compose.viewmodel.koinViewModel
 import java.time.DayOfWeek
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 private val monthFmt = DateTimeFormatter.ofPattern("MMMM yyyy")
+private val axisDateFmt = DateTimeFormatter.ofPattern("d MMM")
 
 @Composable
 fun HistoryScreen(
@@ -330,7 +334,7 @@ private fun TrendsView(state: HistoryUiState, viewModel: HistoryViewModel) {
             Text("avg", color = palette.fgMuted, fontSize = 12.sp,
                 modifier = Modifier.padding(bottom = 4.dp))
         }
-        RatingLineChart(state.ratingPoints)
+        RatingLineChart(state.ratingPoints, state.rangeStart, state.rangeEnd)
     }
 
     Spacer(modifier = Modifier.height(12.dp))
@@ -356,7 +360,7 @@ private fun TrendsView(state: HistoryUiState, viewModel: HistoryViewModel) {
             Text("avg / day", color = palette.fgMuted, fontSize = 12.sp,
                 modifier = Modifier.padding(bottom = 4.dp))
         }
-        FrequencyBarChart(state.frequencyBars)
+        FrequencyBarChart(state.frequencyBars, state.rangeStart, state.rangeEnd)
     }
 
     Spacer(modifier = Modifier.height(12.dp))
@@ -382,55 +386,134 @@ private fun TrendsView(state: HistoryUiState, viewModel: HistoryViewModel) {
 }
 
 @Composable
-private fun RatingLineChart(points: List<Pair<java.time.LocalDate, Int>>) {
+private fun RatingLineChart(
+    points: List<Pair<LocalDate, Int>>,
+    rangeStart: LocalDate?,
+    rangeEnd: LocalDate,
+) {
     val palette = LocalAppPalette.current
     val primary = MaterialTheme.colorScheme.primary
     val gridColor = palette.borderSubtle
-    Canvas(modifier = Modifier.fillMaxWidth().height(128.dp)) {
-        val pad = 6.dp.toPx()
-        val w = size.width
-        val h = size.height - 8.dp.toPx()
-        // grid lines for 1..5
-        for (n in 1..5) {
-            val y = pad + (1f - (n - 1) / 4f) * (h - pad * 2)
-            drawLine(gridColor, Offset(pad, y), Offset(w - pad, y), strokeWidth = 1.dp.toPx())
-        }
-        if (points.isEmpty()) return@Canvas
-        val xStep = if (points.size > 1) (w - pad * 2) / (points.size - 1) else 0f
-        val path = Path()
-        points.forEachIndexed { i, (_, r) ->
-            val x = pad + i * xStep
-            val y = pad + (1f - (r - 1) / 4f) * (h - pad * 2)
-            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-        }
-        drawPath(path, color = primary, style = Stroke(width = 2.2.dp.toPx()))
-        points.forEachIndexed { i, (_, r) ->
-            val x = pad + i * xStep
-            val y = pad + (1f - (r - 1) / 4f) * (h - pad * 2)
-            val rc = RatingColors[r]
-            if (rc != null) drawCircle(rc.bg, radius = 3.dp.toPx(), center = Offset(x, y))
+    val chartHeight = 128.dp
+
+    Row(modifier = Modifier.fillMaxWidth()) {
+        // Y axis: rating scale 5 (top) → 1 (bottom), aligned with the grid lines.
+        YAxisLabels(
+            labels = listOf("5", "4", "3", "2", "1"),
+            height = chartHeight,
+            topPad = 4.dp,
+            bottomPad = 12.dp,
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Canvas(modifier = Modifier.fillMaxWidth().height(chartHeight)) {
+                val pad = 6.dp.toPx()
+                val w = size.width
+                val h = size.height - 8.dp.toPx()
+                val plotW = w - pad * 2
+                // grid lines for 1..5
+                for (n in 1..5) {
+                    val y = pad + (1f - (n - 1) / 4f) * (h - pad * 2)
+                    drawLine(gridColor, Offset(pad, y), Offset(w - pad, y), strokeWidth = 1.dp.toPx())
+                }
+                if (points.isEmpty() || rangeStart == null) return@Canvas
+                val totalDays = ChronoUnit.DAYS.between(rangeStart, rangeEnd).toFloat().coerceAtLeast(1f)
+                fun xFor(d: LocalDate): Float {
+                    val frac = (ChronoUnit.DAYS.between(rangeStart, d).toFloat() / totalDays).coerceIn(0f, 1f)
+                    return pad + frac * plotW
+                }
+                fun yFor(r: Int): Float = pad + (1f - (r - 1) / 4f) * (h - pad * 2)
+                val path = Path()
+                points.forEachIndexed { i, (d, r) ->
+                    if (i == 0) path.moveTo(xFor(d), yFor(r)) else path.lineTo(xFor(d), yFor(r))
+                }
+                drawPath(path, color = primary, style = Stroke(width = 2.2.dp.toPx()))
+                points.forEach { (d, r) ->
+                    val rc = RatingColors[r]
+                    if (rc != null) drawCircle(rc.bg, radius = 3.dp.toPx(), center = Offset(xFor(d), yFor(r)))
+                }
+            }
+            XAxisLabels(rangeStart, rangeEnd)
         }
     }
 }
 
 @Composable
-private fun FrequencyBarChart(bars: List<Pair<java.time.LocalDate, Int>>) {
+private fun FrequencyBarChart(
+    bars: List<Pair<LocalDate, Int>>,
+    rangeStart: LocalDate?,
+    rangeEnd: LocalDate,
+) {
     val palette = LocalAppPalette.current
     val primary = MaterialTheme.colorScheme.primary
     val danger = Color(0xFFF97316)
-    Canvas(modifier = Modifier.fillMaxWidth().height(70.dp)) {
-        if (bars.isEmpty()) return@Canvas
-        val gap = 2.dp.toPx()
-        val w = size.width
-        val h = size.height
-        val barW = (w - gap * (bars.size - 1)) / bars.size
-        val maxV = (bars.maxOf { it.second }.coerceAtLeast(5)).toFloat()
-        bars.forEachIndexed { i, (_, v) ->
-            val x = i * (barW + gap)
-            val barH = if (v == 0) 2.dp.toPx() else (v / maxV) * h
-            val color = if (v >= 3) danger else primary
-            drawRect(color = color, topLeft = Offset(x, h - barH),
-                size = androidx.compose.ui.geometry.Size(barW, barH))
+    val chartHeight = 70.dp
+    val maxV = (bars.maxOfOrNull { it.second } ?: 0).coerceAtLeast(5)
+
+    Row(modifier = Modifier.fillMaxWidth()) {
+        // Y axis: poops-per-day count, max (top) → 0 (bottom).
+        YAxisLabels(
+            labels = listOf("$maxV", "0"),
+            height = chartHeight,
+            topPad = 0.dp,
+            bottomPad = 0.dp,
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Canvas(modifier = Modifier.fillMaxWidth().height(chartHeight)) {
+                if (bars.isEmpty()) return@Canvas
+                val gap = 2.dp.toPx()
+                val w = size.width
+                val h = size.height
+                val barW = (w - gap * (bars.size - 1)) / bars.size
+                val maxVf = maxV.toFloat()
+                bars.forEachIndexed { i, (_, v) ->
+                    val x = i * (barW + gap)
+                    val barH = if (v == 0) 2.dp.toPx() else (v / maxVf) * h
+                    val color = if (v >= 3) danger else primary
+                    drawRect(color = color, topLeft = Offset(x, h - barH),
+                        size = androidx.compose.ui.geometry.Size(barW, barH))
+                }
+            }
+            XAxisLabels(rangeStart, rangeEnd)
         }
+    }
+}
+
+/** Vertical tick labels for a chart's Y axis, evenly spaced top → bottom. */
+@Composable
+private fun YAxisLabels(
+    labels: List<String>,
+    height: Dp,
+    topPad: Dp,
+    bottomPad: Dp,
+) {
+    val palette = LocalAppPalette.current
+    Column(
+        modifier = Modifier
+            .width(18.dp)
+            .height(height)
+            .padding(top = topPad, bottom = bottomPad, end = 4.dp),
+        verticalArrangement = Arrangement.SpaceBetween,
+        horizontalAlignment = Alignment.End,
+    ) {
+        labels.forEach { label ->
+            Text(label, color = palette.fgFaint, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+/** Start-of-range and "today" tick labels for a chart's X (time) axis. */
+@Composable
+private fun XAxisLabels(rangeStart: LocalDate?, rangeEnd: LocalDate) {
+    val palette = LocalAppPalette.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp, start = 6.dp, end = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(rangeStart?.format(axisDateFmt) ?: "—",
+            color = palette.fgFaint, fontSize = 9.sp)
+        Text("Today · ${rangeEnd.format(axisDateFmt)}",
+            color = palette.fgFaint, fontSize = 9.sp)
     }
 }
