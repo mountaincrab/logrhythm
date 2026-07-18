@@ -39,6 +39,9 @@ data class HistoryUiState(
     val calendarDays: List<CalendarDay> = emptyList(),
     val daysLoggedThisMonth: Int = 0,
     val range: TrendsRange = TrendsRange.DAYS_30,
+    // Shared time axis for both trend charts so they line up day-for-day.
+    val rangeStart: LocalDate? = null,
+    val rangeEnd: LocalDate = LocalDate.now(),
     val ratingPoints: List<Pair<LocalDate, Int>> = emptyList(),
     val ratingAvg: Double? = null,
     val frequencyBars: List<Pair<LocalDate, Int>> = emptyList(),
@@ -58,8 +61,14 @@ class HistoryViewModel(repository: EntryRepository) : ViewModel() {
         val days = buildCalendar(m, poops, today)
         val daysWithEntries = days.count { it.worstRating != null }
 
-        val (ratingPts, ratingAvg) = buildRatingSeries(poops, r, today)
-        val (freqBars, freqAvg) = buildFrequencySeries(poops, r, today)
+        // One shared window drives both charts so their x-axes match.
+        val rangeStart = if (r == TrendsRange.ALL) {
+            poops.minOfOrNull { it.occurredAt.toLocalDate() }
+        } else {
+            today.minusDays((r.days - 1).toLong())
+        }
+        val (ratingPts, ratingAvg) = buildRatingSeries(poops, rangeStart, today)
+        val (freqBars, freqAvg) = buildFrequencySeries(poops, rangeStart, today)
 
         HistoryUiState(
             tab = t,
@@ -67,6 +76,8 @@ class HistoryViewModel(repository: EntryRepository) : ViewModel() {
             calendarDays = days,
             daysLoggedThisMonth = daysWithEntries,
             range = r,
+            rangeStart = rangeStart,
+            rangeEnd = today,
             ratingPoints = ratingPts,
             ratingAvg = ratingAvg,
             frequencyBars = freqBars,
@@ -108,14 +119,10 @@ class HistoryViewModel(repository: EntryRepository) : ViewModel() {
 
     private fun buildRatingSeries(
         poops: List<PoopEntryEntity>,
-        range: TrendsRange,
+        rangeStart: LocalDate?,
         today: LocalDate,
     ): Pair<List<Pair<LocalDate, Int>>, Double?> {
-        val start = if (range == TrendsRange.ALL) {
-            poops.minOfOrNull { it.occurredAt.toLocalDate() } ?: today
-        } else {
-            today.minusDays((range.days - 1).toLong())
-        }
+        val start = rangeStart ?: today
         val byDay = poops
             .filter { it.occurredAt.toLocalDate() in start..today }
             .groupBy { it.occurredAt.toLocalDate() }
@@ -127,14 +134,10 @@ class HistoryViewModel(repository: EntryRepository) : ViewModel() {
 
     private fun buildFrequencySeries(
         poops: List<PoopEntryEntity>,
-        range: TrendsRange,
+        rangeStart: LocalDate?,
         today: LocalDate,
     ): Pair<List<Pair<LocalDate, Int>>, Double> {
-        val start = if (range == TrendsRange.ALL) {
-            poops.minOfOrNull { it.occurredAt.toLocalDate() } ?: today
-        } else {
-            today.minusDays((range.days - 1).toLong())
-        }
+        val start = rangeStart ?: today
         val daysList = generateSequence(start) { it.plusDays(1) }
             .takeWhile { !it.isAfter(today) }
             .toList()
