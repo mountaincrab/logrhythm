@@ -140,6 +140,8 @@ android {
 
     buildFeatures {
         compose = true
+        // BuildConfig.VERSION_NAME / VERSION_CODE are shown in Settings > About.
+        buildConfig = true
     }
 
     testOptions {

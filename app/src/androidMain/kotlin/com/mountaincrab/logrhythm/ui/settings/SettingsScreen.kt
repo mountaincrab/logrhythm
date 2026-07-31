@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mountaincrab.logrhythm.BuildConfig
 import com.mountaincrab.logrhythm.data.local.entity.NoteTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopTagEntity
 import com.mountaincrab.logrhythm.ui.components.BottomTabBar
@@ -177,6 +178,23 @@ fun SettingsScreen(
                 DataRow("Import from spreadsheet", enabled = false)
                 Divider(palette.borderSubtle)
                 DataRow("Share with my clinician", enabled = false)
+            }
+            Spacer(modifier = Modifier.height(18.dp))
+
+            SectionLabel("About")
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(palette.surfaceRaised)
+                    .border(1.dp, palette.border, RoundedCornerShape(14.dp))
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+            ) {
+                Text("LogRhythm", color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text("Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                    color = palette.fgMuted, fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 2.dp))
             }
         }
 
