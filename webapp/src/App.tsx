@@ -2,10 +2,12 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ProfileProvider } from './contexts/ProfileContext'
 import { EntriesProvider } from './contexts/EntriesContext'
+import { MedicationsProvider } from './contexts/MedicationsContext'
 import LoginPage from './pages/LoginPage'
 import HomePage from './pages/HomePage'
 import HistoryPage from './pages/HistoryPage'
 import EntryDetailPage from './pages/EntryDetailPage'
+import MedsPage from './pages/MedsPage'
 import SettingsPage from './pages/SettingsPage'
 
 function ProtectedLayout() {
@@ -15,7 +17,9 @@ function ProtectedLayout() {
   return (
     <ProfileProvider>
       <EntriesProvider>
-        <Outlet />
+        <MedicationsProvider>
+          <Outlet />
+        </MedicationsProvider>
       </EntriesProvider>
     </ProfileProvider>
   )
@@ -31,6 +35,7 @@ function AppRoutes() {
       <Route element={<ProtectedLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/history" element={<HistoryPage />} />
+        <Route path="/meds" element={<MedsPage />} />
         <Route path="/entry/:kind/:id" element={<EntryDetailPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>

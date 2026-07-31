@@ -58,9 +58,72 @@ export interface Tag {
   isDeleted: boolean
 }
 
-export type EntryKind = 'poop' | 'food' | 'note'
+export type MedicationForm =
+  | 'TABLET' | 'CAPSULE' | 'GRANULES' | 'LIQUID' | 'FOAM' | 'INJECTION' | 'OTHER'
+
+/**
+ * What actually happened to a dose. SCHEDULED is written automatically once a scheduled
+ * dose's time has passed — it means "your schedule says this happened", not "you confirmed
+ * it". Every other state comes from an explicit user action.
+ */
+export type DoseStatus = 'SCHEDULED' | 'TAKEN' | 'SKIPPED' | 'ADJUSTED' | 'MANUAL'
+
+export type RepeatRule = 'DAILY' | 'EVERY_OTHER_DAY' | 'WEEKDAYS' | 'SPECIFIC_DAYS'
+
+/** A medication, defined once and referenced by both scheduled and recorded doses. */
+export interface Medication {
+  id: string
+  profileId: string
+  name: string
+  form: MedicationForm
+  defaultAmount: string
+  defaultUnit: string
+  sortOrder: number
+  createdAt: number
+  isDeleted: boolean
+}
+
+/** One scheduled dose: a medication, an amount, a time of day and a repeat rule. */
+export interface MedicationSchedule {
+  id: string
+  profileId: string
+  medicationId: string
+  amount: string
+  unit: string
+  /** Minutes since local midnight, e.g. 480 for 08:00. */
+  timeMinutes: number
+  repeatRule: RepeatRule
+  /** ISO days of week (Mon = 1 … Sun = 7). Only meaningful for SPECIFIC_DAYS. */
+  daysOfWeek: number[]
+  /** Local epoch-day the schedule starts on; also the EVERY_OTHER_DAY parity anchor. */
+  startEpochDay: number
+  isActive: boolean
+  createdAt: number
+  isDeleted: boolean
+}
+
+/** A recorded dose — a real timeline entry, exactly like a poop / food / note. */
+export interface MedicationEntry {
+  id: string
+  profileId: string
+  medicationId: string
+  /** Snapshot, so a dose still reads correctly if its catalog entry is later deleted. */
+  medicationName: string
+  occurredAt: number
+  amount: string
+  unit: string
+  status: DoseStatus
+  /** The scheduled dose this materialised from, or null when logged by hand. */
+  scheduleId: string | null
+  notes: string | null
+  createdAt: number
+  isDeleted: boolean
+}
+
+export type EntryKind = 'poop' | 'food' | 'note' | 'medicine'
 
 export type TimelineEntry =
   | { kind: 'poop'; occurredAt: number; entry: PoopEntry }
   | { kind: 'food'; occurredAt: number; entry: FoodEntry }
   | { kind: 'note'; occurredAt: number; entry: NoteEntry }
+  | { kind: 'medicine'; occurredAt: number; entry: MedicationEntry }

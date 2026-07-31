@@ -1,13 +1,13 @@
 # LogRhythm — Claude guidance
 
-LogRhythm tracks IBD-relevant signal: poop entries (Bristol type + blood rating + notes), food, and free-form notes. It's modeled after [crab-do](~/git/crab-do) and shares that app's KMP + Compose + Room stack. There are two surfaces: a native **Android** app and a **React web app** (`webapp/`), both backed by the same Firebase project.
+LogRhythm tracks IBD-relevant signal: poop entries (Bristol type + blood rating + notes), food, free-form notes, and medication doses. It's modeled after [crab-do](~/git/crab-do) and shares that app's KMP + Compose + Room stack. There are two surfaces: a native **Android** app and a **React web app** (`webapp/`), both backed by the same Firebase project.
 
 ## Project status
 
 - **Android app** + **web app** (`webapp/`), both live. iOS is still out of scope.
 - **Firebase auth + Firestore sync.** Users sign in (Google); each device syncs through `users/{uid}/…` in Firestore. `userId` is the Firebase uid. `SyncStatus` (PENDING/SYNCED) drives the Android `SyncWorker`; the webapp reads/writes Firestore directly with no local cache.
 - **Multi-profile.** A single Firebase account holds one or more local sub-profiles (e.g. tracking more than one person). Every entry/tag row carries a `profileId` (default profile id is `"default"`). The active profile is a per-device preference.
-- All v2 screens from `Poop tracker/` designs are implemented on Android: Home, Add poop, Add food, Add note, History (Calendar + Trends), Entry detail, Settings, plus Sign-in and Profiles. The webapp mirrors these.
+- All v2 screens from `Poop tracker/` designs are implemented on Android: Home, Add poop, Add food, Add note, Add medicine, History (Calendar + Trends), Meds (Today / Schedule / Medications), Entry detail, Settings, plus Sign-in and Profiles. The webapp mirrors these.
 
 ## Stack
 
@@ -75,9 +75,9 @@ app/src/
   commonMain/kotlin/com/mountaincrab/logrhythm/
     data/
       local/AppDatabase.kt, Migrations.kt
-      local/dao/{Poop,Food,Note}EntryDao.kt, {Poop,Note}TagDao.kt, ProfileDao.kt
-      local/entity/{Poop,Food,Note}EntryEntity.kt, {Poop,Note}TagEntity.kt, {PoopEntry,NoteEntry}TagCrossRef.kt, ProfileEntity.kt
-      model/{Bristol,EntryKind,MealTag,StoolSystem,SyncStatus}.kt
+      local/dao/{Poop,Food,Note}EntryDao.kt, {Poop,Note}TagDao.kt, ProfileDao.kt, Medication{,Schedule,Entry}Dao.kt
+      local/entity/{Poop,Food,Note}EntryEntity.kt, {Poop,Note}TagEntity.kt, {PoopEntry,NoteEntry}TagCrossRef.kt, ProfileEntity.kt, Medication{,Schedule,Entry}Entity.kt
+      model/{Bristol,EntryKind,MealTag,Medication,StoolSystem,SyncStatus}.kt
     util/Platform.kt           ← expect: currentTimeMillis(), randomUUID()
   androidMain/kotlin/com/mountaincrab/logrhythm/
     LogRhythmApplication.kt    ← Koin startup
@@ -85,7 +85,7 @@ app/src/
     di/AppModule.kt
     auth/AuthRepository.kt                  ← Firebase Auth wrapper
     data/remote/FirestoreRepository.kt      ← push/pull mappers (Firestore doc shapes)
-    data/repository/{EntryRepository,ProfileRepository}.kt
+    data/repository/{EntryRepository,ProfileRepository,MedicationRepository}.kt
     sync/{SyncWorker,SyncScheduler}.kt      ← WorkManager push/pull on PENDING rows
     preferences/UserPreferencesRepository.kt
     ui/
@@ -95,7 +95,8 @@ app/src/
       profiles/{ProfilesViewModel,ProfilesScreen}.kt
       components/{BottomTabBar,SheetHeader,WhenPicker,RatingPill,TimelineEntryRow}.kt
       home/{HomeViewModel,HomeScreen}.kt
-      addentry/{AddPoop,AddFood,AddNote}{ViewModel,Screen}.kt
+      addentry/{AddPoop,AddFood,AddNote,AddMedicine}{ViewModel,Screen}.kt
+      meds/{MedsViewModel,MedsScreen,MedicationComponents}.kt
       history/{HistoryViewModel,HistoryScreen}.kt
       detail/{EntryDetailViewModel,EntryDetailScreen}.kt
       settings/{SettingsViewModel,SettingsScreen}.kt
@@ -117,13 +118,51 @@ poop_tags               ← id, profileId, name, isDeleted, sortOrder, createdAt
 note_tags               ← id, profileId, name, isDeleted, sortOrder, createdAt, updatedAt, syncStatus
 poop_entry_tag_refs     ← entryId, tagId  (composite PK — many-to-many join)
 note_entry_tag_refs     ← entryId, tagId  (composite PK — many-to-many join)
+medications             ← id, userId, profileId, name, form (MedicationForm), defaultAmount, defaultUnit, sortOrder, createdAt, updatedAt, syncStatus, isDeleted
+medication_schedules    ← id, userId, profileId, medicationId, amount, unit, timeMinutes (Int, mins from midnight), repeatRule (RepeatRule), daysMask (ISO day bitmask), startEpochDay, isActive, createdAt, updatedAt, syncStatus, isDeleted
+medication_entries      ← id, userId, profileId, medicationId, medicationName, occurredAt, amount, unit, status (DoseStatus), scheduleId?, notes?, createdAt, updatedAt, syncStatus, isDeleted
 ```
 
 Firestore mirror (the cross-device contract — see `FirestoreRepository.kt`): everything lives under
-`users/{uid}/{profiles, poop_entries, food_entries, note_entries, poop_tags, note_tags}`. Differences from the
-Room shape: `bristolTypes` is stored as a **sorted array of ints** (not a bitmask); poop/note docs carry a
-`tagIds` array instead of join rows; `updatedAt` is a Firestore `serverTimestamp()`. Both surfaces must keep
-these field names/shapes in sync — the webapp writes the same documents the Android `SyncWorker` pulls.
+`users/{uid}/{profiles, poop_entries, food_entries, note_entries, poop_tags, note_tags, medications,
+medication_schedules, medication_entries}`. Differences from the Room shape: `bristolTypes` is stored as a
+**sorted array of ints** (not a bitmask); poop/note docs carry a `tagIds` array instead of join rows; a
+schedule's `daysMask` bitmask is stored as a sorted `daysOfWeek` **ISO day array** (Mon = 1 … Sun = 7);
+`updatedAt` is a Firestore `serverTimestamp()`. Both surfaces must keep these field names/shapes in sync —
+the webapp writes the same documents the Android `SyncWorker` pulls.
+
+## Medication
+
+Medication is a first-class entry type: recorded doses are ordinary timeline rows next to poops, meals and
+notes. Three pieces:
+
+- **Catalog** (`medications`) — a medication is defined **once** and referenced everywhere: by scheduled doses
+  and by recorded ones. Drug names are never free text on an entry.
+- **Schedule** (`medication_schedules`) — one row per scheduled dose (medication + amount + time + repeat). A
+  med taken morning and night is two rows. Because each row carries its `medicationId`, the same data renders
+  either as a flat list of doses or grouped per medication; the Meds screen ships both behind a toggle, so
+  that choice stays presentation-only and never becomes a schema change.
+- **Doses** (`medication_entries`) — what actually happened.
+
+**Doses record themselves.** Once a scheduled dose's time has passed it is *materialised* into a real row with
+`status = SCHEDULED`, which means "your schedule says this happened", not "you confirmed it". The user only
+touches the exceptions (`TAKEN` / `SKIPPED` / `ADJUSTED`); `MANUAL` is a one-off logged via the 💊 button.
+This is deliberately not a confirm-every-dose adherence app — daily tapping is what kills those.
+
+Rules that both surfaces must keep identical (`data/model/Medication.kt` ↔ `webapp/src/lib/medications.ts`):
+
+- A materialised dose's id is **derived**: `{scheduleId}_{yyyy-MM-dd}`. That's what stops the phone and the
+  webapp creating two documents for the same dose. Changing this format orphans existing doses.
+- `startEpochDay` is both the "not before" bound and the parity anchor for `EVERY_OTHER_DAY`, so every device
+  agrees on which days fire. It's a **local** epoch day (`Date.UTC(y, m, d)` on the web, to match Java's
+  `LocalDate.toEpochDay()`).
+- Only doses whose time has **passed** are written; the rest of today stays derived from the schedule
+  (`upcomingToday()` / `upcoming`) so the timeline can't claim a dose that hasn't happened yet.
+- Materialisation runs after the sync pull, is bounded to a 14-day backfill, and skips ids that already exist
+  — **including soft-deleted ones**, so a dose the user deleted isn't resurrected on the next pass.
+
+`MedicationScheduleTest` covers the repeat rules, the derived id and the time-of-day buckets on the Kotlin
+side; keep the TS mirror in step with it.
 
 Repository: `EntryRepository` (Android-only because it uses Android-style Flow combine) writes local rows with
 `syncStatus = PENDING`; `SyncScheduler.enqueue()` kicks `SyncWorker`, which pushes pending rows and pulls
@@ -158,11 +197,11 @@ Layout:
 webapp/src/
   firebase.ts                 ← initializes app/auth/db from VITE_FIREBASE_* env vars
   types.ts                    ← TS mirror of the Firestore document shapes
-  lib/{bristol,ratings,mealTags,dates,theme}.ts
-  contexts/{AuthContext,ProfileContext,EntriesContext}.tsx
-  hooks/{useProfiles,useEntries}.ts   ← onSnapshot listeners + CRUD (soft-delete via isDeleted)
-  components/{AppShell,Sidebar,MobileNav,ProfileSwitcher,TimelineEntryRow,Sheet,WhenField}.tsx, sheets/Add{Poop,Food,Note}Sheet.tsx
-  pages/{Login,Home,History,EntryDetail,Settings}Page.tsx
+  lib/{bristol,ratings,mealTags,medications,dates,theme}.ts
+  contexts/{AuthContext,ProfileContext,EntriesContext,MedicationsContext}.tsx
+  hooks/{useProfiles,useEntries,useMedications}.ts   ← onSnapshot listeners + CRUD (soft-delete via isDeleted)
+  components/{AppShell,Sidebar,MobileNav,ProfileSwitcher,TimelineEntryRow,Sheet,WhenField,MedicationFields}.tsx, sheets/Add{Poop,Food,Note,Medicine}Sheet.tsx
+  pages/{Login,Home,History,EntryDetail,Meds,Settings}Page.tsx
 ```
 
 `AppShell` is responsive and switches chrome at Tailwind's `md` (768px) breakpoint — no JS media queries,
@@ -171,7 +210,8 @@ just CSS via responsive class prefixes:
 - **Desktop (≥ md):** a full-height flex row with a left `Sidebar` (brand, Home/History nav, profile switcher,
   Settings + sign-out) and a content column with a top header bar. Home's log buttons sit in the header (`headerRight`).
 - **Phone (< md):** the `Sidebar` is `hidden`; instead a `MobileNav` bottom tab bar (Home/History/Settings) and a
-  header `ProfileSwitcher` avatar (tap → bottom-sheet profile picker) mirror the **Android app** layout. Home's log
+  header `ProfileSwitcher` avatar (tap → bottom-sheet profile picker) mirror the **Android app** layout — the tab
+  bar carries Home/History/Meds/Settings on both surfaces. Home's log
   buttons move to a full-width `bottomBar` of vertical emoji cards above the tab bar. `AppShell` exposes
   `showProfileSwitcher` and `bottomBar` props for the phone-only chrome; `ProfileSwitcher` and `MobileNav` are
   `md:hidden`. The Android app is the visual reference for the phone layout — keep them in step.

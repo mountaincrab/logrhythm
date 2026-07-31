@@ -3,8 +3,8 @@ import {
   collection, query, where, orderBy, limit, onSnapshot,
 } from 'firebase/firestore'
 import { db } from '../firebase'
-import { PoopEntry, FoodEntry, NoteEntry, TimelineEntry } from '../types'
-import { mapPoop, mapFood, mapNote } from './useEntries'
+import { PoopEntry, FoodEntry, NoteEntry, MedicationEntry, TimelineEntry } from '../types'
+import { mapPoop, mapFood, mapNote, mapMedicationEntry } from './useEntries'
 
 const PAGE_SIZE = 50
 
@@ -17,7 +17,7 @@ interface Bucket<T> {
 const EMPTY: Bucket<never> = { items: [], full: false }
 
 /**
- * Paged, live Home timeline built by merging the three entry collections.
+ * Paged, live Home timeline built by merging the entry collections.
  *
  * Firestore has no cross-collection query, so each collection is fetched
  * independently (ordered newest-first) and merged client-side. Rather than
@@ -36,6 +36,7 @@ export function usePagedTimeline(userId: string, profileId: string) {
   const [poop, setPoop] = useState<Bucket<PoopEntry>>(EMPTY)
   const [food, setFood] = useState<Bucket<FoodEntry>>(EMPTY)
   const [note, setNote] = useState<Bucket<NoteEntry>>(EMPTY)
+  const [medicine, setMedicine] = useState<Bucket<MedicationEntry>>(EMPTY)
   const [ready, setReady] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   // Prevents a burst of scroll events from queuing multiple page bumps before
@@ -51,10 +52,10 @@ export function usePagedTimeline(userId: string, profileId: string) {
   }, [userId, profileId])
 
   useEffect(() => {
-    const delivered = { poop: false, food: false, note: false }
+    const delivered = { poop: false, food: false, note: false, medicine: false }
     const markDelivered = (key: keyof typeof delivered) => {
       delivered[key] = true
-      if (delivered.poop && delivered.food && delivered.note) {
+      if (delivered.poop && delivered.food && delivered.note && delivered.medicine) {
         setReady(true)
         setLoadingMore(false)
         busy.current = false
@@ -82,6 +83,7 @@ export function usePagedTimeline(userId: string, profileId: string) {
       subscribe('poop_entries', mapPoop, setPoop, 'poop'),
       subscribe('food_entries', mapFood, setFood, 'food'),
       subscribe('note_entries', mapNote, setNote, 'note'),
+      subscribe('medication_entries', mapMedicationEntry, setMedicine, 'medicine'),
     ]
     return () => unsubs.forEach((u) => u())
   }, [userId, profileId, count])
@@ -91,16 +93,17 @@ export function usePagedTimeline(userId: string, profileId: string) {
       ...poop.items.map((entry) => ({ kind: 'poop' as const, occurredAt: entry.occurredAt, entry })),
       ...food.items.map((entry) => ({ kind: 'food' as const, occurredAt: entry.occurredAt, entry })),
       ...note.items.map((entry) => ({ kind: 'note' as const, occurredAt: entry.occurredAt, entry })),
+      ...medicine.items.map((entry) => ({ kind: 'medicine' as const, occurredAt: entry.occurredAt, entry })),
     ].sort((a, b) => b.occurredAt - a.occurredAt)
-  }, [poop.items, food.items, note.items])
+  }, [poop.items, food.items, note.items, medicine.items])
 
   // Only the newest `count` merged rows are shown; the rest are the merge
-  // over-fetch (up to 3×count fetched to yield one page).
+  // over-fetch (up to 4×count fetched to yield one page).
   const timeline = useMemo(() => merged.slice(0, count), [merged, count])
 
   // More to show if we're hiding over-fetched rows, or any collection hit its
   // page limit (docs may exist beyond what we fetched).
-  const hasMore = merged.length > count || poop.full || food.full || note.full
+  const hasMore = merged.length > count || poop.full || food.full || note.full || medicine.full
 
   const loadMore = useCallback(() => {
     if (busy.current) return

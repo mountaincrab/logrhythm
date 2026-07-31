@@ -4,7 +4,10 @@ import {
   setDoc, updateDoc, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../firebase'
-import { PoopEntry, FoodEntry, NoteEntry, MealTag, TimelineEntry } from '../types'
+import {
+  PoopEntry, FoodEntry, NoteEntry, MealTag, TimelineEntry,
+  MedicationEntry, DoseStatus,
+} from '../types'
 
 export function mapPoop(id: string, d: Record<string, unknown>): PoopEntry {
   return {
@@ -41,6 +44,23 @@ export function mapNote(id: string, d: Record<string, unknown>): NoteEntry {
     caffeine: (d.caffeine as boolean) ?? false,
     alcohol: (d.alcohol as boolean) ?? false,
     tagIds: Array.isArray(d.tagIds) ? (d.tagIds as string[]) : [],
+    createdAt: (d.createdAt as number) ?? 0,
+    isDeleted: (d.isDeleted as boolean) ?? false,
+  }
+}
+
+export function mapMedicationEntry(id: string, d: Record<string, unknown>): MedicationEntry {
+  return {
+    id,
+    profileId: (d.profileId as string) ?? 'default',
+    medicationId: (d.medicationId as string) ?? '',
+    medicationName: (d.medicationName as string) ?? '',
+    occurredAt: (d.occurredAt as number) ?? 0,
+    amount: (d.amount as string) ?? '',
+    unit: (d.unit as string) ?? '',
+    status: (d.status as DoseStatus) ?? 'SCHEDULED',
+    scheduleId: (d.scheduleId as string) ?? null,
+    notes: (d.notes as string) ?? null,
     createdAt: (d.createdAt as number) ?? 0,
     isDeleted: (d.isDeleted as boolean) ?? false,
   }
@@ -90,22 +110,33 @@ export interface NoteInput {
   caffeine: boolean
   alcohol: boolean
 }
+/** A dose logged by hand — the exceptions, since scheduled doses record themselves. */
+export interface MedicineInput {
+  occurredAt: number
+  medicationId: string
+  medicationName: string
+  amount: string
+  unit: string
+  notes: string | null
+}
 
 export function useEntries(userId: string, profileId: string) {
   const poop = useCollection(userId, 'poop_entries', profileId, mapPoop, (p) => p.isDeleted)
   const food = useCollection(userId, 'food_entries', profileId, mapFood, (f) => f.isDeleted)
   const note = useCollection(userId, 'note_entries', profileId, mapNote, (n) => n.isDeleted)
+  const medicine = useCollection(userId, 'medication_entries', profileId, mapMedicationEntry, (m) => m.isDeleted)
 
-  const loading = poop.loading || food.loading || note.loading
+  const loading = poop.loading || food.loading || note.loading || medicine.loading
 
   const timeline = useMemo<TimelineEntry[]>(() => {
     const all: TimelineEntry[] = [
       ...poop.items.map((entry) => ({ kind: 'poop' as const, occurredAt: entry.occurredAt, entry })),
       ...food.items.map((entry) => ({ kind: 'food' as const, occurredAt: entry.occurredAt, entry })),
       ...note.items.map((entry) => ({ kind: 'note' as const, occurredAt: entry.occurredAt, entry })),
+      ...medicine.items.map((entry) => ({ kind: 'medicine' as const, occurredAt: entry.occurredAt, entry })),
     ]
     return all.sort((a, b) => b.occurredAt - a.occurredAt)
-  }, [poop.items, food.items, note.items])
+  }, [poop.items, food.items, note.items, medicine.items])
 
   const col = (name: string) => collection(db, 'users', userId, name)
 
@@ -178,6 +209,48 @@ export function useEntries(userId: string, profileId: string) {
     })
   }
 
+  const addMedicine = async (input: MedicineInput) => {
+    const id = crypto.randomUUID()
+    await setDoc(doc(col('medication_entries'), id), {
+      userId, profileId,
+      medicationId: input.medicationId,
+      medicationName: input.medicationName,
+      occurredAt: input.occurredAt,
+      amount: input.amount,
+      unit: input.unit,
+      status: 'MANUAL',
+      scheduleId: null,
+      notes: input.notes,
+      createdAt: Date.now(),
+      updatedAt: serverTimestamp(),
+      isDeleted: false,
+    })
+  }
+  const updateMedicine = async (id: string, input: MedicineInput) => {
+    await updateDoc(doc(col('medication_entries'), id), {
+      medicationId: input.medicationId,
+      medicationName: input.medicationName,
+      occurredAt: input.occurredAt,
+      amount: input.amount,
+      unit: input.unit,
+      notes: input.notes,
+      updatedAt: serverTimestamp(),
+    })
+  }
+
+  /**
+   * Records what really happened to an already-materialised dose. An amount is only passed
+   * when the user is correcting the quantity, which is what makes a dose "adjusted".
+   */
+  const setDoseStatus = async (id: string, status: DoseStatus, amount?: string, unit?: string) => {
+    await updateDoc(doc(col('medication_entries'), id), {
+      status,
+      ...(amount === undefined ? {} : { amount }),
+      ...(unit === undefined ? {} : { unit }),
+      updatedAt: serverTimestamp(),
+    })
+  }
+
   const softDelete = (name: string) => async (id: string) => {
     await updateDoc(doc(col(name), id), { isDeleted: true, updatedAt: serverTimestamp() })
   }
@@ -186,10 +259,13 @@ export function useEntries(userId: string, profileId: string) {
     poops: poop.items,
     foods: food.items,
     notes: note.items,
+    medicationEntries: medicine.items,
     timeline,
     loading,
     addPoop, updatePoop, deletePoop: softDelete('poop_entries'),
     addFood, updateFood, deleteFood: softDelete('food_entries'),
     addNote, updateNote, deleteNote: softDelete('note_entries'),
+    addMedicine, updateMedicine, deleteMedicine: softDelete('medication_entries'),
+    setDoseStatus,
   }
 }
