@@ -12,12 +12,14 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.mountaincrab.logrhythm.auth.AuthRepository
 import com.mountaincrab.logrhythm.ui.addentry.AddFoodScreen
+import com.mountaincrab.logrhythm.ui.addentry.AddMedicineScreen
 import com.mountaincrab.logrhythm.ui.addentry.AddNoteScreen
 import com.mountaincrab.logrhythm.ui.addentry.AddPoopScreen
 import com.mountaincrab.logrhythm.ui.auth.SignInScreen
 import com.mountaincrab.logrhythm.ui.detail.EntryDetailScreen
 import com.mountaincrab.logrhythm.ui.history.HistoryScreen
 import com.mountaincrab.logrhythm.ui.home.HomeScreen
+import com.mountaincrab.logrhythm.ui.meds.MedsScreen
 import com.mountaincrab.logrhythm.ui.profiles.ProfilesScreen
 import com.mountaincrab.logrhythm.ui.settings.SettingsScreen
 import org.koin.compose.koinInject
@@ -26,10 +28,11 @@ sealed class Screen(val route: String) {
     data object SignIn : Screen("signIn")
     data object Home : Screen("home")
     data object History : Screen("history")
+    data object Meds : Screen("meds")
     data object Settings : Screen("settings")
     data object Profiles : Screen("profiles")
 
-    /** kind: "poop" | "food" | "note", optional editId. */
+    /** kind: "poop" | "food" | "note" | "medicine", optional editId. */
     data object AddPoop : Screen("addPoop?editId={editId}") {
         fun route(editId: String? = null) =
             if (editId == null) "addPoop?editId=" else "addPoop?editId=$editId"
@@ -42,8 +45,12 @@ sealed class Screen(val route: String) {
         fun route(editId: String? = null) =
             if (editId == null) "addNote?editId=" else "addNote?editId=$editId"
     }
+    data object AddMedicine : Screen("addMedicine?editId={editId}") {
+        fun route(editId: String? = null) =
+            if (editId == null) "addMedicine?editId=" else "addMedicine?editId=$editId"
+    }
 
-    /** kind: "poop" | "food" | "note". */
+    /** kind: "poop" | "food" | "note" | "medicine". */
     data object EntryDetail : Screen("entry/{kind}/{id}") {
         fun route(kind: String, id: String) = "entry/$kind/$id"
     }
@@ -84,6 +91,7 @@ fun AppNavigation(navController: NavHostController) {
                 onOpenAddPoop = { navController.navigate(Screen.AddPoop.route()) },
                 onOpenAddFood = { navController.navigate(Screen.AddFood.route()) },
                 onOpenAddNote = { navController.navigate(Screen.AddNote.route()) },
+                onOpenAddMedicine = { navController.navigate(Screen.AddMedicine.route()) },
                 onOpenEntry = { kind, id ->
                     navController.navigate(Screen.EntryDetail.route(kind, id))
                 },
@@ -101,6 +109,21 @@ fun AppNavigation(navController: NavHostController) {
             HistoryScreen(
                 onTabSelect = { tab ->
                     if (tab != Screen.History.route) {
+                        navController.navigate(tab) {
+                            popUpTo(Screen.Home.route) { inclusive = false }
+                            launchSingleTop = true
+                        }
+                    }
+                },
+                onOpenEntry = { kind, id ->
+                    navController.navigate(Screen.EntryDetail.route(kind, id))
+                },
+            )
+        }
+        composable(Screen.Meds.route) {
+            MedsScreen(
+                onTabSelect = { tab ->
+                    if (tab != Screen.Meds.route) {
                         navController.navigate(tab) {
                             popUpTo(Screen.Home.route) { inclusive = false }
                             launchSingleTop = true
@@ -156,6 +179,15 @@ fun AppNavigation(navController: NavHostController) {
             AddNoteScreen(editId = editId, onDismiss = { navController.popBackStack() })
         }
         composable(
+            route = Screen.AddMedicine.route,
+            arguments = listOf(navArgument("editId") {
+                type = NavType.StringType; defaultValue = ""; nullable = false
+            }),
+        ) { backStackEntry ->
+            val editId = backStackEntry.arguments?.getString("editId")?.takeIf { it.isNotBlank() }
+            AddMedicineScreen(editId = editId, onDismiss = { navController.popBackStack() })
+        }
+        composable(
             route = Screen.EntryDetail.route,
             arguments = listOf(
                 navArgument("kind") { type = NavType.StringType },
@@ -172,6 +204,7 @@ fun AppNavigation(navController: NavHostController) {
                     val target = when (editKind) {
                         "poop" -> Screen.AddPoop.route(editId)
                         "food" -> Screen.AddFood.route(editId)
+                        "medicine" -> Screen.AddMedicine.route(editId)
                         else -> Screen.AddNote.route(editId)
                     }
                     navController.navigate(target)

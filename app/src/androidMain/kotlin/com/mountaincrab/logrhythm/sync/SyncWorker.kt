@@ -14,6 +14,7 @@ import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import com.mountaincrab.logrhythm.data.local.AppDatabase
 import com.mountaincrab.logrhythm.data.remote.FirestoreRepository
+import com.mountaincrab.logrhythm.data.repository.MedicationRepository
 import com.mountaincrab.logrhythm.preferences.UserPreferencesRepository
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -27,6 +28,7 @@ class SyncWorker(
     private val db: AppDatabase by inject()
     private val firestoreRepo: FirestoreRepository by inject()
     private val prefs: UserPreferencesRepository by inject()
+    private val medicationRepo: MedicationRepository by inject()
 
     override suspend fun doWork(): Result {
         val uid = Firebase.auth.currentUser?.uid ?: return Result.success()
@@ -64,10 +66,35 @@ class SyncWorker(
                 db.noteEntryDao().markSynced(entry.id, uid)
             }
 
+            // Medications before the schedules and doses that reference them.
+            db.medicationDao().getPending().forEach { med ->
+                firestoreRepo.pushMedication(uid, med)
+                db.medicationDao().markSynced(med.id, uid)
+            }
+            db.medicationScheduleDao().getPending().forEach { schedule ->
+                firestoreRepo.pushMedicationSchedule(uid, schedule)
+                db.medicationScheduleDao().markSynced(schedule.id, uid)
+            }
+            pushMedicationEntries(uid)
+
             pullRemoteChanges(uid)
+
+            // Materialise only after pulling, so a dose another device already recorded
+            // (and possibly marked taken) is seen as existing rather than re-created as
+            // SCHEDULED. Anything genuinely new is pushed straight away.
+            if (medicationRepo.materialiseDueDoses() > 0) {
+                pushMedicationEntries(uid)
+            }
             Result.success()
         } catch (e: Exception) {
             if (runAttemptCount < 3) Result.retry() else Result.failure()
+        }
+    }
+
+    private suspend fun pushMedicationEntries(uid: String) {
+        db.medicationEntryDao().getPending().forEach { entry ->
+            firestoreRepo.pushMedicationEntry(uid, entry)
+            db.medicationEntryDao().markSynced(entry.id, uid)
         }
     }
 
@@ -89,6 +116,11 @@ class SyncWorker(
             db.noteEntryDao().upsert(entity)
             db.noteTagDao().replaceTagsForEntry(entity.id, tagIds)
         }
+
+        // Medications first so schedules and doses resolve against a catalog that exists.
+        firestoreRepo.pullMedications(uid, since).forEach { db.medicationDao().upsert(it) }
+        firestoreRepo.pullMedicationSchedules(uid, since).forEach { db.medicationScheduleDao().upsert(it) }
+        firestoreRepo.pullMedicationEntries(uid, since).forEach { db.medicationEntryDao().upsert(it) }
 
         prefs.setLastSyncTimestamp(System.currentTimeMillis())
     }

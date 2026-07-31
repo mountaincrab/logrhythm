@@ -3,11 +3,13 @@ package com.mountaincrab.logrhythm.ui.detail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mountaincrab.logrhythm.data.local.entity.FoodEntryEntity
+import com.mountaincrab.logrhythm.data.local.entity.MedicationEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.NoteEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.NoteTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopTagEntity
 import com.mountaincrab.logrhythm.data.repository.EntryRepository
+import com.mountaincrab.logrhythm.data.repository.MedicationRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,12 +22,14 @@ data class EntryDetailUiState(
     val food: FoodEntryEntity? = null,
     val note: NoteEntryEntity? = null,
     val noteTags: List<NoteTagEntity> = emptyList(),
+    val medication: MedicationEntryEntity? = null,
     val foodWindow: List<FoodEntryEntity> = emptyList(),
     val deleted: Boolean = false,
 )
 
 class EntryDetailViewModel(
     private val repository: EntryRepository,
+    private val medicationRepository: MedicationRepository,
     val kind: String,
     private val entryId: String,
 ) : ViewModel() {
@@ -54,6 +58,7 @@ class EntryDetailViewModel(
                     val tags = repository.getNoteTags(entryId)
                     _state.update { it.copy(note = n, noteTags = tags) }
                 }
+                "medicine" -> _state.update { it.copy(medication = medicationRepository.getEntry(entryId)) }
             }
         }
     }
@@ -64,6 +69,7 @@ class EntryDetailViewModel(
                 "poop" -> repository.deletePoop(entryId)
                 "food" -> repository.deleteFood(entryId)
                 "note" -> repository.deleteNote(entryId)
+                "medicine" -> medicationRepository.deleteEntry(entryId)
             }
             _state.update { it.copy(deleted = true) }
         }

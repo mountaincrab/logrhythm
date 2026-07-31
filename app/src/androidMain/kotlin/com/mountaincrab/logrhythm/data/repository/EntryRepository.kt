@@ -1,12 +1,14 @@
 package com.mountaincrab.logrhythm.data.repository
 
 import com.mountaincrab.logrhythm.data.local.dao.FoodEntryDao
+import com.mountaincrab.logrhythm.data.local.dao.MedicationEntryDao
 import com.mountaincrab.logrhythm.data.local.dao.NoteEntryDao
 import com.mountaincrab.logrhythm.data.local.dao.NoteTagDao
 import com.mountaincrab.logrhythm.data.local.dao.PoopEntryDao
 import com.mountaincrab.logrhythm.data.local.dao.PoopTagDao
 import com.mountaincrab.logrhythm.data.local.dao.TimelineDao
 import com.mountaincrab.logrhythm.data.local.entity.FoodEntryEntity
+import com.mountaincrab.logrhythm.data.local.entity.MedicationEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.NoteEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.NoteTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryEntity
@@ -20,13 +22,14 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 
 /**
- * Unified timeline view combining poop / food / note entries.
+ * Unified timeline view combining poop / food / note / medication entries.
  * Sorted by occurredAt descending (most recent first), matching the V2 home design.
  */
 sealed class TimelineEntry(open val id: String, open val occurredAt: Long) {
     data class Poop(val entity: PoopEntryEntity, val tags: List<PoopTagEntity> = emptyList()) : TimelineEntry(entity.id, entity.occurredAt)
     data class Food(val entity: FoodEntryEntity) : TimelineEntry(entity.id, entity.occurredAt)
     data class Note(val entity: NoteEntryEntity, val tags: List<NoteTagEntity> = emptyList()) : TimelineEntry(entity.id, entity.occurredAt)
+    data class Medication(val entity: MedicationEntryEntity) : TimelineEntry(entity.id, entity.occurredAt)
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -34,6 +37,7 @@ class EntryRepository(
     private val poopDao: PoopEntryDao,
     private val foodDao: FoodEntryDao,
     private val noteDao: NoteEntryDao,
+    private val medicationEntryDao: MedicationEntryDao,
     private val poopTagDao: PoopTagDao,
     private val noteTagDao: NoteTagDao,
     private val timelineDao: TimelineDao,
@@ -73,17 +77,22 @@ class EntryRepository(
             val tagMap = tags.associateBy { it.id }
             refs.groupBy { it.entryId }.mapValues { (_, r) -> r.mapNotNull { tagMap[it.tagId] } }
         }
+        // Tag maps are combined into one flow first: `combine` tops out at five typed
+        // sources, and the timeline now draws from four entry tables.
+        val tagMapsFlow = combine(poopTagsFlow, noteTagsFlow) { poopTags, noteTags -> poopTags to noteTags }
         return combine(
             poopDao.observeSince(pid, sinceMillis),
             foodDao.observeSince(pid, sinceMillis),
             noteDao.observeSince(pid, sinceMillis),
-            poopTagsFlow,
-            noteTagsFlow,
-        ) { poops, foods, notes, poopTagMap, noteTagMap ->
+            medicationEntryDao.observeSince(pid, sinceMillis),
+            tagMapsFlow,
+        ) { poops, foods, notes, medications, tagMaps ->
+            val (poopTagMap, noteTagMap) = tagMaps
             buildList<TimelineEntry> {
                 poops.forEach { add(TimelineEntry.Poop(it, poopTagMap[it.id] ?: emptyList())) }
                 foods.forEach { add(TimelineEntry.Food(it)) }
                 notes.forEach { add(TimelineEntry.Note(it, noteTagMap[it.id] ?: emptyList())) }
+                medications.forEach { add(TimelineEntry.Medication(it)) }
             }.sortedByDescending { it.occurredAt }
         }
     }
