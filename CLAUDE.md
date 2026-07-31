@@ -55,6 +55,13 @@ builds, `X.Y.Z-<branch>.<sha>` on branches). No version-bump commits. CI passes
 `VERSION_BRANCH`/`VERSION_SHA` so PR builds version correctly; `./gradlew -q
 :app:printVersionName` prints the computed name (used to name the APK).
 
+The **webapp** derives its version the same way, in `webapp/vite.config.ts`: the same
+`vX.Y.Z` tag lookup (honouring `VITE_APP_VERSION`/`VERSION_BRANCH`/`VERSION_SHA`), baked
+in at build time as the `__APP_VERSION__` global (declared in `webapp/src/vite-env.d.ts`).
+Both surfaces show it in **Settings → About** — Android via `BuildConfig.VERSION_NAME`
+(`buildConfig = true` in `app/build.gradle.kts`), the webapp via `__APP_VERSION__`. A
+build from a clone without tags falls back to `0.0.0`.
+
 **Commit messages must use [Conventional Commits](https://www.conventionalcommits.org/)** —
 the release workflow derives both the version bump and the release notes from them:
 `feat:` → minor, `fix:`/`ci:`/`chore:`/`docs:`/`refactor:`/`perf:`/`test:`/`style:` →

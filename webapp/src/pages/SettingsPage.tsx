@@ -139,6 +139,15 @@ export default function SettingsPage() {
             </button>
           </div>
         </section>
+
+        {/* About */}
+        <section className="mb-6">
+          <div className="ds-eyebrow mb-2">About</div>
+          <div className="bg-surface-raised border border-DEFAULT rounded-xl px-4 py-3.5">
+            <div className="text-sm font-semibold text-fg">LogRhythm</div>
+            <div className="text-xs text-fg-muted mt-0.5">Version {__APP_VERSION__}</div>
+          </div>
+        </section>
       </div>
     </AppShell>
   )
