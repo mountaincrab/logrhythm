@@ -59,6 +59,7 @@ fun HomeScreen(
     onOpenAddPoop: () -> Unit,
     onOpenAddFood: () -> Unit,
     onOpenAddNote: () -> Unit,
+    onOpenAddMedicine: () -> Unit,
     onOpenEntry: (kind: String, id: String) -> Unit,
     onTabSelect: (route: String) -> Unit,
     viewModel: HomeViewModel = koinViewModel(),
@@ -192,7 +193,8 @@ fun HomeScreen(
             }
         }
 
-        // Bottom log bar — 3 quick log buttons.
+        // Bottom log bar — quick log buttons. Medicine covers one-off doses; anything on
+        // a schedule records itself and is corrected from the Meds tab.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -204,6 +206,7 @@ fun HomeScreen(
             LogButton(emoji = "💩", label = "Poop", modifier = Modifier.weight(1f), onClick = onOpenAddPoop)
             LogButton(emoji = "🍴", label = "Food", modifier = Modifier.weight(1f), onClick = onOpenAddFood)
             LogButton(emoji = "📝", label = "Note", modifier = Modifier.weight(1f), onClick = onOpenAddNote)
+            LogButton(emoji = "💊", label = "Medicine", modifier = Modifier.weight(1f), onClick = onOpenAddMedicine)
         }
 
         BottomTabBar(active = Screen.Home.route, onSelect = onTabSelect)
@@ -214,6 +217,7 @@ private fun TimelineEntry.kindKey(): String = when (this) {
     is TimelineEntry.Poop -> "poop"
     is TimelineEntry.Food -> "food"
     is TimelineEntry.Note -> "note"
+    is TimelineEntry.Medication -> "medicine"
 }
 
 @Composable
@@ -260,7 +264,7 @@ private fun EmptyState() {
         Text("No entries yet", fontSize = 16.sp, fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground)
         Text(
-            text = "Tap one of the buttons below to log a poop, food, or note.",
+            text = "Tap one of the buttons below to log a poop, food, note, or dose.",
             color = palette.fgMuted, fontSize = 13.sp,
         )
     }

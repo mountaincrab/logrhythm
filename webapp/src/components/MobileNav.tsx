@@ -1,9 +1,10 @@
 import { Link, useLocation } from 'react-router-dom'
-import { ClipboardList, CalendarDays, Settings2, LucideIcon } from 'lucide-react'
+import { ClipboardList, CalendarDays, Pill, Settings2, LucideIcon } from 'lucide-react'
 
 const NAV: { to: string; label: string; icon: LucideIcon }[] = [
   { to: '/', label: 'Home', icon: ClipboardList },
   { to: '/history', label: 'History', icon: CalendarDays },
+  { to: '/meds', label: 'Meds', icon: Pill },
   { to: '/settings', label: 'Settings', icon: Settings2 },
 ]
 

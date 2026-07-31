@@ -1,0 +1,44 @@
+package com.mountaincrab.logrhythm.data.local.dao
+
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import com.mountaincrab.logrhythm.data.local.entity.MedicationScheduleEntity
+import com.mountaincrab.logrhythm.util.currentTimeMillis
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface MedicationScheduleDao {
+    @Query("SELECT * FROM medication_schedules WHERE isDeleted = 0 AND profileId = :profileId ORDER BY timeMinutes ASC")
+    fun observeAll(profileId: String): Flow<List<MedicationScheduleEntity>>
+
+    @Query("SELECT * FROM medication_schedules WHERE isDeleted = 0 AND profileId = :profileId ORDER BY timeMinutes ASC")
+    suspend fun getAll(profileId: String): List<MedicationScheduleEntity>
+
+    /** Only active schedules produce doses; paused ones keep their history. */
+    @Query("SELECT * FROM medication_schedules WHERE isDeleted = 0 AND isActive = 1 AND profileId = :profileId ORDER BY timeMinutes ASC")
+    suspend fun getActive(profileId: String): List<MedicationScheduleEntity>
+
+    @Query("SELECT * FROM medication_schedules WHERE id = :id")
+    suspend fun getById(id: String): MedicationScheduleEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(schedule: MedicationScheduleEntity)
+
+    @Query("UPDATE medication_schedules SET isDeleted = 1, updatedAt = :updatedAt, syncStatus = 'PENDING' WHERE id = :id")
+    suspend fun softDelete(id: String, updatedAt: Long = currentTimeMillis())
+
+    /** Removes every scheduled dose for a medication — used when the medication itself is deleted. */
+    @Query("UPDATE medication_schedules SET isDeleted = 1, updatedAt = :updatedAt, syncStatus = 'PENDING' WHERE medicationId = :medicationId AND isDeleted = 0")
+    suspend fun softDeleteByMedication(medicationId: String, updatedAt: Long = currentTimeMillis())
+
+    @Query("UPDATE medication_schedules SET isDeleted = 1, updatedAt = :updatedAt, syncStatus = 'PENDING' WHERE profileId = :profileId AND isDeleted = 0")
+    suspend fun softDeleteByProfile(profileId: String, updatedAt: Long = currentTimeMillis())
+
+    @Query("SELECT * FROM medication_schedules WHERE syncStatus = 'PENDING'")
+    suspend fun getPending(): List<MedicationScheduleEntity>
+
+    @Query("UPDATE medication_schedules SET syncStatus = 'SYNCED', userId = :userId WHERE id = :id")
+    suspend fun markSynced(id: String, userId: String)
+}

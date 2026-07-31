@@ -7,13 +7,21 @@ import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import com.mountaincrab.logrhythm.data.local.entity.DEFAULT_PROFILE_ID
 import com.mountaincrab.logrhythm.data.local.entity.FoodEntryEntity
+import com.mountaincrab.logrhythm.data.local.entity.MedicationEntity
+import com.mountaincrab.logrhythm.data.local.entity.MedicationEntryEntity
+import com.mountaincrab.logrhythm.data.local.entity.MedicationScheduleEntity
 import com.mountaincrab.logrhythm.data.local.entity.NoteEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.NoteTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.ProfileEntity
+import com.mountaincrab.logrhythm.data.model.DoseStatus
 import com.mountaincrab.logrhythm.data.model.MealTag
+import com.mountaincrab.logrhythm.data.model.MedicationForm
+import com.mountaincrab.logrhythm.data.model.RepeatRule
 import com.mountaincrab.logrhythm.data.model.SyncStatus
+import com.mountaincrab.logrhythm.data.model.daysFromMask
+import com.mountaincrab.logrhythm.data.model.maskFromDays
 import kotlinx.coroutines.tasks.await
 
 class FirestoreRepository {
@@ -210,6 +218,142 @@ class FirestoreRepository {
                         createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis(),
                         updatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time ?: System.currentTimeMillis(),
                         syncStatus = SyncStatus.SYNCED,
+                    )
+                } catch (_: Exception) { null }
+            }
+
+    suspend fun pushMedication(uid: String, med: MedicationEntity) {
+        userCol(uid, "medications").document(med.id).set(
+            mapOf(
+                "userId" to uid,
+                "profileId" to med.profileId,
+                "name" to med.name,
+                "form" to med.form.name,
+                "defaultAmount" to med.defaultAmount,
+                "defaultUnit" to med.defaultUnit,
+                "sortOrder" to med.sortOrder,
+                "createdAt" to med.createdAt,
+                "updatedAt" to FieldValue.serverTimestamp(),
+                "isDeleted" to med.isDeleted,
+            ),
+            SetOptions.merge(),
+        ).await()
+    }
+
+    suspend fun pushMedicationSchedule(uid: String, schedule: MedicationScheduleEntity) {
+        userCol(uid, "medication_schedules").document(schedule.id).set(
+            mapOf(
+                "userId" to uid,
+                "profileId" to schedule.profileId,
+                "medicationId" to schedule.medicationId,
+                "amount" to schedule.amount,
+                "unit" to schedule.unit,
+                "timeMinutes" to schedule.timeMinutes,
+                "repeatRule" to schedule.repeatRule.name,
+                // Stored as a sorted ISO day-of-week array (not the Room bitmask), so the
+                // document stays readable and the webapp doesn't need the bit layout.
+                "daysOfWeek" to daysFromMask(schedule.daysMask),
+                "startEpochDay" to schedule.startEpochDay,
+                "isActive" to schedule.isActive,
+                "createdAt" to schedule.createdAt,
+                "updatedAt" to FieldValue.serverTimestamp(),
+                "isDeleted" to schedule.isDeleted,
+            ),
+            SetOptions.merge(),
+        ).await()
+    }
+
+    suspend fun pushMedicationEntry(uid: String, entry: MedicationEntryEntity) {
+        userCol(uid, "medication_entries").document(entry.id).set(
+            mapOf(
+                "userId" to uid,
+                "profileId" to entry.profileId,
+                "medicationId" to entry.medicationId,
+                "medicationName" to entry.medicationName,
+                "occurredAt" to entry.occurredAt,
+                "amount" to entry.amount,
+                "unit" to entry.unit,
+                "status" to entry.status.name,
+                "scheduleId" to entry.scheduleId,
+                "notes" to entry.notes,
+                "createdAt" to entry.createdAt,
+                "updatedAt" to FieldValue.serverTimestamp(),
+                "isDeleted" to entry.isDeleted,
+            ),
+            SetOptions.merge(),
+        ).await()
+    }
+
+    suspend fun pullMedications(uid: String, since: Timestamp): List<MedicationEntity> =
+        userCol(uid, "medications")
+            .whereGreaterThan("updatedAt", since)
+            .get().await().documents.mapNotNull { doc ->
+                try {
+                    MedicationEntity(
+                        id = doc.id,
+                        userId = uid,
+                        profileId = doc.getString("profileId") ?: DEFAULT_PROFILE_ID,
+                        name = doc.getString("name") ?: return@mapNotNull null,
+                        form = MedicationForm.fromName(doc.getString("form")),
+                        defaultAmount = doc.getString("defaultAmount") ?: "",
+                        defaultUnit = doc.getString("defaultUnit") ?: "",
+                        sortOrder = (doc.getLong("sortOrder") ?: 0L).toInt(),
+                        createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis(),
+                        updatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time ?: System.currentTimeMillis(),
+                        syncStatus = SyncStatus.SYNCED,
+                        isDeleted = doc.getBoolean("isDeleted") ?: false,
+                    )
+                } catch (_: Exception) { null }
+            }
+
+    suspend fun pullMedicationSchedules(uid: String, since: Timestamp): List<MedicationScheduleEntity> =
+        userCol(uid, "medication_schedules")
+            .whereGreaterThan("updatedAt", since)
+            .get().await().documents.mapNotNull { doc ->
+                try {
+                    MedicationScheduleEntity(
+                        id = doc.id,
+                        userId = uid,
+                        profileId = doc.getString("profileId") ?: DEFAULT_PROFILE_ID,
+                        medicationId = doc.getString("medicationId") ?: return@mapNotNull null,
+                        amount = doc.getString("amount") ?: "",
+                        unit = doc.getString("unit") ?: "",
+                        timeMinutes = (doc.getLong("timeMinutes") ?: return@mapNotNull null).toInt(),
+                        repeatRule = RepeatRule.fromName(doc.getString("repeatRule")),
+                        daysMask = maskFromDays(
+                            (doc.get("daysOfWeek") as? List<*>)?.mapNotNull { (it as? Long)?.toInt() } ?: emptyList(),
+                        ),
+                        startEpochDay = doc.getLong("startEpochDay") ?: 0L,
+                        isActive = doc.getBoolean("isActive") ?: true,
+                        createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis(),
+                        updatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time ?: System.currentTimeMillis(),
+                        syncStatus = SyncStatus.SYNCED,
+                        isDeleted = doc.getBoolean("isDeleted") ?: false,
+                    )
+                } catch (_: Exception) { null }
+            }
+
+    suspend fun pullMedicationEntries(uid: String, since: Timestamp): List<MedicationEntryEntity> =
+        userCol(uid, "medication_entries")
+            .whereGreaterThan("updatedAt", since)
+            .get().await().documents.mapNotNull { doc ->
+                try {
+                    MedicationEntryEntity(
+                        id = doc.id,
+                        userId = uid,
+                        profileId = doc.getString("profileId") ?: DEFAULT_PROFILE_ID,
+                        medicationId = doc.getString("medicationId") ?: return@mapNotNull null,
+                        medicationName = doc.getString("medicationName") ?: "",
+                        occurredAt = doc.getLong("occurredAt") ?: return@mapNotNull null,
+                        amount = doc.getString("amount") ?: "",
+                        unit = doc.getString("unit") ?: "",
+                        status = DoseStatus.fromName(doc.getString("status")),
+                        scheduleId = doc.getString("scheduleId"),
+                        notes = doc.getString("notes"),
+                        createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis(),
+                        updatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time ?: System.currentTimeMillis(),
+                        syncStatus = SyncStatus.SYNCED,
+                        isDeleted = doc.getBoolean("isDeleted") ?: false,
                     )
                 } catch (_: Exception) { null }
             }

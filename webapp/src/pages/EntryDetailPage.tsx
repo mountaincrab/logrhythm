@@ -8,9 +8,11 @@ import { ratingColor, ratingBlurb } from '../lib/ratings'
 import { bristol } from '../lib/bristol'
 import { mealTagLabel } from '../lib/mealTags'
 import { formatTime, formatDayFull } from '../lib/dates'
+import { DOSE_STATUS_LABELS, doseStatusColor, formatDose } from '../lib/medications'
 import AddPoopSheet from '../components/sheets/AddPoopSheet'
 import AddFoodSheet from '../components/sheets/AddFoodSheet'
 import AddNoteSheet from '../components/sheets/AddNoteSheet'
+import AddMedicineSheet from '../components/sheets/AddMedicineSheet'
 
 function DetailFrame({
   eyebrow, headerLine, onEdit, children,
@@ -66,7 +68,8 @@ export default function EntryDetailPage() {
   const poop = kind === 'poop' ? ctx.poops.find((p) => p.id === id) : undefined
   const food = kind === 'food' ? ctx.foods.find((f) => f.id === id) : undefined
   const note = kind === 'note' ? ctx.notes.find((n) => n.id === id) : undefined
-  const entry = poop ?? food ?? note
+  const medicine = kind === 'medicine' ? ctx.medicationEntries.find((m) => m.id === id) : undefined
+  const entry = poop ?? food ?? note ?? medicine
 
   const foodBefore = useMemo(() => {
     if (!poop) return []
@@ -92,6 +95,7 @@ export default function EntryDetailPage() {
     if (kind === 'poop') await ctx.deletePoop(id)
     else if (kind === 'food') await ctx.deleteFood(id)
     else if (kind === 'note') await ctx.deleteNote(id)
+    else if (kind === 'medicine') await ctx.deleteMedicine(id)
     navigate(-1)
   }
 
@@ -173,6 +177,52 @@ export default function EntryDetailPage() {
             initial={{ occurredAt: food.occurredAt, items: food.items, mealTag: food.mealTag }}
             onClose={() => setEditing(false)}
             onSave={(input) => ctx.updateFood(food.id, input)}
+          />
+        )}
+      </>
+    )
+  }
+
+  if (medicine) {
+    const dose = formatDose(medicine.amount, medicine.unit)
+    const auto = medicine.scheduleId !== null && medicine.status === 'SCHEDULED'
+    return (
+      <>
+        <DetailFrame eyebrow="Medicine" headerLine={headerLine} onEdit={() => setEditing(true)}>
+          <Card label="Medication">
+            <div className="text-base font-semibold">{medicine.medicationName}</div>
+            {dose && <div className="text-sm text-fg-muted mt-0.5">{dose}</div>}
+          </Card>
+          <Card label="Status">
+            <div className="text-base font-semibold" style={{ color: doseStatusColor(medicine.status) }}>
+              {DOSE_STATUS_LABELS[medicine.status]}
+            </div>
+            {auto && (
+              <div className="text-xs text-fg-muted mt-0.5 leading-snug">
+                Recorded automatically from your schedule. Correct it from the Meds page if
+                you missed it or took a different amount.
+              </div>
+            )}
+          </Card>
+          {medicine.notes && (
+            <Card label="Note">
+              <div className="text-sm leading-relaxed text-fg whitespace-pre-wrap">{medicine.notes}</div>
+            </Card>
+          )}
+          <DeleteButton onDelete={del} />
+        </DetailFrame>
+        {editing && (
+          <AddMedicineSheet
+            initial={{
+              occurredAt: medicine.occurredAt,
+              medicationId: medicine.medicationId,
+              medicationName: medicine.medicationName,
+              amount: medicine.amount,
+              unit: medicine.unit,
+              notes: medicine.notes,
+            }}
+            onClose={() => setEditing(false)}
+            onSave={(input) => ctx.updateMedicine(medicine.id, input)}
           />
         )}
       </>

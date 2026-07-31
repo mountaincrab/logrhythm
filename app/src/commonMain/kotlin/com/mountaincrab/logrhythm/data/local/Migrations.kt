@@ -200,4 +200,70 @@ private val MIGRATION_8_9 = object : Migration(8, 9) {
     }
 }
 
-val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_3_4, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+// Adds medication as a first-class entry type: a catalog of medications, the scheduled
+// doses that reference them, and the recorded doses that land on the timeline.
+// Pure table creation — no existing table is touched, so there is nothing to backfill.
+private val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("""
+            CREATE TABLE medications (
+                id TEXT NOT NULL PRIMARY KEY,
+                userId TEXT NOT NULL,
+                profileId TEXT NOT NULL,
+                name TEXT NOT NULL,
+                form TEXT NOT NULL,
+                defaultAmount TEXT NOT NULL,
+                defaultUnit TEXT NOT NULL,
+                sortOrder INTEGER NOT NULL,
+                createdAt INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL,
+                syncStatus TEXT NOT NULL,
+                isDeleted INTEGER NOT NULL
+            )
+        """.trimIndent())
+
+        connection.execSQL("""
+            CREATE TABLE medication_schedules (
+                id TEXT NOT NULL PRIMARY KEY,
+                userId TEXT NOT NULL,
+                profileId TEXT NOT NULL,
+                medicationId TEXT NOT NULL,
+                amount TEXT NOT NULL,
+                unit TEXT NOT NULL,
+                timeMinutes INTEGER NOT NULL,
+                repeatRule TEXT NOT NULL,
+                daysMask INTEGER NOT NULL,
+                startEpochDay INTEGER NOT NULL,
+                isActive INTEGER NOT NULL,
+                createdAt INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL,
+                syncStatus TEXT NOT NULL,
+                isDeleted INTEGER NOT NULL
+            )
+        """.trimIndent())
+
+        connection.execSQL("""
+            CREATE TABLE medication_entries (
+                id TEXT NOT NULL PRIMARY KEY,
+                userId TEXT NOT NULL,
+                profileId TEXT NOT NULL,
+                medicationId TEXT NOT NULL,
+                medicationName TEXT NOT NULL,
+                occurredAt INTEGER NOT NULL,
+                amount TEXT NOT NULL,
+                unit TEXT NOT NULL,
+                status TEXT NOT NULL,
+                scheduleId TEXT,
+                notes TEXT,
+                createdAt INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL,
+                syncStatus TEXT NOT NULL,
+                isDeleted INTEGER NOT NULL
+            )
+        """.trimIndent())
+    }
+}
+
+val ALL_MIGRATIONS: Array<Migration> = arrayOf(
+    MIGRATION_3_4, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
+)

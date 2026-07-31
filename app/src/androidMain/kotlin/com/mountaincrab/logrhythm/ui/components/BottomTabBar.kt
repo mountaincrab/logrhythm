@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.ChecklistRtl
+import androidx.compose.material.icons.outlined.Medication
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +30,7 @@ data class TabSpec(val route: String, val label: String, val icon: ImageVector)
 private val Tabs = listOf(
     TabSpec(Screen.Home.route,     "Home",     Icons.Outlined.ChecklistRtl),
     TabSpec(Screen.History.route,  "History",  Icons.Outlined.CalendarMonth),
+    TabSpec(Screen.Meds.route,     "Meds",     Icons.Outlined.Medication),
     TabSpec(Screen.Settings.route, "Settings", Icons.Outlined.Settings),
 )
 

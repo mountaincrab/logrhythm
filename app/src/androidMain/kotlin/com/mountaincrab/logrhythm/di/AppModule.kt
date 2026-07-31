@@ -8,16 +8,19 @@ import com.mountaincrab.logrhythm.data.local.ALL_MIGRATIONS
 import com.mountaincrab.logrhythm.data.local.AppDatabase
 import com.mountaincrab.logrhythm.data.remote.FirestoreRepository
 import com.mountaincrab.logrhythm.data.repository.EntryRepository
+import com.mountaincrab.logrhythm.data.repository.MedicationRepository
 import com.mountaincrab.logrhythm.data.repository.ProfileRepository
 import com.mountaincrab.logrhythm.preferences.UserPreferencesRepository
 import com.mountaincrab.logrhythm.sync.SyncScheduler
 import com.mountaincrab.logrhythm.ui.addentry.AddFoodViewModel
+import com.mountaincrab.logrhythm.ui.addentry.AddMedicineViewModel
 import com.mountaincrab.logrhythm.ui.addentry.AddNoteViewModel
 import com.mountaincrab.logrhythm.ui.addentry.AddPoopViewModel
 import com.mountaincrab.logrhythm.ui.auth.SignInViewModel
 import com.mountaincrab.logrhythm.ui.detail.EntryDetailViewModel
 import com.mountaincrab.logrhythm.ui.history.HistoryViewModel
 import com.mountaincrab.logrhythm.ui.home.HomeViewModel
+import com.mountaincrab.logrhythm.ui.meds.MedsViewModel
 import com.mountaincrab.logrhythm.ui.profiles.ProfilesViewModel
 import com.mountaincrab.logrhythm.ui.settings.SettingsViewModel
 import com.mountaincrab.logrhythm.ui.theme.ThemeViewModel
@@ -53,14 +56,29 @@ val appModule = module {
     single { get<AppDatabase>().noteTagDao() }
     single { get<AppDatabase>().profileDao() }
     single { get<AppDatabase>().timelineDao() }
+    single { get<AppDatabase>().medicationDao() }
+    single { get<AppDatabase>().medicationScheduleDao() }
+    single { get<AppDatabase>().medicationEntryDao() }
 
     single { ProfileRepository(dao = get(), prefs = get(), syncScheduler = get()) }
+
+    single {
+        MedicationRepository(
+            medicationDao = get(),
+            scheduleDao = get(),
+            entryDao = get(),
+            syncScheduler = get(),
+            activeProfileId = get<ProfileRepository>().activeProfileId,
+            getUserId = { get<AuthRepository>().currentUserId ?: "local" },
+        )
+    }
 
     single {
         EntryRepository(
             poopDao = get(),
             foodDao = get(),
             noteDao = get(),
+            medicationEntryDao = get(),
             poopTagDao = get(),
             noteTagDao = get(),
             timelineDao = get(),
@@ -72,14 +90,29 @@ val appModule = module {
 
     viewModel { SignInViewModel(authRepo = get()) }
     viewModel { ThemeViewModel(profileRepository = get()) }
-    viewModel { HomeViewModel(repository = get(), profileRepository = get(), syncScheduler = get(), workManager = get()) }
+    viewModel {
+        HomeViewModel(
+            repository = get(),
+            profileRepository = get(),
+            medicationRepository = get(),
+            syncScheduler = get(),
+            workManager = get(),
+        )
+    }
     viewModel { HistoryViewModel(repository = get()) }
+    viewModel { MedsViewModel(repository = get()) }
     viewModel { SettingsViewModel(profileRepository = get(), repository = get(), authRepository = get()) }
-    viewModel { ProfilesViewModel(profileRepository = get(), entryRepository = get()) }
+    viewModel { ProfilesViewModel(profileRepository = get(), entryRepository = get(), medicationRepository = get()) }
     viewModel { (entryId: String?) -> AddPoopViewModel(repository = get(), existingId = entryId) }
     viewModel { (entryId: String?) -> AddFoodViewModel(repository = get(), existingId = entryId) }
     viewModel { (entryId: String?) -> AddNoteViewModel(repository = get(), existingId = entryId) }
+    viewModel { (entryId: String?) -> AddMedicineViewModel(repository = get(), existingId = entryId) }
     viewModel { (kind: String, entryId: String) ->
-        EntryDetailViewModel(repository = get(), kind = kind, entryId = entryId)
+        EntryDetailViewModel(
+            repository = get(),
+            medicationRepository = get(),
+            kind = kind,
+            entryId = entryId,
+        )
     }
 }

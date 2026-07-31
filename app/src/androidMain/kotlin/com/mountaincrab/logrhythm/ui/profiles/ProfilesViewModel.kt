@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mountaincrab.logrhythm.data.local.entity.ProfileEntity
 import com.mountaincrab.logrhythm.data.repository.EntryRepository
+import com.mountaincrab.logrhythm.data.repository.MedicationRepository
 import com.mountaincrab.logrhythm.data.repository.ProfileRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -18,6 +19,7 @@ data class ProfilesUiState(
 class ProfilesViewModel(
     private val profileRepository: ProfileRepository,
     private val entryRepository: EntryRepository,
+    private val medicationRepository: MedicationRepository,
 ) : ViewModel() {
 
     val profiles: StateFlow<List<ProfileEntity>> = profileRepository.profiles
@@ -51,6 +53,7 @@ class ProfilesViewModel(
                 profileRepository.setActiveProfile(remaining.first().id)
             }
             entryRepository.deleteProfileData(id)
+            medicationRepository.deleteProfileData(id)
             profileRepository.deleteProfile(id)
         }
     }

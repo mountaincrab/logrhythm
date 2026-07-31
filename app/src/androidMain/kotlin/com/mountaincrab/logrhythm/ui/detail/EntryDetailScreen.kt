@@ -68,6 +68,7 @@ fun EntryDetailScreen(
             title = when (kind) {
                 "poop" -> state.poop?.occurredAt?.formatFullDayWithTime()
                 "food" -> state.food?.occurredAt?.formatFullDayWithTime()
+                "medicine" -> state.medication?.occurredAt?.formatFullDayWithTime()
                 else -> state.note?.occurredAt?.formatFullDayWithTime()
             } ?: "Entry",
             onBack = onBack,
@@ -91,6 +92,22 @@ fun EntryDetailScreen(
                     DetailNotesCard("Date", f.occurredAt.formatFullDay())
                     DetailNotesCard("What you ate", f.items)
                     f.mealTag?.let { DetailNotesCard("Tag", it.label) }
+                }
+                "medicine" -> state.medication?.let { m ->
+                    DetailNotesCard("Time", m.occurredAt.formatTime())
+                    DetailNotesCard("Date", m.occurredAt.formatFullDay())
+                    DetailNotesCard("Medication", m.medicationName)
+                    val dose = com.mountaincrab.logrhythm.data.model.formatDose(m.amount, m.unit)
+                    if (dose.isNotEmpty()) DetailNotesCard("Dose", dose)
+                    DetailNotesCard(
+                        "Status",
+                        if (m.scheduleId != null && m.status == com.mountaincrab.logrhythm.data.model.DoseStatus.SCHEDULED) {
+                            "${m.status.label} — recorded automatically from your schedule"
+                        } else {
+                            m.status.label
+                        },
+                    )
+                    if (!m.notes.isNullOrBlank()) DetailNotesCard("Note", m.notes!!)
                 }
                 "note" -> state.note?.let { n ->
                     DetailNotesCard("Time", n.occurredAt.formatTime())

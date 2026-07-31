@@ -1,11 +1,12 @@
 import { Link, useLocation } from 'react-router-dom'
-import { ClipboardList, CalendarDays, Settings2, LogOut, Check, LucideIcon } from 'lucide-react'
+import { ClipboardList, CalendarDays, Pill, Settings2, LogOut, Check, LucideIcon } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useProfileContext } from '../contexts/ProfileContext'
 
 const NAV: { to: string; label: string; icon: LucideIcon }[] = [
   { to: '/', label: 'Home', icon: ClipboardList },
   { to: '/history', label: 'History', icon: CalendarDays },
+  { to: '/meds', label: 'Meds', icon: Pill },
 ]
 
 export default function Sidebar() {

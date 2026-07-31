@@ -6,6 +6,7 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.mountaincrab.logrhythm.data.local.entity.ProfileEntity
 import com.mountaincrab.logrhythm.data.repository.EntryRepository
+import com.mountaincrab.logrhythm.data.repository.MedicationRepository
 import com.mountaincrab.logrhythm.data.repository.ProfileRepository
 import com.mountaincrab.logrhythm.data.repository.TimelineEntry
 import com.mountaincrab.logrhythm.sync.SyncScheduler
@@ -37,6 +38,7 @@ data class DayGroup(
 class HomeViewModel(
     private val repository: EntryRepository,
     private val profileRepository: ProfileRepository,
+    private val medicationRepository: MedicationRepository,
     private val syncScheduler: SyncScheduler,
     workManager: WorkManager,
 ) : ViewModel() {
@@ -51,10 +53,13 @@ class HomeViewModel(
 
     init {
         syncScheduler.enqueue()
-        // Reset to the first page whenever the active profile changes.
+        // Reset to the first page whenever the active profile changes. Scheduled doses that
+        // came due while the app was closed are written first, so the first page already
+        // includes them rather than having them pop in once the sync worker gets around to it.
         viewModelScope.launch {
             profileRepository.activeProfileId.collectLatest {
                 initialised.value = false
+                medicationRepository.materialiseDueDoses()
                 watermark.value = Long.MAX_VALUE
                 val wm = repository.timelineWatermark(before = Long.MAX_VALUE, pageSize = PAGE_SIZE)
                 watermark.value = wm

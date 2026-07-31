@@ -5,6 +5,7 @@ import TimelineEntryRow from '../components/TimelineEntryRow'
 import AddPoopSheet from '../components/sheets/AddPoopSheet'
 import AddFoodSheet from '../components/sheets/AddFoodSheet'
 import AddNoteSheet from '../components/sheets/AddNoteSheet'
+import AddMedicineSheet from '../components/sheets/AddMedicineSheet'
 import { useEntriesContext } from '../contexts/EntriesContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useProfileContext } from '../contexts/ProfileContext'
@@ -12,18 +13,21 @@ import { usePagedTimeline } from '../hooks/usePagedTimeline'
 import { TimelineEntry } from '../types'
 import { dayKey, formatDayLabel, formatDayShort } from '../lib/dates'
 
-type SheetKind = 'poop' | 'food' | 'note' | null
+type SheetKind = 'poop' | 'food' | 'note' | 'medicine' | null
 
+// Medicine covers one-off doses; anything on a schedule records itself and is
+// corrected from the Meds page.
 const LOG_BUTTONS = [
   ['poop', '💩', 'Poop'],
   ['food', '🍴', 'Food'],
   ['note', '📝', 'Note'],
+  ['medicine', '💊', 'Medicine'],
 ] as const
 
 export default function HomePage() {
   // CRUD stays on the shared context; the timeline feed is paged separately so
   // Home no longer loads all history (History still reads the full context).
-  const { addPoop, addFood, addNote } = useEntriesContext()
+  const { addPoop, addFood, addNote, addMedicine } = useEntriesContext()
   const { user } = useAuth()
   const { activeProfileId } = useProfileContext()
   const { timeline, loading, hasMore, loadingMore, loadMore } = usePagedTimeline(user!.uid, activeProfileId)
@@ -84,7 +88,7 @@ export default function HomePage() {
   // Phone: full-width bar of vertical emoji+label cards above the tab bar.
   const mobileLogBar = (
     <div className="border-t border-DEFAULT bg-surface px-3 py-2.5">
-      <div className="mx-auto max-w-4xl grid grid-cols-3 gap-2">
+      <div className="mx-auto max-w-4xl grid grid-cols-4 gap-2">
         {LOG_BUTTONS.map(([kind, emoji, label]) => (
           <button
             key={kind}
@@ -136,6 +140,7 @@ export default function HomePage() {
       {sheet === 'poop' && <AddPoopSheet onClose={() => setSheet(null)} onSave={addPoop} />}
       {sheet === 'food' && <AddFoodSheet onClose={() => setSheet(null)} onSave={addFood} />}
       {sheet === 'note' && <AddNoteSheet onClose={() => setSheet(null)} onSave={addNote} />}
+      {sheet === 'medicine' && <AddMedicineSheet onClose={() => setSheet(null)} onSave={addMedicine} />}
     </AppShell>
   )
 }
