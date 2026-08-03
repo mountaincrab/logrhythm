@@ -26,12 +26,12 @@ import com.mountaincrab.logrhythm.data.local.entity.MedicationEntity
 import com.mountaincrab.logrhythm.data.model.MedicationForm
 import com.mountaincrab.logrhythm.data.model.RepeatRule
 import com.mountaincrab.logrhythm.data.model.TimeOfDay
-import com.mountaincrab.logrhythm.data.model.formatDose
 import com.mountaincrab.logrhythm.data.model.formatMinutesOfDay
+import com.mountaincrab.logrhythm.ui.components.FieldLabel
 import com.mountaincrab.logrhythm.ui.theme.LocalAppPalette
 
 /** Emoji stand-in for the design's pill / spray-can icons. */
-fun MedicationForm.emoji(): String = if (isTopical) "🧴" else "💊"
+fun MedicationForm.emoji(): String = if (isRectal) "🧴" else "💊"
 
 /** A pill-shaped selectable chip — the shared look for forms, repeats and medications. */
 @Composable
@@ -94,20 +94,6 @@ fun PlainInput(
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             modifier = Modifier.fillMaxWidth(),
         )
-    }
-}
-
-/** Amount + unit side by side, e.g. "2" / "g". */
-@Composable
-fun DoseFields(
-    amount: String,
-    unit: String,
-    onAmountChange: (String) -> Unit,
-    onUnitChange: (String) -> Unit,
-) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        PlainInput(amount, onAmountChange, "2", modifier = Modifier.weight(1f))
-        PlainInput(unit, onUnitChange, "g", modifier = Modifier.weight(1f))
     }
 }
 
@@ -265,7 +251,7 @@ fun MedicationPicker(
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         medications.forEach { med ->
-            val label = listOf(med.form.emoji() + " " + med.name, formatDose(med.defaultAmount, med.defaultUnit))
+            val label = listOf(med.form.emoji() + " " + med.name, med.dose)
                 .filter { it.isNotBlank() }
                 .joinToString(" · ")
             SelectChip(text = label, selected = med.id == selectedId, onClick = { onSelect(med) })
@@ -283,18 +269,19 @@ fun MedicationPicker(
     }
 }
 
-/** Create/edit a catalog medication: name, form and the dose it's usually taken at. */
+/**
+ * Create/edit a catalog medication — name, form and the strength of one unit, e.g.
+ * "Pentasa, tablet, 1g". How many you take isn't defined here; that's a dose's quantity.
+ */
 @Composable
 fun MedicationEditorDialog(
     initial: MedicationEntity?,
-    onConfirm: (name: String, form: MedicationForm, amount: String, unit: String) -> Unit,
+    onConfirm: (name: String, form: MedicationForm, dose: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var name by remember { mutableStateOf(initial?.name.orEmpty()) }
     var form by remember { mutableStateOf(initial?.form ?: MedicationForm.TABLET) }
-    var amount by remember { mutableStateOf(initial?.defaultAmount.orEmpty()) }
-    var unit by remember { mutableStateOf(initial?.defaultUnit.orEmpty()) }
-    val palette = LocalAppPalette.current
+    var dose by remember { mutableStateOf(initial?.dose.orEmpty()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -305,25 +292,23 @@ fun MedicationEditorDialog(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("Name") },
-                    placeholder = { Text("e.g. Mesalazine (Octasa)") },
+                    placeholder = { Text("e.g. Pentasa") },
                     singleLine = true,
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("FORM", color = palette.fgMuted, fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+                    FieldLabel("FORM")
                     MedicationFormChips(selected = form, onSelect = { form = it })
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("USUAL DOSE", color = palette.fgMuted, fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
-                    DoseFields(amount, unit, { amount = it }, { unit = it })
+                    FieldLabel("DOSE")
+                    PlainInput(dose, { dose = it }, "e.g. 1g", modifier = Modifier.fillMaxWidth())
                 }
             }
         },
         confirmButton = {
             TextButton(
                 enabled = name.isNotBlank(),
-                onClick = { onConfirm(name, form, amount, unit) },
+                onClick = { onConfirm(name, form, dose) },
             ) { Text(if (initial == null) "Add" else "Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },

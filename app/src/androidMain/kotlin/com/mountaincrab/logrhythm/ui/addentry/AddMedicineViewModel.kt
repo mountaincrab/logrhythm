@@ -17,16 +17,15 @@ import kotlinx.coroutines.launch
 data class AddMedicineUiState(
     val occurredAt: Long = currentTimeMillis(),
     val medicationId: String? = null,
-    val amount: String = "",
-    val unit: String = "",
+    val quantity: String = "1",
     val notes: String = "",
     val saving: Boolean = false,
     val saved: Boolean = false,
 )
 
 /**
- * Logs a one-off dose. Regular doses come from the schedule and record themselves, so this
- * is for the exceptions: a painkiller, a rescue dose, something taken off-plan.
+ * Logs a one-off dose, and edits any dose — including one a schedule added, which is how
+ * you correct the quantity you actually took.
  */
 class AddMedicineViewModel(
     private val repository: MedicationRepository,
@@ -47,8 +46,7 @@ class AddMedicineViewModel(
                         it.copy(
                             occurredAt = e.occurredAt,
                             medicationId = e.medicationId,
-                            amount = e.amount,
-                            unit = e.unit,
+                            quantity = e.quantity,
                             notes = e.notes.orEmpty(),
                         )
                     }
@@ -61,28 +59,17 @@ class AddMedicineViewModel(
     }
 
     fun onOccurredAtChange(value: Long) = _state.update { it.copy(occurredAt = value) }
-    fun onAmountChange(value: String) = _state.update { it.copy(amount = value) }
-    fun onUnitChange(value: String) = _state.update { it.copy(unit = value) }
+    fun onQuantityChange(value: String) = _state.update { it.copy(quantity = value) }
     fun onNotesChange(value: String) = _state.update { it.copy(notes = value) }
 
-    /** Selecting a medication pre-fills its usual dose, which the user can still override. */
     fun selectMedication(medication: MedicationEntity) = _state.update {
-        it.copy(
-            medicationId = medication.id,
-            amount = medication.defaultAmount,
-            unit = medication.defaultUnit,
-        )
+        it.copy(medicationId = medication.id)
     }
 
-    fun createMedicationAndSelect(name: String, form: MedicationForm, amount: String, unit: String) {
+    fun createMedicationAndSelect(name: String, form: MedicationForm, dose: String) {
         if (name.isBlank()) return
         viewModelScope.launch {
-            val created = repository.saveMedication(
-                name = name,
-                form = form,
-                defaultAmount = amount,
-                defaultUnit = unit,
-            )
+            val created = repository.saveMedication(name = name, form = form, dose = dose)
             selectMedication(created)
         }
     }
@@ -93,12 +80,11 @@ class AddMedicineViewModel(
         if (s.saving) return
         _state.update { it.copy(saving = true) }
         viewModelScope.launch {
-            repository.saveManualDose(
+            repository.saveDose(
                 id = existingId,
                 medicationId = medicationId,
                 occurredAt = s.occurredAt,
-                amount = s.amount,
-                unit = s.unit,
+                quantity = s.quantity,
                 notes = s.notes,
             )
             _state.update { it.copy(saving = false, saved = true) }

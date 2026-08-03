@@ -18,8 +18,7 @@ function mapMedication(id: string, d: Record<string, unknown>): Medication {
     profileId: (d.profileId as string) ?? 'default',
     name: (d.name as string) ?? '',
     form: (d.form as MedicationForm) ?? 'TABLET',
-    defaultAmount: (d.defaultAmount as string) ?? '',
-    defaultUnit: (d.defaultUnit as string) ?? '',
+    dose: (d.dose as string) ?? '',
     sortOrder: (d.sortOrder as number) ?? 0,
     createdAt: (d.createdAt as number) ?? 0,
     isDeleted: (d.isDeleted as boolean) ?? false,
@@ -31,8 +30,7 @@ function mapSchedule(id: string, d: Record<string, unknown>): MedicationSchedule
     id,
     profileId: (d.profileId as string) ?? 'default',
     medicationId: (d.medicationId as string) ?? '',
-    amount: (d.amount as string) ?? '',
-    unit: (d.unit as string) ?? '',
+    quantity: (d.quantity as string) ?? '',
     timeMinutes: (d.timeMinutes as number) ?? 0,
     repeatRule: (d.repeatRule as RepeatRule) ?? 'DAILY',
     daysOfWeek: Array.isArray(d.daysOfWeek) ? (d.daysOfWeek as number[]).map(Number) : [],
@@ -43,24 +41,15 @@ function mapSchedule(id: string, d: Record<string, unknown>): MedicationSchedule
   }
 }
 
-/** A dose the schedule says is still to come today. Derived — nothing is written for it. */
-export interface UpcomingDose {
-  schedule: MedicationSchedule
-  medication: Medication
-  dueAt: number
-}
-
 export interface MedicationInput {
   name: string
   form: MedicationForm
-  defaultAmount: string
-  defaultUnit: string
+  dose: string
 }
 
 export interface ScheduleInput {
   medicationId: string
-  amount: string
-  unit: string
+  quantity: string
   timeMinutes: number
   repeatRule: RepeatRule
   daysOfWeek: number[]
@@ -113,8 +102,7 @@ export function useMedications(userId: string, profileId: string) {
       userId, profileId,
       name: input.name.trim(),
       form: input.form,
-      defaultAmount: input.defaultAmount.trim(),
-      defaultUnit: input.defaultUnit.trim(),
+      dose: input.dose.trim(),
       sortOrder: medications.length,
       createdAt: Date.now(),
       updatedAt: serverTimestamp(),
@@ -127,8 +115,7 @@ export function useMedications(userId: string, profileId: string) {
     await updateDoc(doc(col('medications'), id), {
       name: input.name.trim(),
       form: input.form,
-      defaultAmount: input.defaultAmount.trim(),
-      defaultUnit: input.defaultUnit.trim(),
+      dose: input.dose.trim(),
       updatedAt: serverTimestamp(),
     })
   }
@@ -152,8 +139,7 @@ export function useMedications(userId: string, profileId: string) {
     await setDoc(doc(col('medication_schedules'), id), {
       userId, profileId,
       medicationId: input.medicationId,
-      amount: input.amount.trim(),
-      unit: input.unit.trim(),
+      quantity: input.quantity.trim(),
       timeMinutes: input.timeMinutes,
       repeatRule: input.repeatRule,
       daysOfWeek: [...input.daysOfWeek].sort((a, b) => a - b),
@@ -168,8 +154,7 @@ export function useMedications(userId: string, profileId: string) {
   const updateSchedule = async (id: string, input: ScheduleInput) => {
     await updateDoc(doc(col('medication_schedules'), id), {
       medicationId: input.medicationId,
-      amount: input.amount.trim(),
-      unit: input.unit.trim(),
+      quantity: input.quantity.trim(),
       timeMinutes: input.timeMinutes,
       repeatRule: input.repeatRule,
       daysOfWeek: [...input.daysOfWeek].sort((a, b) => a - b),
@@ -188,11 +173,11 @@ export function useMedications(userId: string, profileId: string) {
   // ── materialisation ──────────────────────────────────────────────────────
 
   /**
-   * Turns scheduled doses whose time has passed into real medication_entries docs, so meds
-   * appear on the timeline without the user confirming anything.
+   * Turns scheduled doses whose time has passed into real medication_entries docs. This is
+   * the schedule's entire job: automating the adding of dose entries.
    *
-   * Only doses in the past are written; the rest of today stays derived (see `upcoming`),
-   * which is what stops the timeline claiming a dose that hasn't happened yet. Ids are
+   * Only doses in the past are written, so the timeline never claims a dose that hasn't
+   * happened yet. Ids are
    * derived from schedule + date so this and the Android app converge on one document, and
    * each create runs in a transaction that bails if the doc already exists — including when
    * the other device has already recorded it as taken, or the user deleted it.
@@ -236,10 +221,9 @@ export function useMedications(userId: string, profileId: string) {
             userId, profileId,
             medicationId: medication.id,
             medicationName: medication.name,
+            dose: medication.dose,
+            quantity: schedule.quantity,
             occurredAt: dueAt,
-            amount: schedule.amount,
-            unit: schedule.unit,
-            status: 'SCHEDULED',
             scheduleId: schedule.id,
             notes: null,
             createdAt: Date.now(),
@@ -270,53 +254,12 @@ export function useMedications(userId: string, profileId: string) {
     return () => clearInterval(timer)
   }, [loading, schedules, medications])
 
-  /**
-   * Doses still ahead of you today, straight from the schedule. Shown as "due" but never
-   * written — materialisation picks them up once their time passes.
-   */
-  const upcoming = ((): UpcomingDose[] => {
-    const now = Date.now()
-    const today = new Date()
-    const byId = new Map(medications.map((m) => [m.id, m]))
-    return schedules
-      .filter((s) => s.isActive)
-      .flatMap((schedule) => {
-        const medication = byId.get(schedule.medicationId)
-        if (!medication) return []
-        if (!scheduleOccursOn(schedule.repeatRule, schedule.daysOfWeek, schedule.startEpochDay, today)) return []
-        const dueAt = doseMillis(today, schedule.timeMinutes)
-        return dueAt <= now ? [] : [{ schedule, medication, dueAt }]
-      })
-      .sort((a, b) => a.dueAt - b.dueAt)
-  })()
-
-  /** Acts on a dose that hasn't come due yet — records it now instead of waiting. */
-  const confirmUpcoming = async (dose: UpcomingDose, status: 'TAKEN' | 'SKIPPED') => {
-    const id = materialisedDoseId(dose.schedule.id, isoDateString(new Date(dose.dueAt)))
-    await setDoc(doc(col('medication_entries'), id), {
-      userId, profileId,
-      medicationId: dose.medication.id,
-      medicationName: dose.medication.name,
-      occurredAt: dose.dueAt,
-      amount: dose.schedule.amount,
-      unit: dose.schedule.unit,
-      status,
-      scheduleId: dose.schedule.id,
-      notes: null,
-      createdAt: Date.now(),
-      updatedAt: serverTimestamp(),
-      isDeleted: false,
-    })
-  }
-
   return {
     medications,
     schedules,
     loading,
-    upcoming,
     addMedication, updateMedication, deleteMedication,
     addSchedule, updateSchedule, setScheduleActive, deleteSchedule,
-    confirmUpcoming,
   }
 }
 

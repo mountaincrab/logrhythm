@@ -7,7 +7,7 @@ LogRhythm tracks IBD-relevant signal: poop entries (Bristol type + blood rating 
 - **Android app** + **web app** (`webapp/`), both live. iOS is still out of scope.
 - **Firebase auth + Firestore sync.** Users sign in (Google); each device syncs through `users/{uid}/…` in Firestore. `userId` is the Firebase uid. `SyncStatus` (PENDING/SYNCED) drives the Android `SyncWorker`; the webapp reads/writes Firestore directly with no local cache.
 - **Multi-profile.** A single Firebase account holds one or more local sub-profiles (e.g. tracking more than one person). Every entry/tag row carries a `profileId` (default profile id is `"default"`). The active profile is a per-device preference.
-- All v2 screens from `Poop tracker/` designs are implemented on Android: Home, Add poop, Add food, Add note, Add medicine, History (Calendar + Trends), Meds (Today / Schedule / Medications), Entry detail, Settings, plus Sign-in and Profiles. The webapp mirrors these.
+- All v2 screens from `Poop tracker/` designs are implemented on Android: Home, Add poop, Add food, Add note, Add medicine, History (Calendar + Trends), Meds (Schedule / Medications), Entry detail, Settings, plus Sign-in and Profiles. The webapp mirrors these.
 
 ## Stack
 
@@ -125,9 +125,9 @@ poop_tags               ← id, profileId, name, isDeleted, sortOrder, createdAt
 note_tags               ← id, profileId, name, isDeleted, sortOrder, createdAt, updatedAt, syncStatus
 poop_entry_tag_refs     ← entryId, tagId  (composite PK — many-to-many join)
 note_entry_tag_refs     ← entryId, tagId  (composite PK — many-to-many join)
-medications             ← id, userId, profileId, name, form (MedicationForm), defaultAmount, defaultUnit, sortOrder, createdAt, updatedAt, syncStatus, isDeleted
-medication_schedules    ← id, userId, profileId, medicationId, amount, unit, timeMinutes (Int, mins from midnight), repeatRule (RepeatRule), daysMask (ISO day bitmask), startEpochDay, isActive, createdAt, updatedAt, syncStatus, isDeleted
-medication_entries      ← id, userId, profileId, medicationId, medicationName, occurredAt, amount, unit, status (DoseStatus), scheduleId?, notes?, createdAt, updatedAt, syncStatus, isDeleted
+medications             ← id, userId, profileId, name, form (MedicationForm), dose (strength of one unit, e.g. "1g"), sortOrder, createdAt, updatedAt, syncStatus, isDeleted
+medication_schedules    ← id, userId, profileId, medicationId, quantity, timeMinutes (Int, mins from midnight), repeatRule (RepeatRule), daysMask (ISO day bitmask), startEpochDay, isActive, createdAt, updatedAt, syncStatus, isDeleted
+medication_entries      ← id, userId, profileId, medicationId, medicationName, dose, quantity, occurredAt, scheduleId?, notes?, createdAt, updatedAt, syncStatus, isDeleted
 ```
 
 Firestore mirror (the cross-device contract — see `FirestoreRepository.kt`): everything lives under
@@ -144,17 +144,22 @@ Medication is a first-class entry type: recorded doses are ordinary timeline row
 notes. Three pieces:
 
 - **Catalog** (`medications`) — a medication is defined **once** and referenced everywhere: by scheduled doses
-  and by recorded ones. Drug names are never free text on an entry.
-- **Schedule** (`medication_schedules`) — one row per scheduled dose (medication + amount + time + repeat). A
-  med taken morning and night is two rows. Because each row carries its `medicationId`, the same data renders
-  either as a flat list of doses or grouped per medication; the Meds screen ships both behind a toggle, so
-  that choice stays presentation-only and never becomes a schema change.
-- **Doses** (`medication_entries`) — what actually happened.
+  and by recorded ones. Drug names are never free text on an entry. A medication is *name + form + strength*
+  — "Pentasa, tablet, 1g". How many you take is **not** part of the definition.
+- **Schedule** (`medication_schedules`) — one row per scheduled dose (medication + quantity + time + repeat).
+  `quantity` is how many units, so "2" against Pentasa 1g means two 1g tablets. A med taken morning and night
+  is two rows. Because each row carries its `medicationId`, the same data renders either as a flat list of
+  doses or grouped per medication; the Meds screen ships both behind a toggle, so that choice stays
+  presentation-only and never becomes a schema change.
+- **Doses** (`medication_entries`) — what happened. `medicationName` and `dose` are snapshots so a dose still
+  reads correctly after its catalog entry is edited or deleted.
 
-**Doses record themselves.** Once a scheduled dose's time has passed it is *materialised* into a real row with
-`status = SCHEDULED`, which means "your schedule says this happened", not "you confirmed it". The user only
-touches the exceptions (`TAKEN` / `SKIPPED` / `ADJUSTED`); `MANUAL` is a one-off logged via the 💊 button.
-This is deliberately not a confirm-every-dose adherence app — daily tapping is what kills those.
+**The schedule exists only to automate adding dose entries.** Once a scheduled dose's time has passed it is
+*materialised* into a real timeline row. There is deliberately **no per-dose status** and no review screen:
+the row existing is the record. Missed a dose? Delete the entry. Took a different amount? Edit its quantity.
+Those are the same two gestures every other entry type uses, and adding a second place to confirm or correct
+doses is what made this confusing the first time round. This is not a confirm-every-dose adherence app —
+daily tapping is what kills those.
 
 Rules that both surfaces must keep identical (`data/model/Medication.kt` ↔ `webapp/src/lib/medications.ts`):
 
@@ -163,10 +168,12 @@ Rules that both surfaces must keep identical (`data/model/Medication.kt` ↔ `we
 - `startEpochDay` is both the "not before" bound and the parity anchor for `EVERY_OTHER_DAY`, so every device
   agrees on which days fire. It's a **local** epoch day (`Date.UTC(y, m, d)` on the web, to match Java's
   `LocalDate.toEpochDay()`).
-- Only doses whose time has **passed** are written; the rest of today stays derived from the schedule
-  (`upcomingToday()` / `upcoming`) so the timeline can't claim a dose that hasn't happened yet.
+- Only doses whose time has **passed** are written, so the timeline can't claim a dose that hasn't
+  happened yet.
 - Materialisation runs after the sync pull, is bounded to a 14-day backfill, and skips ids that already exist
   — **including soft-deleted ones**, so a dose the user deleted isn't resurrected on the next pass.
+- `MedicationForm` is a closed set — `TABLET`, `GRANULES`, `FOAM`, `ENEMA`, `SUPPOSITORY` — and both surfaces
+  must list the same values in the same order.
 
 `MedicationScheduleTest` covers the repeat rules, the derived id and the time-of-day buckets on the Kotlin
 side; keep the TS mirror in step with it.

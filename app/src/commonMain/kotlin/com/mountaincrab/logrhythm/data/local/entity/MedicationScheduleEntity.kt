@@ -8,11 +8,14 @@ import com.mountaincrab.logrhythm.util.currentTimeMillis
 import com.mountaincrab.logrhythm.util.randomUUID
 
 /**
- * One scheduled dose: a medication, an amount, a time of day and a repeat rule.
+ * One scheduled dose: a medication, a quantity, a time of day and a repeat rule.
  *
  * This is the "one dose per line" model — a med taken morning and night is two rows.
  * Because each row carries its [medicationId], the same data renders either as a flat
  * list of doses or grouped per medication; that's a presentation choice, not a schema one.
+ *
+ * A schedule exists purely to automate adding dose entries. It holds no state about
+ * whether a dose actually happened — that lives on the entries it creates.
  */
 @Entity(tableName = "medication_schedules")
 data class MedicationScheduleEntity(
@@ -20,8 +23,8 @@ data class MedicationScheduleEntity(
     val userId: String = "local",
     val profileId: String = DEFAULT_PROFILE_ID,
     val medicationId: String,
-    val amount: String = "",
-    val unit: String = "",
+    /** How many units of the medication this dose is, e.g. "2" for two 1g tablets. */
+    val quantity: String = "",
     /** Minutes since local midnight, e.g. 480 for 08:00. */
     val timeMinutes: Int,
     val repeatRule: RepeatRule = RepeatRule.DAILY,

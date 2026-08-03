@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import Sheet, { Field } from '../Sheet'
 import WhenField from '../WhenField'
-import { DoseFields, MedicationDialog, MedicationPicker, inputClass } from '../MedicationFields'
+import { MedicationDialog, MedicationPicker, inputClass } from '../MedicationFields'
 import { MedicineInput } from '../../hooks/useEntries'
 import { useMedicationsContext } from '../../contexts/MedicationsContext'
 
@@ -13,15 +13,14 @@ interface Props {
 }
 
 /**
- * Logs a one-off dose. Regular doses come from the schedule and record themselves, so this
- * is for the exceptions: a painkiller, a rescue dose, something taken off-plan.
+ * Logs a one-off dose, and edits any dose — including one a schedule added, which is how
+ * you correct the quantity you actually took.
  */
 export default function AddMedicineSheet({ onClose, onSave, onDelete, initial }: Props) {
   const { medications, addMedication } = useMedicationsContext()
   const [occurredAt, setOccurredAt] = useState(initial?.occurredAt ?? Date.now())
   const [medicationId, setMedicationId] = useState<string | null>(initial?.medicationId ?? null)
-  const [amount, setAmount] = useState(initial?.amount ?? '')
-  const [unit, setUnit] = useState(initial?.unit ?? '')
+  const [quantity, setQuantity] = useState(initial?.quantity ?? '1')
   const [notes, setNotes] = useState(initial?.notes ?? '')
   const [saving, setSaving] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -29,10 +28,7 @@ export default function AddMedicineSheet({ onClose, onSave, onDelete, initial }:
   // Single-medication users shouldn't have to pick every time.
   useEffect(() => {
     if (medicationId || initial || medications.length !== 1) return
-    const only = medications[0]
-    setMedicationId(only.id)
-    setAmount(only.defaultAmount)
-    setUnit(only.defaultUnit)
+    setMedicationId(medications[0].id)
   }, [medications, medicationId, initial])
 
   const selected = medications.find((m) => m.id === medicationId)
@@ -45,8 +41,8 @@ export default function AddMedicineSheet({ onClose, onSave, onDelete, initial }:
         occurredAt,
         medicationId,
         medicationName: selected?.name ?? initial?.medicationName ?? '',
-        amount: amount.trim(),
-        unit: unit.trim(),
+        dose: selected?.dose ?? initial?.dose ?? '',
+        quantity: quantity.trim(),
         notes: notes.trim() || null,
       })
       onClose()
@@ -75,17 +71,19 @@ export default function AddMedicineSheet({ onClose, onSave, onDelete, initial }:
           <MedicationPicker
             medications={medications}
             selectedId={medicationId}
-            onSelect={(m) => {
-              setMedicationId(m.id)
-              setAmount(m.defaultAmount)
-              setUnit(m.defaultUnit)
-            }}
+            onSelect={(m) => setMedicationId(m.id)}
             onCreateNew={() => setCreating(true)}
           />
         </Field>
 
-        <Field label="Dose" hint="optional">
-          <DoseFields amount={amount} unit={unit} onAmount={setAmount} onUnit={setUnit} />
+        {/* How many units — the strength itself is part of the medication's definition. */}
+        <Field label="Quantity" hint={selected?.dose ? `× ${selected.dose}` : undefined}>
+          <input
+            className={inputClass}
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+            placeholder="e.g. 2"
+          />
         </Field>
 
         <Field label="Note" hint="optional">
@@ -101,10 +99,7 @@ export default function AddMedicineSheet({ onClose, onSave, onDelete, initial }:
       {creating && (
         <MedicationDialog
           onSave={async (draft) => {
-            const id = await addMedication(draft)
-            setMedicationId(id)
-            setAmount(draft.defaultAmount)
-            setUnit(draft.defaultUnit)
+            setMedicationId(await addMedication(draft))
           }}
           onClose={() => setCreating(false)}
         />

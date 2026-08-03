@@ -4,7 +4,7 @@ import com.mountaincrab.logrhythm.data.local.entity.MedicationEntryEntity
 import com.mountaincrab.logrhythm.data.model.RepeatRule
 import com.mountaincrab.logrhythm.data.model.TimeOfDay
 import com.mountaincrab.logrhythm.data.model.daysFromMask
-import com.mountaincrab.logrhythm.data.model.formatDose
+import com.mountaincrab.logrhythm.data.model.formatDoseAmount
 import com.mountaincrab.logrhythm.data.model.formatMinutesOfDay
 import com.mountaincrab.logrhythm.data.model.maskFromDays
 import com.mountaincrab.logrhythm.data.model.scheduleOccursOn
@@ -122,8 +122,10 @@ class MedicationScheduleTest {
     fun formatting_helpers_handle_the_empty_cases() {
         assertEquals("08:00", formatMinutesOfDay(8 * 60))
         assertEquals("21:30", formatMinutesOfDay(21 * 60 + 30))
-        assertEquals("2 g", formatDose("2", "g"))
-        assertEquals("2", formatDose("2", ""))
-        assertEquals("", formatDose("", ""))
+        // Two 1g tablets read as "2 × 1g"; either half may be missing.
+        assertEquals("2 × 1g", formatDoseAmount("2", "1g"))
+        assertEquals("2", formatDoseAmount("2", ""))
+        assertEquals("1g", formatDoseAmount("", "1g"))
+        assertEquals("", formatDoseAmount("", ""))
     }
 }

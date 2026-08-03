@@ -16,9 +16,6 @@ interface MedicationEntryDao {
     @Query("SELECT * FROM medication_entries WHERE isDeleted = 0 AND profileId = :profileId AND occurredAt >= :sinceMillis ORDER BY occurredAt DESC")
     fun observeSince(profileId: String, sinceMillis: Long): Flow<List<MedicationEntryEntity>>
 
-    @Query("SELECT * FROM medication_entries WHERE isDeleted = 0 AND profileId = :profileId AND occurredAt BETWEEN :startMillis AND :endMillis ORDER BY occurredAt ASC")
-    fun observeInRange(profileId: String, startMillis: Long, endMillis: Long): Flow<List<MedicationEntryEntity>>
-
     @Query("SELECT * FROM medication_entries WHERE id = :id")
     suspend fun getById(id: String): MedicationEntryEntity?
 

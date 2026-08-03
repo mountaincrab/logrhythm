@@ -1,48 +1,33 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Pencil, Trash2 } from 'lucide-react'
 import AppShell from '../components/AppShell'
 import { Field } from '../components/Sheet'
 import {
-  DayPicker, DoseFields, MedicationDialog, MedicationPicker, RepeatChips, TimeOfDayPicker,
+  DayPicker, MedicationDialog, MedicationPicker, RepeatChips, TimeOfDayPicker, inputClass,
 } from '../components/MedicationFields'
 import { useMedicationsContext } from '../contexts/MedicationsContext'
-import { useEntriesContext } from '../contexts/EntriesContext'
-import { Medication, MedicationEntry, MedicationSchedule, RepeatRule } from '../types'
+import { Medication, MedicationSchedule, RepeatRule } from '../types'
 import {
-  DOSE_STATUS_LABELS, describeRepeat, doseStatusColor, formEmoji, formLabel,
-  formatDose, formatMinutesOfDay, timeOfDayLabel,
+  describeRepeat, formEmoji, formLabel, formatDoseAmount, formatMinutesOfDay, timeOfDayLabel,
 } from '../lib/medications'
-import { dayKey, formatDayShort, formatTime } from '../lib/dates'
-import { UpcomingDose } from '../hooks/useMedications'
 
-type Tab = 'today' | 'schedule' | 'catalog'
+type Tab = 'schedule' | 'catalog'
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'today', label: 'Today' },
   { id: 'schedule', label: 'Schedule' },
   { id: 'catalog', label: 'Medications' },
 ]
 
+/**
+ * Meds is where medication is *set up* — the medications you take, and the schedules that
+ * add dose entries for you. Doses themselves live on the timeline with every other entry;
+ * there is deliberately no second place to review or confirm them.
+ */
 export default function MedsPage() {
-  const meds = useMedicationsContext()
-  const { medicationEntries, setDoseStatus } = useEntriesContext()
-  const [tab, setTab] = useState<Tab>('today')
-
-  const todaysDoses = useMemo(() => {
-    const today = dayKey(Date.now())
-    return medicationEntries
-      .filter((e) => dayKey(e.occurredAt) === today)
-      .sort((a, b) => a.occurredAt - b.occurredAt)
-  }, [medicationEntries])
-
-  const total = todaysDoses.length + meds.upcoming.length
-  const subtitle = total === 0
-    ? `${formatDayShort(Date.now())} · nothing scheduled`
-    : `${formatDayShort(Date.now())} · ${todaysDoses.length} of ${total} doses so far`
+  const [tab, setTab] = useState<Tab>('schedule')
 
   return (
-    <AppShell title="Meds" subtitle={subtitle} showProfileSwitcher>
+    <AppShell title="Meds" subtitle="Doses are added to your timeline automatically" showProfileSwitcher>
       <div className="flex gap-1.5 mb-5">
         {TABS.map((t) => (
           <button
@@ -60,16 +45,7 @@ export default function MedsPage() {
         ))}
       </div>
 
-      {tab === 'today' && (
-        <TodayTab
-          recorded={todaysDoses}
-          upcoming={meds.upcoming}
-          onStatus={setDoseStatus}
-          onConfirm={meds.confirmUpcoming}
-        />
-      )}
-      {tab === 'schedule' && <ScheduleTab />}
-      {tab === 'catalog' && <CatalogTab />}
+      {tab === 'schedule' ? <ScheduleTab /> : <CatalogTab />}
     </AppShell>
   )
 }
@@ -99,122 +75,6 @@ function ActionButton({
   )
 }
 
-// ── Today ──────────────────────────────────────────────────────────────────
-
-function TodayTab({
-  recorded, upcoming, onStatus, onConfirm,
-}: {
-  recorded: MedicationEntry[]
-  upcoming: UpcomingDose[]
-  onStatus: (id: string, status: MedicationEntry['status'], amount?: string, unit?: string) => Promise<void>
-  onConfirm: (dose: UpcomingDose, status: 'TAKEN' | 'SKIPPED') => Promise<void>
-}) {
-  if (recorded.length === 0 && upcoming.length === 0) {
-    return (
-      <EmptyCard
-        title="No doses today"
-        body="Add a medication and put it on a schedule — doses then record themselves, and you only step in when something changes."
-      />
-    )
-  }
-  return (
-    <div className="space-y-2 max-w-2xl">
-      {recorded.map((entry) => <RecordedDose key={entry.id} entry={entry} onStatus={onStatus} />)}
-      {upcoming.map((dose) => <UpcomingDoseCard key={dose.schedule.id} dose={dose} onConfirm={onConfirm} />)}
-    </div>
-  )
-}
-
-function RecordedDose({
-  entry, onStatus,
-}: {
-  entry: MedicationEntry
-  onStatus: (id: string, status: MedicationEntry['status'], amount?: string, unit?: string) => Promise<void>
-}) {
-  const navigate = useNavigate()
-  const [open, setOpen] = useState(false)
-  const [adjusting, setAdjusting] = useState(false)
-  const [amount, setAmount] = useState(entry.amount)
-  const [unit, setUnit] = useState(entry.unit)
-  const dose = formatDose(entry.amount, entry.unit)
-
-  return (
-    <div className="bg-surface-raised border border-DEFAULT rounded-2xl px-3.5 py-3">
-      <button onClick={() => setOpen(!open)} className="w-full text-left flex items-center gap-3">
-        <span className="text-[13px] font-bold tabular-nums text-fg-muted">{formatTime(entry.occurredAt)}</span>
-        <span className="flex-1 min-w-0">
-          <span className="block font-bold text-fg truncate">{entry.medicationName}</span>
-          {dose && <span className="block text-xs text-fg-muted">{dose}</span>}
-        </span>
-        <span className="text-[11px] font-bold shrink-0" style={{ color: doseStatusColor(entry.status) }}>
-          {DOSE_STATUS_LABELS[entry.status]}
-        </span>
-      </button>
-
-      {open && !adjusting && (
-        <div className="mt-3 space-y-2">
-          <div className="flex gap-1.5">
-            <ActionButton label="Took it" primary onClick={() => onStatus(entry.id, 'TAKEN')} />
-            <ActionButton label="Skipped" onClick={() => onStatus(entry.id, 'SKIPPED')} />
-            <ActionButton label="Amount" onClick={() => setAdjusting(true)} />
-          </div>
-          <ActionButton label="Open entry" onClick={() => navigate(`/entry/medicine/${entry.id}`)} />
-        </div>
-      )}
-
-      {open && adjusting && (
-        <div className="mt-3 space-y-2">
-          <p className="text-[12px] text-fg-muted">
-            Record what you actually took — the dose stays on the timeline, marked as adjusted.
-          </p>
-          <DoseFields amount={amount} unit={unit} onAmount={setAmount} onUnit={setUnit} />
-          <div className="flex gap-1.5">
-            <ActionButton label="Cancel" onClick={() => setAdjusting(false)} />
-            <ActionButton
-              label="Save"
-              primary
-              onClick={async () => {
-                await onStatus(entry.id, 'ADJUSTED', amount.trim(), unit.trim())
-                setAdjusting(false)
-                setOpen(false)
-              }}
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function UpcomingDoseCard({
-  dose, onConfirm,
-}: { dose: UpcomingDose; onConfirm: (d: UpcomingDose, s: 'TAKEN' | 'SKIPPED') => Promise<void> }) {
-  const [open, setOpen] = useState(false)
-  const amount = formatDose(dose.schedule.amount, dose.schedule.unit)
-  return (
-    <div className="bg-accent-soft border border-accent rounded-2xl px-3.5 py-3">
-      <button onClick={() => setOpen(!open)} className="w-full text-left flex items-center gap-3">
-        <span className="text-[13px] font-bold tabular-nums text-accent-text">
-          {formatMinutesOfDay(dose.schedule.timeMinutes)}
-        </span>
-        <span className="flex-1 min-w-0">
-          <span className="block font-bold text-fg truncate">{dose.medication.name}</span>
-          <span className="block text-xs text-fg-muted">
-            {amount ? `${amount} · due later today` : 'Due later today'}
-          </span>
-        </span>
-        <span className="text-[11px] font-bold text-accent-text shrink-0">Due</span>
-      </button>
-      {open && (
-        <div className="mt-3 flex gap-1.5">
-          <ActionButton label="Took it now" primary onClick={() => onConfirm(dose, 'TAKEN')} />
-          <ActionButton label="Skip" onClick={() => onConfirm(dose, 'SKIPPED')} />
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ── Schedule ───────────────────────────────────────────────────────────────
 
 function ScheduleTab() {
@@ -237,6 +97,7 @@ function ScheduleTab() {
       key={s.id}
       schedule={s}
       name={nameOf(s)}
+      amount={formatDoseAmount(s.quantity, byId.get(s.medicationId)?.dose ?? '')}
       showName={showName}
       onEdit={() => setEditing(s)}
       onDelete={() => deleteSchedule(s.id)}
@@ -269,7 +130,7 @@ function ScheduleTab() {
         <EmptyCard
           title="Nothing scheduled"
           body={medications.length > 0
-            ? "Add a dose and it'll record itself each day — you only touch it when you miss one."
+            ? "Add a dose and it'll be logged for you each day. Miss one? Delete it from your timeline."
             : 'Add a medication first, then schedule the doses you take.'}
         />
       ) : grouped ? (
@@ -305,17 +166,18 @@ function ScheduleTab() {
 }
 
 function ScheduleCard({
-  schedule, name, showName, onEdit, onDelete, onToggleActive,
+  schedule, name, amount, showName, onEdit, onDelete, onToggleActive,
 }: {
   schedule: MedicationSchedule
   name: string
+  amount: string
   showName: boolean
   onEdit: () => void
   onDelete: () => void
   onToggleActive: () => void
 }) {
-  const dose = formatDose(schedule.amount, schedule.unit)
-  const detail = [dose, describeRepeat(schedule.repeatRule, schedule.daysOfWeek)].filter(Boolean).join(' · ')
+  const detail = [amount, describeRepeat(schedule.repeatRule, schedule.daysOfWeek)]
+    .filter(Boolean).join(' · ')
   return (
     <div className="bg-surface-raised border border-DEFAULT rounded-2xl px-3.5 py-3">
       <div className="flex items-start gap-3">
@@ -335,7 +197,7 @@ function ScheduleCard({
       </div>
       {!schedule.isActive && (
         <p className="text-[11px] font-semibold mt-2" style={{ color: 'var(--warning)' }}>
-          Paused — not recording doses
+          Paused — not adding doses
         </p>
       )}
     </div>
@@ -346,21 +208,21 @@ function ScheduleDialog({ initial, onClose }: { initial?: MedicationSchedule; on
   const { medications, addSchedule, updateSchedule, addMedication } = useMedicationsContext()
   const first = medications[0]
   const [medicationId, setMedicationId] = useState<string | null>(initial?.medicationId ?? first?.id ?? null)
-  const [amount, setAmount] = useState(initial?.amount ?? first?.defaultAmount ?? '')
-  const [unit, setUnit] = useState(initial?.unit ?? first?.defaultUnit ?? '')
+  const [quantity, setQuantity] = useState(initial?.quantity ?? '1')
   const [minutes, setMinutes] = useState(initial?.timeMinutes ?? 8 * 60)
   const [rule, setRule] = useState<RepeatRule>(initial?.repeatRule ?? 'DAILY')
   const [days, setDays] = useState<number[]>(initial?.daysOfWeek ?? [])
   const [saving, setSaving] = useState(false)
   const [creating, setCreating] = useState(false)
 
+  const selected = medications.find((m) => m.id === medicationId)
   const canSave = medicationId !== null && (rule !== 'SPECIFIC_DAYS' || days.length > 0)
 
   const save = async () => {
     if (!medicationId) return
     setSaving(true)
     try {
-      const input = { medicationId, amount, unit, timeMinutes: minutes, repeatRule: rule, daysOfWeek: days }
+      const input = { medicationId, quantity, timeMinutes: minutes, repeatRule: rule, daysOfWeek: days }
       if (initial) await updateSchedule(initial.id, input)
       else await addSchedule(input)
       onClose()
@@ -383,12 +245,18 @@ function ScheduleDialog({ initial, onClose }: { initial?: MedicationSchedule; on
               <MedicationPicker
                 medications={medications}
                 selectedId={medicationId}
-                onSelect={(m) => { setMedicationId(m.id); setAmount(m.defaultAmount); setUnit(m.defaultUnit) }}
+                onSelect={(m) => setMedicationId(m.id)}
                 onCreateNew={() => setCreating(true)}
               />
             </Field>
-            <Field label="Dose" hint="optional">
-              <DoseFields amount={amount} unit={unit} onAmount={setAmount} onUnit={setUnit} />
+            {/* How many units — the strength itself is part of the medication's definition. */}
+            <Field label="Quantity" hint={selected?.dose ? `× ${selected.dose}` : undefined}>
+              <input
+                className={inputClass}
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                placeholder="e.g. 2"
+              />
             </Field>
             <Field label="When">
               <TimeOfDayPicker minutes={minutes} onChange={setMinutes} />
@@ -427,10 +295,7 @@ function ScheduleDialog({ initial, onClose }: { initial?: MedicationSchedule; on
       {creating && (
         <MedicationDialog
           onSave={async (draft) => {
-            const id = await addMedication(draft)
-            setMedicationId(id)
-            setAmount(draft.defaultAmount)
-            setUnit(draft.defaultUnit)
+            setMedicationId(await addMedication(draft))
           }}
           onClose={() => setCreating(false)}
         />
@@ -452,18 +317,17 @@ function CatalogTab() {
       {medications.length === 0 ? (
         <EmptyCard
           title="No medications yet"
-          body="Define each medication once here, then pick it when scheduling a dose or logging one by hand."
+          body='Define each medication once here — name, form and strength, e.g. "Pentasa, tablet, 1g" — then pick it when scheduling a dose or logging one by hand.'
         />
       ) : (
         <div className="space-y-2">
           {medications.map((m) => {
-            const dose = formatDose(m.defaultAmount, m.defaultUnit)
             return (
               <div key={m.id} className="bg-surface-raised border border-DEFAULT rounded-2xl px-3.5 py-3 flex items-center gap-3">
                 <span className="text-xl shrink-0">{formEmoji(m.form)}</span>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-fg truncate">{m.name}</div>
-                  <div className="text-xs text-fg-muted">{[formLabel(m.form), dose].filter(Boolean).join(' · ')}</div>
+                  <div className="text-xs text-fg-muted">{[formLabel(m.form), m.dose].filter(Boolean).join(' · ')}</div>
                 </div>
                 <button onClick={() => setEditing(m)} className="p-2 text-fg-muted hover:text-fg transition-colors" aria-label="Edit">
                   <Pencil size={16} />

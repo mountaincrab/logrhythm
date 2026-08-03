@@ -15,7 +15,6 @@ import com.mountaincrab.logrhythm.data.local.entity.NoteTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.ProfileEntity
-import com.mountaincrab.logrhythm.data.model.DoseStatus
 import com.mountaincrab.logrhythm.data.model.MealTag
 import com.mountaincrab.logrhythm.data.model.MedicationForm
 import com.mountaincrab.logrhythm.data.model.RepeatRule
@@ -229,8 +228,7 @@ class FirestoreRepository {
                 "profileId" to med.profileId,
                 "name" to med.name,
                 "form" to med.form.name,
-                "defaultAmount" to med.defaultAmount,
-                "defaultUnit" to med.defaultUnit,
+                "dose" to med.dose,
                 "sortOrder" to med.sortOrder,
                 "createdAt" to med.createdAt,
                 "updatedAt" to FieldValue.serverTimestamp(),
@@ -246,8 +244,7 @@ class FirestoreRepository {
                 "userId" to uid,
                 "profileId" to schedule.profileId,
                 "medicationId" to schedule.medicationId,
-                "amount" to schedule.amount,
-                "unit" to schedule.unit,
+                "quantity" to schedule.quantity,
                 "timeMinutes" to schedule.timeMinutes,
                 "repeatRule" to schedule.repeatRule.name,
                 // Stored as a sorted ISO day-of-week array (not the Room bitmask), so the
@@ -270,10 +267,9 @@ class FirestoreRepository {
                 "profileId" to entry.profileId,
                 "medicationId" to entry.medicationId,
                 "medicationName" to entry.medicationName,
+                "dose" to entry.dose,
+                "quantity" to entry.quantity,
                 "occurredAt" to entry.occurredAt,
-                "amount" to entry.amount,
-                "unit" to entry.unit,
-                "status" to entry.status.name,
                 "scheduleId" to entry.scheduleId,
                 "notes" to entry.notes,
                 "createdAt" to entry.createdAt,
@@ -295,8 +291,7 @@ class FirestoreRepository {
                         profileId = doc.getString("profileId") ?: DEFAULT_PROFILE_ID,
                         name = doc.getString("name") ?: return@mapNotNull null,
                         form = MedicationForm.fromName(doc.getString("form")),
-                        defaultAmount = doc.getString("defaultAmount") ?: "",
-                        defaultUnit = doc.getString("defaultUnit") ?: "",
+                        dose = doc.getString("dose") ?: "",
                         sortOrder = (doc.getLong("sortOrder") ?: 0L).toInt(),
                         createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis(),
                         updatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time ?: System.currentTimeMillis(),
@@ -316,8 +311,7 @@ class FirestoreRepository {
                         userId = uid,
                         profileId = doc.getString("profileId") ?: DEFAULT_PROFILE_ID,
                         medicationId = doc.getString("medicationId") ?: return@mapNotNull null,
-                        amount = doc.getString("amount") ?: "",
-                        unit = doc.getString("unit") ?: "",
+                        quantity = doc.getString("quantity") ?: "",
                         timeMinutes = (doc.getLong("timeMinutes") ?: return@mapNotNull null).toInt(),
                         repeatRule = RepeatRule.fromName(doc.getString("repeatRule")),
                         daysMask = maskFromDays(
@@ -344,10 +338,9 @@ class FirestoreRepository {
                         profileId = doc.getString("profileId") ?: DEFAULT_PROFILE_ID,
                         medicationId = doc.getString("medicationId") ?: return@mapNotNull null,
                         medicationName = doc.getString("medicationName") ?: "",
+                        dose = doc.getString("dose") ?: "",
+                        quantity = doc.getString("quantity") ?: "",
                         occurredAt = doc.getLong("occurredAt") ?: return@mapNotNull null,
-                        amount = doc.getString("amount") ?: "",
-                        unit = doc.getString("unit") ?: "",
-                        status = DoseStatus.fromName(doc.getString("status")),
                         scheduleId = doc.getString("scheduleId"),
                         notes = doc.getString("notes"),
                         createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis(),

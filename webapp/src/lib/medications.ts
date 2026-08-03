@@ -3,23 +3,24 @@
 // schedule fires and on the derived id of a materialised dose, or the two apps
 // would produce different (or duplicate) doses for the same schedule.
 
-import { DoseStatus, MedicationForm, RepeatRule } from '../types'
+import { MedicationForm, RepeatRule } from '../types'
 
 export const MEDICATION_FORMS: { value: MedicationForm; label: string }[] = [
   { value: 'TABLET', label: 'Tablet' },
-  { value: 'CAPSULE', label: 'Capsule' },
   { value: 'GRANULES', label: 'Granules' },
-  { value: 'LIQUID', label: 'Liquid' },
   { value: 'FOAM', label: 'Foam' },
-  { value: 'INJECTION', label: 'Injection' },
-  { value: 'OTHER', label: 'Other' },
+  { value: 'ENEMA', label: 'Enema' },
+  { value: 'SUPPOSITORY', label: 'Suppository' },
 ]
 
 export const formLabel = (form: MedicationForm): string =>
   MEDICATION_FORMS.find((f) => f.value === form)?.label ?? 'Tablet'
 
-/** Rectal/topical forms read differently from something you swallow. */
-export const formEmoji = (form: MedicationForm): string => (form === 'FOAM' ? '🧴' : '💊')
+const RECTAL_FORMS: MedicationForm[] = ['FOAM', 'ENEMA', 'SUPPOSITORY']
+
+/** Rectal forms read differently from something you swallow. */
+export const formEmoji = (form: MedicationForm): string =>
+  RECTAL_FORMS.includes(form) ? '🧴' : '💊'
 
 export const REPEAT_RULES: { value: RepeatRule; label: string }[] = [
   { value: 'DAILY', label: 'Every day' },
@@ -38,29 +39,6 @@ export function describeRepeat(rule: RepeatRule, daysOfWeek: number[]): string {
   if (rule !== 'SPECIFIC_DAYS') return repeatRuleLabel(rule)
   if (daysOfWeek.length === 0) return 'No days picked'
   return [...daysOfWeek].sort((a, b) => a - b).map((d) => DAY_NAMES[d - 1]).join(' · ')
-}
-
-export const DOSE_STATUS_LABELS: Record<DoseStatus, string> = {
-  SCHEDULED: 'As scheduled',
-  TAKEN: 'Taken',
-  SKIPPED: 'Skipped',
-  ADJUSTED: 'Adjusted',
-  MANUAL: 'Logged',
-}
-
-/** CSS colour token for a dose state; the auto-recorded default stays deliberately quiet. */
-export function doseStatusColor(status: DoseStatus): string {
-  switch (status) {
-    case 'TAKEN':
-    case 'MANUAL':
-      return 'var(--success-text)'
-    case 'ADJUSTED':
-      return 'var(--warning)'
-    case 'SKIPPED':
-      return 'var(--danger-text)'
-    default:
-      return 'var(--fg-faint)'
-  }
 }
 
 export type TimeOfDay = 'MORNING' | 'MIDDAY' | 'EVENING' | 'NIGHT'
@@ -91,9 +69,16 @@ export function formatMinutesOfDay(minutes: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
-/** "2 g", or just the amount when no unit is set. */
-export const formatDose = (amount: string, unit: string): string =>
-  [amount.trim(), unit.trim()].filter(Boolean).join(' ')
+/**
+ * How much was taken, e.g. "2 × 1g" for two 1g tablets. `dose` is the medication's own
+ * strength (defined once on the catalog entry) and `quantity` is how many of them.
+ */
+export function formatDoseAmount(quantity: string, dose: string): string {
+  const q = quantity.trim()
+  const d = dose.trim()
+  if (q && d) return `${q} × ${d}`
+  return q || d
+}
 
 /**
  * Local epoch-day, matching Java's `LocalDate.toEpochDay()`.

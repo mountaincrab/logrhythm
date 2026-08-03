@@ -264,6 +264,77 @@ private val MIGRATION_9_10 = object : Migration(9, 10) {
     }
 }
 
+/**
+ * Reshapes medication around "a medication is name + form + strength, a dose is a quantity of it".
+ *
+ * The three tables are dropped and recreated rather than altered: medication shipped days ago,
+ * so there is no history worth the conversion logic, and a clean rebuild keeps the schema honest
+ * (`amount`/`unit` split into the medication's `dose` and the dose's `quantity`; the per-dose
+ * `status` is gone entirely — an entry existing is the record).
+ */
+private val MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("DROP TABLE IF EXISTS medication_entries")
+        connection.execSQL("DROP TABLE IF EXISTS medication_schedules")
+        connection.execSQL("DROP TABLE IF EXISTS medications")
+
+        connection.execSQL("""
+            CREATE TABLE medications (
+                id TEXT NOT NULL PRIMARY KEY,
+                userId TEXT NOT NULL,
+                profileId TEXT NOT NULL,
+                name TEXT NOT NULL,
+                form TEXT NOT NULL,
+                dose TEXT NOT NULL,
+                sortOrder INTEGER NOT NULL,
+                createdAt INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL,
+                syncStatus TEXT NOT NULL,
+                isDeleted INTEGER NOT NULL
+            )
+        """.trimIndent())
+
+        connection.execSQL("""
+            CREATE TABLE medication_schedules (
+                id TEXT NOT NULL PRIMARY KEY,
+                userId TEXT NOT NULL,
+                profileId TEXT NOT NULL,
+                medicationId TEXT NOT NULL,
+                quantity TEXT NOT NULL,
+                timeMinutes INTEGER NOT NULL,
+                repeatRule TEXT NOT NULL,
+                daysMask INTEGER NOT NULL,
+                startEpochDay INTEGER NOT NULL,
+                isActive INTEGER NOT NULL,
+                createdAt INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL,
+                syncStatus TEXT NOT NULL,
+                isDeleted INTEGER NOT NULL
+            )
+        """.trimIndent())
+
+        connection.execSQL("""
+            CREATE TABLE medication_entries (
+                id TEXT NOT NULL PRIMARY KEY,
+                userId TEXT NOT NULL,
+                profileId TEXT NOT NULL,
+                medicationId TEXT NOT NULL,
+                medicationName TEXT NOT NULL,
+                dose TEXT NOT NULL,
+                quantity TEXT NOT NULL,
+                occurredAt INTEGER NOT NULL,
+                scheduleId TEXT,
+                notes TEXT,
+                createdAt INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL,
+                syncStatus TEXT NOT NULL,
+                isDeleted INTEGER NOT NULL
+            )
+        """.trimIndent())
+    }
+}
+
 val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_3_4, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
+    MIGRATION_10_11,
 )
