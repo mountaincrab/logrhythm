@@ -23,42 +23,38 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mountaincrab.logrhythm.data.local.entity.MedicationEntity
-import com.mountaincrab.logrhythm.data.local.entity.MedicationEntryEntity
-import com.mountaincrab.logrhythm.data.model.DoseStatus
 import com.mountaincrab.logrhythm.data.model.RepeatRule
 import com.mountaincrab.logrhythm.data.model.TimeOfDay
 import com.mountaincrab.logrhythm.data.model.daysFromMask
-import com.mountaincrab.logrhythm.data.model.formatDose
+import com.mountaincrab.logrhythm.data.model.formatDoseAmount
 import com.mountaincrab.logrhythm.data.model.formatMinutesOfDay
 import com.mountaincrab.logrhythm.data.model.maskFromDays
 import com.mountaincrab.logrhythm.ui.components.BottomTabBar
 import com.mountaincrab.logrhythm.ui.components.FieldLabel
 import com.mountaincrab.logrhythm.ui.navigation.Screen
-import com.mountaincrab.logrhythm.ui.theme.AppPalette
 import com.mountaincrab.logrhythm.ui.theme.LocalAppPalette
-import com.mountaincrab.logrhythm.ui.util.formatTime
 import org.koin.compose.viewmodel.koinViewModel
-import java.time.format.DateTimeFormatter
-import java.time.LocalDate
 
-private enum class MedsTab(val label: String) { TODAY("Today"), SCHEDULE("Schedule"), CATALOG("Medications") }
+private enum class MedsTab(val label: String) { SCHEDULE("Schedule"), CATALOG("Medications") }
 
+/**
+ * Meds is where medication is *set up* — the medications you take, and the schedules that
+ * add dose entries for you. Doses themselves live on the timeline with every other entry;
+ * there is deliberately no second place to review or confirm them.
+ */
 @Composable
 fun MedsScreen(
     onTabSelect: (route: String) -> Unit,
-    onOpenEntry: (kind: String, id: String) -> Unit,
     viewModel: MedsViewModel = koinViewModel(),
 ) {
     val palette = LocalAppPalette.current
-    var tab by remember { mutableStateOf(MedsTab.TODAY) }
+    var tab by remember { mutableStateOf(MedsTab.SCHEDULE) }
 
-    val today by viewModel.today.collectAsStateWithLifecycle()
     val scheduleRows by viewModel.scheduleRows.collectAsStateWithLifecycle()
     val medications by viewModel.medications.collectAsStateWithLifecycle()
     val groupByMedication by viewModel.groupByMedication.collectAsStateWithLifecycle()
@@ -71,8 +67,8 @@ fun MedsScreen(
     if (showMedicationEditor) {
         MedicationEditorDialog(
             initial = editingMedication,
-            onConfirm = { name, form, amount, unit ->
-                viewModel.saveMedication(editingMedication?.id, name, form, amount, unit)
+            onConfirm = { name, form, dose ->
+                viewModel.saveMedication(editingMedication?.id, name, form, dose)
                 showMedicationEditor = false
                 editingMedication = null
             },
@@ -84,12 +80,11 @@ fun MedsScreen(
         ScheduleEditorDialog(
             initial = editingSchedule,
             medications = medications,
-            onConfirm = { medicationId, amount, unit, minutes, rule, daysMask ->
+            onConfirm = { medicationId, quantity, minutes, rule, daysMask ->
                 viewModel.saveSchedule(
                     id = editingSchedule?.schedule?.id,
                     medicationId = medicationId,
-                    amount = amount,
-                    unit = unit,
+                    quantity = quantity,
                     timeMinutes = minutes,
                     repeatRule = rule,
                     daysMask = daysMask,
@@ -97,8 +92,8 @@ fun MedsScreen(
                 showScheduleEditor = false
                 editingSchedule = null
             },
-            onCreateMedication = { name, form, amount, unit ->
-                viewModel.saveMedication(null, name, form, amount, unit)
+            onCreateMedication = { name, form, dose ->
+                viewModel.saveMedication(null, name, form, dose)
             },
             onDismiss = { showScheduleEditor = false; editingSchedule = null },
         )
@@ -117,7 +112,7 @@ fun MedsScreen(
                 color = MaterialTheme.colorScheme.onBackground,
             )
             Text(
-                text = todaySubtitle(today),
+                text = "Doses are added to your timeline automatically",
                 fontSize = 13.sp, color = palette.fgMuted,
             )
         }
@@ -142,7 +137,6 @@ fun MedsScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             when (tab) {
-                MedsTab.TODAY -> todayTab(today, viewModel, onOpenEntry)
                 MedsTab.SCHEDULE -> scheduleTab(
                     rows = scheduleRows,
                     grouped = groupByMedication,
@@ -164,196 +158,6 @@ fun MedsScreen(
 
         BottomTabBar(active = Screen.Meds.route, onSelect = onTabSelect)
     }
-}
-
-private fun todaySubtitle(doses: List<TodayDose>): String {
-    val date = LocalDate.now().format(DateTimeFormatter.ofPattern("EEE d MMM"))
-    if (doses.isEmpty()) return "$date · nothing scheduled"
-    val recorded = doses.count { it is TodayDose.Recorded }
-    return "$date · $recorded of ${doses.size} doses so far"
-}
-
-// ── Today ──────────────────────────────────────────────────────────────────
-
-private fun androidx.compose.foundation.lazy.LazyListScope.todayTab(
-    doses: List<TodayDose>,
-    viewModel: MedsViewModel,
-    onOpenEntry: (kind: String, id: String) -> Unit,
-) {
-    if (doses.isEmpty()) {
-        item {
-            EmptyCard(
-                title = "No doses today",
-                body = "Add a medication and put it on a schedule — doses then record themselves, " +
-                    "and you only step in when something changes.",
-            )
-        }
-        return
-    }
-    items(doses, key = { dose ->
-        when (dose) {
-            is TodayDose.Recorded -> "entry-${dose.entry.id}"
-            is TodayDose.Upcoming -> "upcoming-${dose.dose.schedule.id}"
-        }
-    }) { dose ->
-        when (dose) {
-            is TodayDose.Recorded -> RecordedDoseCard(
-                entry = dose.entry,
-                onStatus = { status -> viewModel.setDoseStatus(dose.entry.id, status) },
-                onAdjust = { amount, unit ->
-                    viewModel.setDoseStatus(dose.entry.id, DoseStatus.ADJUSTED, amount, unit)
-                },
-                onOpen = { onOpenEntry("medicine", dose.entry.id) },
-            )
-            is TodayDose.Upcoming -> UpcomingDoseCard(
-                dose = dose,
-                onConfirm = { status -> viewModel.confirmUpcoming(dose.dose, status) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun DoseStatus.color(palette: AppPalette): Color = when (this) {
-    DoseStatus.SCHEDULED -> palette.fgMuted
-    DoseStatus.TAKEN, DoseStatus.MANUAL -> palette.successText
-    DoseStatus.ADJUSTED -> palette.warning
-    DoseStatus.SKIPPED -> palette.dangerText
-}
-
-@Composable
-private fun RecordedDoseCard(
-    entry: MedicationEntryEntity,
-    onStatus: (DoseStatus) -> Unit,
-    onAdjust: (String, String) -> Unit,
-    onOpen: () -> Unit,
-) {
-    val palette = LocalAppPalette.current
-    var expanded by remember { mutableStateOf(false) }
-    var showAdjust by remember { mutableStateOf(false) }
-
-    if (showAdjust) {
-        AdjustDoseDialog(
-            amount = entry.amount,
-            unit = entry.unit,
-            onConfirm = { a, u -> onAdjust(a, u); showAdjust = false; expanded = false },
-            onDismiss = { showAdjust = false },
-        )
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(palette.surfaceRaised)
-            .border(1.dp, palette.border, RoundedCornerShape(14.dp))
-            .clickable { expanded = !expanded }
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(
-                text = entry.occurredAt.formatTime(),
-                color = palette.fgMuted, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = entry.medicationName,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 15.sp, fontWeight = FontWeight.Bold,
-                )
-                val dose = formatDose(entry.amount, entry.unit)
-                if (dose.isNotEmpty()) {
-                    Text(text = dose, color = palette.fgMuted, fontSize = 12.5.sp)
-                }
-            }
-            Text(
-                text = entry.status.label,
-                color = entry.status.color(palette),
-                fontSize = 11.sp, fontWeight = FontWeight.Bold,
-            )
-        }
-
-        if (expanded) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                ActionButton("Took it", Modifier.weight(1f), primary = true) { onStatus(DoseStatus.TAKEN) }
-                ActionButton("Skipped", Modifier.weight(1f)) { onStatus(DoseStatus.SKIPPED) }
-                ActionButton("Amount", Modifier.weight(1f)) { showAdjust = true }
-            }
-            ActionButton("Open entry", Modifier.fillMaxWidth(), onClick = onOpen)
-        }
-    }
-}
-
-@Composable
-private fun UpcomingDoseCard(dose: TodayDose.Upcoming, onConfirm: (DoseStatus) -> Unit) {
-    val palette = LocalAppPalette.current
-    var expanded by remember { mutableStateOf(false) }
-    val d = dose.dose
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(palette.accentSoft)
-            .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(14.dp))
-            .clickable { expanded = !expanded }
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(
-                text = formatMinutesOfDay(d.schedule.timeMinutes),
-                color = palette.accentText, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = d.medication.name,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 15.sp, fontWeight = FontWeight.Bold,
-                )
-                val doseText = formatDose(d.schedule.amount, d.schedule.unit)
-                Text(
-                    text = if (doseText.isEmpty()) "Due later today" else "$doseText · due later today",
-                    color = palette.fgMuted, fontSize = 12.5.sp,
-                )
-            }
-            Text(text = "Due", color = palette.accentText, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-        }
-        if (expanded) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-                ActionButton("Took it now", Modifier.weight(1f), primary = true) { onConfirm(DoseStatus.TAKEN) }
-                ActionButton("Skip", Modifier.weight(1f)) { onConfirm(DoseStatus.SKIPPED) }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AdjustDoseDialog(
-    amount: String,
-    unit: String,
-    onConfirm: (String, String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var a by remember { mutableStateOf(amount) }
-    var u by remember { mutableStateOf(unit) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Adjust amount") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    "Record what you actually took — the dose stays on the timeline, marked as adjusted.",
-                    fontSize = 13.sp,
-                    color = LocalAppPalette.current.fgMuted,
-                )
-                DoseFields(a, u, { a = it }, { u = it })
-            }
-        },
-        confirmButton = { TextButton(onClick = { onConfirm(a, u) }) { Text("Save") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
 }
 
 // ── Schedule ───────────────────────────────────────────────────────────────
@@ -392,7 +196,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.scheduleTab(
             EmptyCard(
                 title = "Nothing scheduled",
                 body = if (hasMedications) {
-                    "Add a dose and it'll record itself each day — you only touch it when you miss one."
+                    "Add a dose and it'll be logged for you each day. Miss one? Delete it from your timeline."
                 } else {
                     "Add a medication first, then schedule the doses you take."
                 },
@@ -458,9 +262,9 @@ private fun ScheduleCard(
                         fontSize = 15.sp, fontWeight = FontWeight.Bold,
                     )
                 }
-                val dose = formatDose(s.amount, s.unit)
+                val amount = formatDoseAmount(s.quantity, row.dose)
                 Text(
-                    text = listOfNotNull(dose.takeIf { it.isNotEmpty() }, repeatLabel(s.repeatRule, s.daysMask))
+                    text = listOfNotNull(amount.takeIf { it.isNotEmpty() }, repeatLabel(s.repeatRule, s.daysMask))
                         .joinToString(" · "),
                     color = palette.fgMuted, fontSize = 12.5.sp,
                 )
@@ -483,7 +287,7 @@ private fun ScheduleCard(
             ActionButton("Delete", Modifier.weight(1f), danger = true, onClick = onDelete)
         }
         if (!s.isActive) {
-            Text("Paused — not recording doses", color = palette.warning, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            Text("Paused — not adding doses", color = palette.warning, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -501,13 +305,12 @@ private fun repeatLabel(rule: RepeatRule, daysMask: Int): String = when (rule) {
 private fun ScheduleEditorDialog(
     initial: ScheduleRow?,
     medications: List<MedicationEntity>,
-    onConfirm: (medicationId: String, amount: String, unit: String, minutes: Int, rule: RepeatRule, daysMask: Int) -> Unit,
-    onCreateMedication: (String, com.mountaincrab.logrhythm.data.model.MedicationForm, String, String) -> Unit,
+    onConfirm: (medicationId: String, quantity: String, minutes: Int, rule: RepeatRule, daysMask: Int) -> Unit,
+    onCreateMedication: (String, com.mountaincrab.logrhythm.data.model.MedicationForm, String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var medicationId by remember { mutableStateOf(initial?.schedule?.medicationId ?: medications.firstOrNull()?.id) }
-    var amount by remember { mutableStateOf(initial?.schedule?.amount ?: medications.firstOrNull()?.defaultAmount.orEmpty()) }
-    var unit by remember { mutableStateOf(initial?.schedule?.unit ?: medications.firstOrNull()?.defaultUnit.orEmpty()) }
+    var quantity by remember { mutableStateOf(initial?.schedule?.quantity ?: "1") }
     var minutes by remember { mutableIntStateOf(initial?.schedule?.timeMinutes ?: TimeOfDay.MORNING.defaultMinutes) }
     var rule by remember { mutableStateOf(initial?.schedule?.repeatRule ?: RepeatRule.DAILY) }
     var days by remember { mutableStateOf(daysFromMask(initial?.schedule?.daysMask ?: 0).toSet()) }
@@ -516,13 +319,15 @@ private fun ScheduleEditorDialog(
     if (showNewMedication) {
         MedicationEditorDialog(
             initial = null,
-            onConfirm = { name, form, a, u ->
-                onCreateMedication(name, form, a, u)
+            onConfirm = { name, form, dose ->
+                onCreateMedication(name, form, dose)
                 showNewMedication = false
             },
             onDismiss = { showNewMedication = false },
         )
     }
+
+    val selected = medications.firstOrNull { it.id == medicationId }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -537,17 +342,14 @@ private fun ScheduleEditorDialog(
                     MedicationPicker(
                         medications = medications,
                         selectedId = medicationId,
-                        onSelect = { med ->
-                            medicationId = med.id
-                            amount = med.defaultAmount
-                            unit = med.defaultUnit
-                        },
+                        onSelect = { med -> medicationId = med.id },
                         onCreateNew = { showNewMedication = true },
                     )
                 }
                 Column {
-                    FieldLabel("Dose")
-                    DoseFields(amount, unit, { amount = it }, { unit = it })
+                    // The strength lives on the medication, so a schedule only says how many.
+                    FieldLabel("Quantity", hint = selected?.dose?.takeIf { it.isNotBlank() }?.let { "× $it" })
+                    PlainInput(quantity, { quantity = it }, "e.g. 2", modifier = Modifier.fillMaxWidth())
                 }
                 Column {
                     FieldLabel("When")
@@ -578,7 +380,7 @@ private fun ScheduleEditorDialog(
             TextButton(
                 enabled = medicationId != null && (rule != RepeatRule.SPECIFIC_DAYS || days.isNotEmpty()),
                 onClick = {
-                    medicationId?.let { onConfirm(it, amount, unit, minutes, rule, maskFromDays(days)) }
+                    medicationId?.let { onConfirm(it, quantity, minutes, rule, maskFromDays(days)) }
                 },
             ) { Text("Save") }
         },
@@ -598,7 +400,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.catalogTab(
         item {
             EmptyCard(
                 title = "No medications yet",
-                body = "Define each medication once here, then pick it when scheduling a dose or logging one by hand.",
+                body = "Define each medication once here — name, form and strength, e.g. " +
+                    "\"Pentasa, tablet, 1g\" — then pick it when scheduling a dose or logging one by hand.",
             )
         }
     }
@@ -648,9 +451,9 @@ private fun MedicationCard(medication: MedicationEntity, onEdit: () -> Unit, onD
                 color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 15.sp, fontWeight = FontWeight.Bold,
             )
-            val dose = formatDose(medication.defaultAmount, medication.defaultUnit)
             Text(
-                text = listOfNotNull(medication.form.label, dose.takeIf { it.isNotEmpty() }).joinToString(" · "),
+                text = listOfNotNull(medication.form.label, medication.dose.takeIf { it.isNotBlank() })
+                    .joinToString(" · "),
                 color = palette.fgMuted, fontSize = 12.5.sp,
             )
         }

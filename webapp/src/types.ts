@@ -59,37 +59,34 @@ export interface Tag {
 }
 
 export type MedicationForm =
-  | 'TABLET' | 'CAPSULE' | 'GRANULES' | 'LIQUID' | 'FOAM' | 'INJECTION' | 'OTHER'
-
-/**
- * What actually happened to a dose. SCHEDULED is written automatically once a scheduled
- * dose's time has passed — it means "your schedule says this happened", not "you confirmed
- * it". Every other state comes from an explicit user action.
- */
-export type DoseStatus = 'SCHEDULED' | 'TAKEN' | 'SKIPPED' | 'ADJUSTED' | 'MANUAL'
+  | 'TABLET' | 'GRANULES' | 'FOAM' | 'ENEMA' | 'SUPPOSITORY'
 
 export type RepeatRule = 'DAILY' | 'EVERY_OTHER_DAY' | 'WEEKDAYS' | 'SPECIFIC_DAYS'
 
-/** A medication, defined once and referenced by both scheduled and recorded doses. */
+/**
+ * A medication, defined once and referenced by both scheduled and recorded doses:
+ * name + form + strength, e.g. "Pentasa, tablet, 1g". How many you take is a dose's
+ * quantity, not part of the definition.
+ */
 export interface Medication {
   id: string
   profileId: string
   name: string
   form: MedicationForm
-  defaultAmount: string
-  defaultUnit: string
+  /** Strength of a single unit, e.g. "1g". */
+  dose: string
   sortOrder: number
   createdAt: number
   isDeleted: boolean
 }
 
-/** One scheduled dose: a medication, an amount, a time of day and a repeat rule. */
+/** One scheduled dose: a medication, a quantity, a time of day and a repeat rule. */
 export interface MedicationSchedule {
   id: string
   profileId: string
   medicationId: string
-  amount: string
-  unit: string
+  /** How many units of the medication, e.g. "2". */
+  quantity: string
   /** Minutes since local midnight, e.g. 480 for 08:00. */
   timeMinutes: number
   repeatRule: RepeatRule
@@ -102,17 +99,20 @@ export interface MedicationSchedule {
   isDeleted: boolean
 }
 
-/** A recorded dose — a real timeline entry, exactly like a poop / food / note. */
+/**
+ * A recorded dose — a real timeline entry, exactly like a poop / food / note. There is no
+ * taken/skipped state: the row existing is the record, so a dose you missed is deleted and
+ * one you took differently has its quantity edited.
+ */
 export interface MedicationEntry {
   id: string
   profileId: string
   medicationId: string
-  /** Snapshot, so a dose still reads correctly if its catalog entry is later deleted. */
+  /** Snapshots, so a dose still reads correctly if its catalog entry is edited or deleted. */
   medicationName: string
+  dose: string
+  quantity: string
   occurredAt: number
-  amount: string
-  unit: string
-  status: DoseStatus
   /** The scheduled dose this materialised from, or null when logged by hand. */
   scheduleId: string | null
   notes: string | null

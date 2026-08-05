@@ -3,42 +3,17 @@ package com.mountaincrab.logrhythm.data.model
 /** Physical form of a medication — drives the icon shown next to it. */
 enum class MedicationForm(val label: String) {
     TABLET("Tablet"),
-    CAPSULE("Capsule"),
     GRANULES("Granules"),
-    LIQUID("Liquid"),
     FOAM("Foam"),
-    INJECTION("Injection"),
-    OTHER("Other");
+    ENEMA("Enema"),
+    SUPPOSITORY("Suppository");
 
-    /** Rectal/topical forms get their own icon in the design. */
-    val isTopical: Boolean get() = this == FOAM
+    /** Rectal forms get their own icon in the design. */
+    val isRectal: Boolean get() = this == FOAM || this == ENEMA || this == SUPPOSITORY
 
     companion object {
         fun fromName(name: String?): MedicationForm =
             entries.firstOrNull { it.name == name } ?: TABLET
-    }
-}
-
-/**
- * What actually happened to a dose.
- *
- * [SCHEDULED] is written automatically once a scheduled dose's time has passed: it means
- * "your schedule says this happened", not "you confirmed it". The other states are only ever
- * set by an explicit user action, so the timeline never claims a confirmation you didn't give.
- */
-enum class DoseStatus(val label: String) {
-    SCHEDULED("As scheduled"),
-    TAKEN("Taken"),
-    SKIPPED("Skipped"),
-    ADJUSTED("Adjusted"),
-    MANUAL("Logged");
-
-    /** True for the states the user explicitly chose (vs. auto-materialised). */
-    val isConfirmed: Boolean get() = this != SCHEDULED
-
-    companion object {
-        fun fromName(name: String?): DoseStatus =
-            entries.firstOrNull { it.name == name } ?: SCHEDULED
     }
 }
 
@@ -118,6 +93,19 @@ fun formatMinutesOfDay(minutes: Int): String {
     return "${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}"
 }
 
-/** "2 g", or just the amount when no unit is set. Blank when neither is set. */
-fun formatDose(amount: String, unit: String): String =
-    listOf(amount.trim(), unit.trim()).filter { it.isNotEmpty() }.joinToString(" ")
+/**
+ * How much was taken, e.g. "2 × 1g" for two 1g tablets.
+ *
+ * [dose] is the medication's own strength (defined once, on the catalog entry) and
+ * [quantity] is how many of them this dose was. Either side may be blank — a medication
+ * without a recorded strength shows just the count.
+ */
+fun formatDoseAmount(quantity: String, dose: String): String {
+    val q = quantity.trim()
+    val d = dose.trim()
+    return when {
+        q.isNotEmpty() && d.isNotEmpty() -> "$q × $d"
+        q.isNotEmpty() -> q
+        else -> d
+    }
+}

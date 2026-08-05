@@ -6,7 +6,7 @@ import {
 import { db } from '../firebase'
 import {
   PoopEntry, FoodEntry, NoteEntry, MealTag, TimelineEntry,
-  MedicationEntry, DoseStatus,
+  MedicationEntry,
 } from '../types'
 
 export function mapPoop(id: string, d: Record<string, unknown>): PoopEntry {
@@ -55,10 +55,9 @@ export function mapMedicationEntry(id: string, d: Record<string, unknown>): Medi
     profileId: (d.profileId as string) ?? 'default',
     medicationId: (d.medicationId as string) ?? '',
     medicationName: (d.medicationName as string) ?? '',
+    dose: (d.dose as string) ?? '',
+    quantity: (d.quantity as string) ?? '',
     occurredAt: (d.occurredAt as number) ?? 0,
-    amount: (d.amount as string) ?? '',
-    unit: (d.unit as string) ?? '',
-    status: (d.status as DoseStatus) ?? 'SCHEDULED',
     scheduleId: (d.scheduleId as string) ?? null,
     notes: (d.notes as string) ?? null,
     createdAt: (d.createdAt as number) ?? 0,
@@ -110,13 +109,15 @@ export interface NoteInput {
   caffeine: boolean
   alcohol: boolean
 }
-/** A dose logged by hand — the exceptions, since scheduled doses record themselves. */
+/** A dose, whether logged by hand or edited after a schedule added it. */
 export interface MedicineInput {
   occurredAt: number
   medicationId: string
   medicationName: string
-  amount: string
-  unit: string
+  /** Strength snapshot from the catalog entry, e.g. "1g". */
+  dose: string
+  /** How many units, e.g. "2". */
+  quantity: string
   notes: string | null
 }
 
@@ -215,10 +216,9 @@ export function useEntries(userId: string, profileId: string) {
       userId, profileId,
       medicationId: input.medicationId,
       medicationName: input.medicationName,
+      dose: input.dose,
+      quantity: input.quantity,
       occurredAt: input.occurredAt,
-      amount: input.amount,
-      unit: input.unit,
-      status: 'MANUAL',
       scheduleId: null,
       notes: input.notes,
       createdAt: Date.now(),
@@ -230,23 +230,10 @@ export function useEntries(userId: string, profileId: string) {
     await updateDoc(doc(col('medication_entries'), id), {
       medicationId: input.medicationId,
       medicationName: input.medicationName,
+      dose: input.dose,
+      quantity: input.quantity,
       occurredAt: input.occurredAt,
-      amount: input.amount,
-      unit: input.unit,
       notes: input.notes,
-      updatedAt: serverTimestamp(),
-    })
-  }
-
-  /**
-   * Records what really happened to an already-materialised dose. An amount is only passed
-   * when the user is correcting the quantity, which is what makes a dose "adjusted".
-   */
-  const setDoseStatus = async (id: string, status: DoseStatus, amount?: string, unit?: string) => {
-    await updateDoc(doc(col('medication_entries'), id), {
-      status,
-      ...(amount === undefined ? {} : { amount }),
-      ...(unit === undefined ? {} : { unit }),
       updatedAt: serverTimestamp(),
     })
   }
@@ -266,6 +253,5 @@ export function useEntries(userId: string, profileId: string) {
     addFood, updateFood, deleteFood: softDelete('food_entries'),
     addNote, updateNote, deleteNote: softDelete('note_entries'),
     addMedicine, updateMedicine, deleteMedicine: softDelete('medication_entries'),
-    setDoseStatus,
   }
 }

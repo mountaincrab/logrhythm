@@ -3,7 +3,7 @@ import { ratingColor } from '../lib/ratings'
 import { bristol } from '../lib/bristol'
 import { mealTagLabel } from '../lib/mealTags'
 import { formatTime } from '../lib/dates'
-import { DOSE_STATUS_LABELS, doseStatusColor, formatDose } from '../lib/medications'
+import { formatDoseAmount } from '../lib/medications'
 
 function RatingPill({ n }: { n: number }) {
   const c = ratingColor(n)
@@ -60,29 +60,18 @@ export default function TimelineEntryRow({ item, onClick }: { item: TimelineEntr
       </span>
     )
   } else if (item.kind === 'medicine') {
-    const { medicationName, amount, unit, status, notes } = item.entry
-    dotColor = doseStatusColor(status)
+    const { medicationName, quantity, dose, notes } = item.entry
+    dotColor = 'var(--accent-text)'
     kindLabel = 'Medicine'
-    kindColor = doseStatusColor(status)
-    const dose = formatDose(amount, unit)
+    kindColor = 'var(--accent-text)'
+    const amount = formatDoseAmount(quantity, dose)
     body = (
       <span>
         {medicationName}
-        {dose && <span className="text-fg-muted"> · {dose}</span>}
+        {amount && <span className="text-fg-muted"> · {amount}</span>}
         {notes && <span className="text-fg-muted"> · {notes}</span>}
       </span>
     )
-    // The auto-recorded default needs no badge — it's the quiet, expected case.
-    if (status !== 'SCHEDULED') {
-      meta = (
-        <span
-          className="px-2 py-0.5 rounded-full bg-surface-high text-[11px] font-semibold"
-          style={{ color: doseStatusColor(status) }}
-        >
-          {DOSE_STATUS_LABELS[status]}
-        </span>
-      )
-    }
   } else {
     dotColor = 'var(--accent)'
     kindLabel = 'Note'

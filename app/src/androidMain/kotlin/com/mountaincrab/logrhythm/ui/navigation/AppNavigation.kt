@@ -130,9 +130,6 @@ fun AppNavigation(navController: NavHostController) {
                         }
                     }
                 },
-                onOpenEntry = { kind, id ->
-                    navController.navigate(Screen.EntryDetail.route(kind, id))
-                },
             )
         }
         composable(Screen.Settings.route) {

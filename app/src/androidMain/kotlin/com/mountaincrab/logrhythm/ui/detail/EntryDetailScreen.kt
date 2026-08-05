@@ -97,16 +97,11 @@ fun EntryDetailScreen(
                     DetailNotesCard("Time", m.occurredAt.formatTime())
                     DetailNotesCard("Date", m.occurredAt.formatFullDay())
                     DetailNotesCard("Medication", m.medicationName)
-                    val dose = com.mountaincrab.logrhythm.data.model.formatDose(m.amount, m.unit)
-                    if (dose.isNotEmpty()) DetailNotesCard("Dose", dose)
-                    DetailNotesCard(
-                        "Status",
-                        if (m.scheduleId != null && m.status == com.mountaincrab.logrhythm.data.model.DoseStatus.SCHEDULED) {
-                            "${m.status.label} — recorded automatically from your schedule"
-                        } else {
-                            m.status.label
-                        },
-                    )
+                    val amount = com.mountaincrab.logrhythm.data.model.formatDoseAmount(m.quantity, m.dose)
+                    if (amount.isNotEmpty()) DetailNotesCard("Amount", amount)
+                    if (m.scheduleId != null) {
+                        DetailNotesCard("Source", "Added automatically from your schedule")
+                    }
                     if (!m.notes.isNullOrBlank()) DetailNotesCard("Note", m.notes!!)
                 }
                 "note" -> state.note?.let { n ->

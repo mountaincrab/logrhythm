@@ -21,9 +21,9 @@ import com.mountaincrab.logrhythm.ui.components.FieldLabel
 import com.mountaincrab.logrhythm.ui.components.SaveBar
 import com.mountaincrab.logrhythm.ui.components.SheetHeader
 import com.mountaincrab.logrhythm.ui.components.WhenPicker
-import com.mountaincrab.logrhythm.ui.meds.DoseFields
 import com.mountaincrab.logrhythm.ui.meds.MedicationEditorDialog
 import com.mountaincrab.logrhythm.ui.meds.MedicationPicker
+import com.mountaincrab.logrhythm.ui.meds.PlainInput
 import com.mountaincrab.logrhythm.ui.theme.LocalAppPalette
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
@@ -44,8 +44,8 @@ fun AddMedicineScreen(
     if (showNewMedication) {
         MedicationEditorDialog(
             initial = null,
-            onConfirm = { name, form, amount, unit ->
-                viewModel.createMedicationAndSelect(name, form, amount, unit)
+            onConfirm = { name, form, dose ->
+                viewModel.createMedicationAndSelect(name, form, dose)
                 showNewMedication = false
             },
             onDismiss = { showNewMedication = false },
@@ -85,12 +85,15 @@ fun AddMedicineScreen(
             }
 
             Column(modifier = Modifier.padding(bottom = 18.dp)) {
-                FieldLabel("Dose", hint = "optional")
-                DoseFields(
-                    amount = state.amount,
-                    unit = state.unit,
-                    onAmountChange = viewModel::onAmountChange,
-                    onUnitChange = viewModel::onUnitChange,
+                // How many units — the strength itself is part of the medication's definition.
+                val strength = medications.firstOrNull { it.id == state.medicationId }
+                    ?.dose?.takeIf { it.isNotBlank() }
+                FieldLabel("Quantity", hint = strength?.let { "× $it" })
+                PlainInput(
+                    value = state.quantity,
+                    onValueChange = viewModel::onQuantityChange,
+                    placeholder = "e.g. 2",
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
 

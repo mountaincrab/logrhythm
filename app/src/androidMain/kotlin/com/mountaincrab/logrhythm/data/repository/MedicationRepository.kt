@@ -6,7 +6,6 @@ import com.mountaincrab.logrhythm.data.local.dao.MedicationScheduleDao
 import com.mountaincrab.logrhythm.data.local.entity.MedicationEntity
 import com.mountaincrab.logrhythm.data.local.entity.MedicationEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.MedicationScheduleEntity
-import com.mountaincrab.logrhythm.data.model.DoseStatus
 import com.mountaincrab.logrhythm.data.model.MedicationForm
 import com.mountaincrab.logrhythm.data.model.RepeatRule
 import com.mountaincrab.logrhythm.data.model.SyncStatus
@@ -20,16 +19,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-
-/**
- * A dose the schedule says is still to come today. Purely derived — nothing is written
- * until its time passes (materialisation) or the user acts on it.
- */
-data class UpcomingDose(
-    val schedule: MedicationScheduleEntity,
-    val medication: MedicationEntity,
-    val dueAt: Long,
-)
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MedicationRepository(
@@ -50,31 +39,24 @@ class MedicationRepository(
     fun observeSchedules(): Flow<List<MedicationScheduleEntity>> =
         activeProfileId.flatMapLatest { scheduleDao.observeAll(it) }
 
-    /** Recorded doses for a single local day, oldest first — the Today list. */
-    fun observeEntriesForDay(date: LocalDate): Flow<List<MedicationEntryEntity>> =
-        activeProfileId.flatMapLatest {
-            entryDao.observeInRange(it, date.startMillis(), date.endMillis())
-        }
-
     suspend fun getMedication(id: String): MedicationEntity? = medicationDao.getById(id)
     suspend fun getEntry(id: String): MedicationEntryEntity? = entryDao.getById(id)
     suspend fun getMedications(): List<MedicationEntity> = medicationDao.getAll(profileId())
 
     // ── catalog ────────────────────────────────────────────────────────────
 
+    /** A medication is defined once: what it's called, what form it takes, how strong one unit is. */
     suspend fun saveMedication(
         id: String? = null,
         name: String,
         form: MedicationForm,
-        defaultAmount: String,
-        defaultUnit: String,
+        dose: String,
     ): MedicationEntity {
         val existing = id?.let { medicationDao.getById(it) }
         val med = existing?.copy(
             name = name.trim(),
             form = form,
-            defaultAmount = defaultAmount.trim(),
-            defaultUnit = defaultUnit.trim(),
+            dose = dose.trim(),
             updatedAt = currentTimeMillis(),
             syncStatus = SyncStatus.PENDING,
         ) ?: MedicationEntity(
@@ -82,8 +64,7 @@ class MedicationRepository(
             profileId = profileId(),
             name = name.trim(),
             form = form,
-            defaultAmount = defaultAmount.trim(),
-            defaultUnit = defaultUnit.trim(),
+            dose = dose.trim(),
         )
         medicationDao.upsert(med)
         syncScheduler.enqueue()
@@ -102,8 +83,7 @@ class MedicationRepository(
     suspend fun saveSchedule(
         id: String? = null,
         medicationId: String,
-        amount: String,
-        unit: String,
+        quantity: String,
         timeMinutes: Int,
         repeatRule: RepeatRule,
         daysMask: Int,
@@ -111,8 +91,7 @@ class MedicationRepository(
         val existing = id?.let { scheduleDao.getById(it) }
         val schedule = existing?.copy(
             medicationId = medicationId,
-            amount = amount.trim(),
-            unit = unit.trim(),
+            quantity = quantity.trim(),
             timeMinutes = timeMinutes,
             repeatRule = repeatRule,
             daysMask = daysMask,
@@ -122,8 +101,7 @@ class MedicationRepository(
             userId = getUserId(),
             profileId = profileId(),
             medicationId = medicationId,
-            amount = amount.trim(),
-            unit = unit.trim(),
+            quantity = quantity.trim(),
             timeMinutes = timeMinutes,
             repeatRule = repeatRule,
             daysMask = daysMask,
@@ -149,13 +127,15 @@ class MedicationRepository(
 
     // ── recorded doses ─────────────────────────────────────────────────────
 
-    /** Logs a one-off dose the user entered by hand (the 💊 button on Home). */
-    suspend fun saveManualDose(
+    /**
+     * Writes a dose the user entered by hand (the 💊 button on Home), or edits any existing
+     * dose — including one the schedule added, which is how you correct a quantity.
+     */
+    suspend fun saveDose(
         id: String? = null,
         medicationId: String,
         occurredAt: Long,
-        amount: String,
-        unit: String,
+        quantity: String,
         notes: String?,
     ) {
         val med = medicationDao.getById(medicationId) ?: return
@@ -163,9 +143,9 @@ class MedicationRepository(
         val entry = existing?.copy(
             medicationId = medicationId,
             medicationName = med.name,
+            dose = med.dose,
+            quantity = quantity.trim(),
             occurredAt = occurredAt,
-            amount = amount.trim(),
-            unit = unit.trim(),
             notes = notes?.takeIf { it.isNotBlank() },
             updatedAt = currentTimeMillis(),
             syncStatus = SyncStatus.PENDING,
@@ -174,53 +154,10 @@ class MedicationRepository(
             profileId = profileId(),
             medicationId = medicationId,
             medicationName = med.name,
+            dose = med.dose,
+            quantity = quantity.trim(),
             occurredAt = occurredAt,
-            amount = amount.trim(),
-            unit = unit.trim(),
-            status = DoseStatus.MANUAL,
             notes = notes?.takeIf { it.isNotBlank() },
-        )
-        entryDao.upsert(entry)
-        syncScheduler.enqueue()
-    }
-
-    /**
-     * Records what really happened to an already-materialised dose. [amount] is only passed
-     * when the user is correcting the quantity, which is what makes a dose "adjusted".
-     */
-    suspend fun setDoseStatus(
-        entryId: String,
-        status: DoseStatus,
-        amount: String? = null,
-        unit: String? = null,
-    ) {
-        val entry = entryDao.getById(entryId) ?: return
-        entryDao.upsert(
-            entry.copy(
-                status = status,
-                amount = amount?.trim() ?: entry.amount,
-                unit = unit?.trim() ?: entry.unit,
-                updatedAt = currentTimeMillis(),
-                syncStatus = SyncStatus.PENDING,
-            ),
-        )
-        syncScheduler.enqueue()
-    }
-
-    /** Confirms an upcoming dose early — writes the row materialisation would have written. */
-    suspend fun confirmUpcoming(dose: UpcomingDose, status: DoseStatus) {
-        val date = java.time.Instant.ofEpochMilli(dose.dueAt).atZone(zone).toLocalDate()
-        val entry = MedicationEntryEntity(
-            id = MedicationEntryEntity.materialisedId(dose.schedule.id, date.format(ISO_DATE)),
-            userId = getUserId(),
-            profileId = profileId(),
-            medicationId = dose.medication.id,
-            medicationName = dose.medication.name,
-            occurredAt = dose.dueAt,
-            amount = dose.schedule.amount,
-            unit = dose.schedule.unit,
-            status = status,
-            scheduleId = dose.schedule.id,
         )
         entryDao.upsert(entry)
         syncScheduler.enqueue()
@@ -241,14 +178,14 @@ class MedicationRepository(
     // ── materialisation ────────────────────────────────────────────────────
 
     /**
-     * Turns scheduled doses whose time has passed into real [MedicationEntryEntity] rows,
-     * so meds appear on the timeline without the user confirming anything.
+     * Turns scheduled doses whose time has passed into real [MedicationEntryEntity] rows.
+     * This is the schedule's entire job: automating the adding of dose entries.
      *
-     * Only doses in the past are written; the rest of today stays derived (see [upcomingToday]),
-     * which is what stops the timeline claiming a dose that hasn't happened yet. Ids are
-     * derived from schedule + date, so the phone and the webapp converge on one document
-     * rather than each creating their own. Existing ids — including soft-deleted ones — are
-     * skipped, so a dose the user deleted is not silently resurrected on the next pass.
+     * Only doses in the past are written, so the timeline never claims a dose that hasn't
+     * happened yet. Ids are derived from schedule + date, so the phone and the webapp
+     * converge on one document rather than each creating their own. Existing ids —
+     * including soft-deleted ones — are skipped, so a dose the user deleted because they
+     * missed it is not silently resurrected on the next pass.
      *
      * Returns how many rows were created.
      */
@@ -291,10 +228,9 @@ class MedicationRepository(
                                 profileId = pid,
                                 medicationId = medication.id,
                                 medicationName = medication.name,
+                                dose = medication.dose,
+                                quantity = schedule.quantity,
                                 occurredAt = dueAt,
-                                amount = schedule.amount,
-                                unit = schedule.unit,
-                                status = DoseStatus.SCHEDULED,
                                 scheduleId = schedule.id,
                             )
                         }
@@ -309,38 +245,8 @@ class MedicationRepository(
         return created.size
     }
 
-    /**
-     * Doses still ahead of you today, derived straight from the schedule. These are shown as
-     * "due" but never written — materialisation picks them up once their time passes.
-     */
-    suspend fun upcomingToday(): List<UpcomingDose> {
-        val pid = profileId()
-        val schedules = scheduleDao.getActive(pid)
-        if (schedules.isEmpty()) return emptyList()
-        val medications = medicationDao.getAll(pid).associateBy { it.id }
-        val nowMillis = currentTimeMillis()
-        val today = LocalDate.now(zone)
-
-        return schedules.mapNotNull { schedule ->
-            val medication = medications[schedule.medicationId] ?: return@mapNotNull null
-            val occurs = scheduleOccursOn(
-                rule = schedule.repeatRule,
-                daysMask = schedule.daysMask,
-                startEpochDay = schedule.startEpochDay,
-                epochDay = today.toEpochDay(),
-                isoDayOfWeek = today.dayOfWeek.value,
-            )
-            if (!occurs) return@mapNotNull null
-            val dueAt = today.doseMillis(schedule.timeMinutes)
-            if (dueAt <= nowMillis) null else UpcomingDose(schedule, medication, dueAt)
-        }.sortedBy { it.dueAt }
-    }
-
     private fun LocalDate.startMillis(): Long =
         atStartOfDay(zone).toInstant().toEpochMilli()
-
-    private fun LocalDate.endMillis(): Long =
-        plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
 
     private fun LocalDate.doseMillis(minutes: Int): Long =
         atStartOfDay(zone).plusMinutes(minutes.toLong()).toInstant().toEpochMilli()

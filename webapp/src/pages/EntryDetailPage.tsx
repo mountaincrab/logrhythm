@@ -8,7 +8,7 @@ import { ratingColor, ratingBlurb } from '../lib/ratings'
 import { bristol } from '../lib/bristol'
 import { mealTagLabel } from '../lib/mealTags'
 import { formatTime, formatDayFull } from '../lib/dates'
-import { DOSE_STATUS_LABELS, doseStatusColor, formatDose } from '../lib/medications'
+import { formatDoseAmount } from '../lib/medications'
 import AddPoopSheet from '../components/sheets/AddPoopSheet'
 import AddFoodSheet from '../components/sheets/AddFoodSheet'
 import AddNoteSheet from '../components/sheets/AddNoteSheet'
@@ -184,26 +184,22 @@ export default function EntryDetailPage() {
   }
 
   if (medicine) {
-    const dose = formatDose(medicine.amount, medicine.unit)
-    const auto = medicine.scheduleId !== null && medicine.status === 'SCHEDULED'
+    const amount = formatDoseAmount(medicine.quantity, medicine.dose)
     return (
       <>
         <DetailFrame eyebrow="Medicine" headerLine={headerLine} onEdit={() => setEditing(true)}>
           <Card label="Medication">
             <div className="text-base font-semibold">{medicine.medicationName}</div>
-            {dose && <div className="text-sm text-fg-muted mt-0.5">{dose}</div>}
+            {amount && <div className="text-sm text-fg-muted mt-0.5">{amount}</div>}
           </Card>
-          <Card label="Status">
-            <div className="text-base font-semibold" style={{ color: doseStatusColor(medicine.status) }}>
-              {DOSE_STATUS_LABELS[medicine.status]}
-            </div>
-            {auto && (
-              <div className="text-xs text-fg-muted mt-0.5 leading-snug">
-                Recorded automatically from your schedule. Correct it from the Meds page if
-                you missed it or took a different amount.
+          {medicine.scheduleId !== null && (
+            <Card label="Source">
+              <div className="text-sm text-fg-muted leading-snug">
+                Added automatically from your schedule. Edit it if you took a different
+                amount, or delete it if you missed the dose.
               </div>
-            )}
-          </Card>
+            </Card>
+          )}
           {medicine.notes && (
             <Card label="Note">
               <div className="text-sm leading-relaxed text-fg whitespace-pre-wrap">{medicine.notes}</div>
@@ -217,8 +213,8 @@ export default function EntryDetailPage() {
               occurredAt: medicine.occurredAt,
               medicationId: medicine.medicationId,
               medicationName: medicine.medicationName,
-              amount: medicine.amount,
-              unit: medicine.unit,
+              dose: medicine.dose,
+              quantity: medicine.quantity,
               notes: medicine.notes,
             }}
             onClose={() => setEditing(false)}

@@ -18,9 +18,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.mountaincrab.logrhythm.data.model.DoseStatus
 import com.mountaincrab.logrhythm.data.model.bristol
-import com.mountaincrab.logrhythm.data.model.formatDose
+import com.mountaincrab.logrhythm.data.model.formatDoseAmount
 import com.mountaincrab.logrhythm.data.repository.TimelineEntry
 import com.mountaincrab.logrhythm.ui.theme.LocalAppPalette
 import com.mountaincrab.logrhythm.ui.theme.RatingColors
@@ -41,7 +40,7 @@ fun TimelineEntryRow(
         is TimelineEntry.Poop -> RatingColors[entry.entity.blood]?.bg ?: palette.surfaceHigh
         is TimelineEntry.Food -> palette.surfaceHigh
         is TimelineEntry.Note -> palette.warning
-        is TimelineEntry.Medication -> entry.entity.status.dotColor(palette)
+        is TimelineEntry.Medication -> palette.accentText
     }
 
     Box(modifier = modifier.fillMaxWidth()) {
@@ -156,23 +155,11 @@ private fun FoodBody(entry: TimelineEntry.Food) {
     Text(text = entry.entity.items, color = palette.fgMuted, fontSize = 14.sp, lineHeight = 20.sp)
 }
 
-/**
- * An auto-materialised dose (SCHEDULED) reads quieter than one the user acted on — it
- * says "your schedule says this happened", not "you confirmed it".
- */
-@Composable
-private fun DoseStatus.dotColor(palette: com.mountaincrab.logrhythm.ui.theme.AppPalette): Color = when (this) {
-    DoseStatus.SCHEDULED -> palette.fgFaint
-    DoseStatus.TAKEN, DoseStatus.MANUAL -> palette.successText
-    DoseStatus.ADJUSTED -> palette.warning
-    DoseStatus.SKIPPED -> palette.dangerText
-}
-
 @Composable
 private fun MedicationBody(entry: TimelineEntry.Medication) {
     val palette = LocalAppPalette.current
     val e = entry.entity
-    val dose = formatDose(e.amount, e.unit)
+    val amount = formatDoseAmount(e.quantity, e.dose)
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -196,32 +183,13 @@ private fun MedicationBody(entry: TimelineEntry.Medication) {
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.align(Alignment.CenterVertically),
         )
-        if (dose.isNotEmpty()) {
+        if (amount.isNotEmpty()) {
             Text(
-                text = dose,
+                text = amount,
                 color = palette.fgMuted,
                 fontSize = 13.sp,
                 modifier = Modifier.align(Alignment.CenterVertically),
             )
-        }
-        // The default "as scheduled" state needs no badge — it's the quiet, expected case.
-        if (e.status != DoseStatus.SCHEDULED) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterVertically)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(palette.surfaceHigh)
-                    .border(1.dp, palette.borderSubtle, RoundedCornerShape(999.dp))
-                    .padding(horizontal = 8.dp, vertical = 3.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = e.status.label,
-                    color = e.status.dotColor(palette),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
         }
     }
     if (!e.notes.isNullOrBlank()) {

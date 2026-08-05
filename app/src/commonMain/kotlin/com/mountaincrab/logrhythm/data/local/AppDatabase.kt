@@ -25,7 +25,6 @@ import com.mountaincrab.logrhythm.data.local.entity.PoopEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryTagCrossRef
 import com.mountaincrab.logrhythm.data.local.entity.PoopTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.ProfileEntity
-import com.mountaincrab.logrhythm.data.model.DoseStatus
 import com.mountaincrab.logrhythm.data.model.MealTag
 import com.mountaincrab.logrhythm.data.model.MedicationForm
 import com.mountaincrab.logrhythm.data.model.RepeatRule
@@ -45,7 +44,7 @@ import com.mountaincrab.logrhythm.data.model.SyncStatus
         MedicationScheduleEntity::class,
         MedicationEntryEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -62,7 +61,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun medicationEntryDao(): MedicationEntryDao
 
     companion object {
-        const val CURRENT_VERSION = 10
+        const val CURRENT_VERSION = 11
     }
 }
 
@@ -81,9 +80,6 @@ class Converters {
 
     @TypeConverter fun fromMedicationForm(value: MedicationForm): String = value.name
     @TypeConverter fun toMedicationForm(value: String): MedicationForm = MedicationForm.fromName(value)
-
-    @TypeConverter fun fromDoseStatus(value: DoseStatus): String = value.name
-    @TypeConverter fun toDoseStatus(value: String): DoseStatus = DoseStatus.fromName(value)
 
     @TypeConverter fun fromRepeatRule(value: RepeatRule): String = value.name
     @TypeConverter fun toRepeatRule(value: String): RepeatRule = RepeatRule.fromName(value)
