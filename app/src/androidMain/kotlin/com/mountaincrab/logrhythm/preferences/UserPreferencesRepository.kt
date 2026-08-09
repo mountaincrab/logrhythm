@@ -19,6 +19,7 @@ class UserPreferencesRepository(private val context: Context) {
     private val keyActiveProfileId = stringPreferencesKey("active_profile_id")
     private val keyProfileThemeMigrated = booleanPreferencesKey("profile_theme_migrated")
     private val keyLastSyncTimestamp = longPreferencesKey("last_sync_timestamp")
+    private val keyTagProfileIdRepaired = booleanPreferencesKey("tag_profile_id_repaired")
 
     /** Legacy theme key, read once during the profile theme migration then unused. */
     val appTheme: Flow<String?> = context.dataStore.data.map { it[keyAppTheme] }
@@ -35,6 +36,14 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun setProfileThemeMigrated() {
         context.dataStore.edit { it[keyProfileThemeMigrated] = true }
+    }
+
+    /** Whether tags have been re-pushed once to add the `profileId` field to their documents. */
+    suspend fun isTagProfileIdRepaired(): Boolean =
+        context.dataStore.data.map { it[keyTagProfileIdRepaired] ?: false }.first()
+
+    suspend fun setTagProfileIdRepaired() {
+        context.dataStore.edit { it[keyTagProfileIdRepaired] = true }
     }
 
     suspend fun getLastSyncTimestamp(): Long =

@@ -7,6 +7,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import com.mountaincrab.logrhythm.data.local.entity.NoteEntryTagCrossRef
 import com.mountaincrab.logrhythm.data.local.entity.NoteTagEntity
+import com.mountaincrab.logrhythm.util.currentTimeMillis
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -26,8 +27,12 @@ interface NoteTagDao {
     @Query("UPDATE note_tags SET isDeleted = 1, syncStatus = 'PENDING', updatedAt = :updatedAt WHERE id = :id")
     suspend fun softDelete(id: String, updatedAt: Long)
 
-    @Query("UPDATE note_tags SET isDeleted = 1 WHERE profileId = :profileId AND isDeleted = 0")
-    suspend fun softDeleteByProfile(profileId: String)
+    @Query("UPDATE note_tags SET isDeleted = 1, updatedAt = :updatedAt, syncStatus = 'PENDING' WHERE profileId = :profileId AND isDeleted = 0")
+    suspend fun softDeleteByProfile(profileId: String, updatedAt: Long = currentTimeMillis())
+
+    /** See [PoopTagDao.markNonDefaultProfilePending]. */
+    @Query("UPDATE note_tags SET syncStatus = 'PENDING' WHERE profileId != 'default'")
+    suspend fun markNonDefaultProfilePending()
 
     @Query("""
         SELECT t.* FROM note_tags t

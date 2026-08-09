@@ -40,6 +40,8 @@ class SyncWorker(
                 db.profileDao().markSynced(profile.id)
             }
 
+            repairTagProfileIdsIfNeeded()
+
             // Push tags before entries so Firestore has them when entries reference them.
             db.poopTagDao().getPending().forEach { tag ->
                 firestoreRepo.pushPoopTag(uid, tag)
@@ -89,6 +91,19 @@ class SyncWorker(
         } catch (e: Exception) {
             if (runAttemptCount < 3) Result.retry() else Result.failure()
         }
+    }
+
+    /**
+     * Tag documents were pushed without `profileId` until it was added to the Firestore shape,
+     * so every synced tag read back as belonging to the default profile. The local rows still
+     * hold the right value, so mark them pending once and let the push below repair the
+     * documents. Runs before the tag push so the fix lands in the same sync.
+     */
+    private suspend fun repairTagProfileIdsIfNeeded() {
+        if (prefs.isTagProfileIdRepaired()) return
+        db.poopTagDao().markNonDefaultProfilePending()
+        db.noteTagDao().markNonDefaultProfilePending()
+        prefs.setTagProfileIdRepaired()
     }
 
     private suspend fun pushMedicationEntries(uid: String) {
