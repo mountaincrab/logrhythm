@@ -114,6 +114,7 @@ class FirestoreRepository {
     suspend fun pushPoopTag(uid: String, tag: PoopTagEntity) {
         userCol(uid, "poop_tags").document(tag.id).set(
             mapOf(
+                "profileId" to tag.profileId,
                 "name" to tag.name,
                 "isDeleted" to tag.isDeleted,
                 "sortOrder" to tag.sortOrder,
@@ -127,6 +128,7 @@ class FirestoreRepository {
     suspend fun pushNoteTag(uid: String, tag: NoteTagEntity) {
         userCol(uid, "note_tags").document(tag.id).set(
             mapOf(
+                "profileId" to tag.profileId,
                 "name" to tag.name,
                 "isDeleted" to tag.isDeleted,
                 "sortOrder" to tag.sortOrder,
@@ -211,6 +213,7 @@ class FirestoreRepository {
                 try {
                     PoopTagEntity(
                         id = doc.id,
+                        profileId = doc.getString("profileId") ?: DEFAULT_PROFILE_ID,
                         name = doc.getString("name") ?: return@mapNotNull null,
                         isDeleted = doc.getBoolean("isDeleted") ?: false,
                         sortOrder = (doc.getLong("sortOrder") ?: 0L).toInt(),
@@ -360,6 +363,7 @@ class FirestoreRepository {
                 try {
                     NoteTagEntity(
                         id = doc.id,
+                        profileId = doc.getString("profileId") ?: DEFAULT_PROFILE_ID,
                         name = doc.getString("name") ?: return@mapNotNull null,
                         isDeleted = doc.getBoolean("isDeleted") ?: false,
                         sortOrder = (doc.getLong("sortOrder") ?: 0L).toInt(),

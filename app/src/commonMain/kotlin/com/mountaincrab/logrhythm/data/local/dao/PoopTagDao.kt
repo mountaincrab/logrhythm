@@ -7,6 +7,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryTagCrossRef
 import com.mountaincrab.logrhythm.data.local.entity.PoopTagEntity
+import com.mountaincrab.logrhythm.util.currentTimeMillis
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -26,8 +27,18 @@ interface PoopTagDao {
     @Query("UPDATE poop_tags SET isDeleted = 1, syncStatus = 'PENDING', updatedAt = :updatedAt WHERE id = :id")
     suspend fun softDelete(id: String, updatedAt: Long)
 
-    @Query("UPDATE poop_tags SET isDeleted = 1 WHERE profileId = :profileId AND isDeleted = 0")
-    suspend fun softDeleteByProfile(profileId: String)
+    @Query("UPDATE poop_tags SET isDeleted = 1, updatedAt = :updatedAt, syncStatus = 'PENDING' WHERE profileId = :profileId AND isDeleted = 0")
+    suspend fun softDeleteByProfile(profileId: String, updatedAt: Long = currentTimeMillis())
+
+    /**
+     * One-shot repair for tag documents pushed before `profileId` was part of the Firestore
+     * shape. Only non-default tags are re-pushed: their profile is the information Firestore
+     * lost, whereas a default-profile tag reads back correctly from the missing-field
+     * fallback, so re-pushing it could only overwrite a good remote value with a flattened
+     * local one.
+     */
+    @Query("UPDATE poop_tags SET syncStatus = 'PENDING' WHERE profileId != 'default'")
+    suspend fun markNonDefaultProfilePending()
 
     @Query("""
         SELECT t.* FROM poop_tags t
