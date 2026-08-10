@@ -66,10 +66,20 @@ class AddMedicineViewModel(
         it.copy(medicationId = medication.id)
     }
 
-    fun createMedicationAndSelect(name: String, form: MedicationForm, dose: String) {
+    fun createMedicationAndSelect(
+        name: String,
+        form: MedicationForm,
+        doseAmount: String,
+        doseUnit: String,
+    ) {
         if (name.isBlank()) return
         viewModelScope.launch {
-            val created = repository.saveMedication(name = name, form = form, dose = dose)
+            val created = repository.saveMedication(
+                name = name,
+                form = form,
+                doseAmount = doseAmount,
+                doseUnit = doseUnit,
+            )
             selectMedication(created)
         }
     }

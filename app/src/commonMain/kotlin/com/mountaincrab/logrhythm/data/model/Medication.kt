@@ -94,6 +94,15 @@ fun formatMinutesOfDay(minutes: Int): String {
 }
 
 /**
+ * The strength of one unit as a single string, e.g. "1g" from amount "1" + unit "g".
+ *
+ * Amount and unit are captured separately when defining a medication, but everything that
+ * *shows* a strength wants the one string, so they're joined here and nowhere else. Both
+ * sides are free text and either may be blank.
+ */
+fun formatDose(amount: String, unit: String): String = amount.trim() + unit.trim()
+
+/**
  * How much was taken, e.g. "2 × 1g" for two 1g tablets.
  *
  * [dose] is the medication's own strength (defined once, on the catalog entry) and

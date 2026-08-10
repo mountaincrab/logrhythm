@@ -6,6 +6,7 @@ import com.mountaincrab.logrhythm.data.local.dao.MedicationScheduleDao
 import com.mountaincrab.logrhythm.data.local.entity.MedicationEntity
 import com.mountaincrab.logrhythm.data.local.entity.MedicationEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.MedicationScheduleEntity
+import com.mountaincrab.logrhythm.data.local.entity.dose
 import com.mountaincrab.logrhythm.data.model.MedicationForm
 import com.mountaincrab.logrhythm.data.model.RepeatRule
 import com.mountaincrab.logrhythm.data.model.SyncStatus
@@ -50,13 +51,15 @@ class MedicationRepository(
         id: String? = null,
         name: String,
         form: MedicationForm,
-        dose: String,
+        doseAmount: String,
+        doseUnit: String,
     ): MedicationEntity {
         val existing = id?.let { medicationDao.getById(it) }
         val med = existing?.copy(
             name = name.trim(),
             form = form,
-            dose = dose.trim(),
+            doseAmount = doseAmount.trim(),
+            doseUnit = doseUnit.trim(),
             updatedAt = currentTimeMillis(),
             syncStatus = SyncStatus.PENDING,
         ) ?: MedicationEntity(
@@ -64,7 +67,8 @@ class MedicationRepository(
             profileId = profileId(),
             name = name.trim(),
             form = form,
-            dose = dose.trim(),
+            doseAmount = doseAmount.trim(),
+            doseUnit = doseUnit.trim(),
         )
         medicationDao.upsert(med)
         syncScheduler.enqueue()

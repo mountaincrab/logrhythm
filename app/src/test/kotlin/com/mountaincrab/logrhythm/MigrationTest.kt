@@ -123,6 +123,37 @@ class MigrationTest {
     }
 
     /**
+     * Tests that v11→v12 splits a medication's strength into doseAmount + doseUnit and
+     * carries the existing value across, so "1g" still reads as "1g" after the upgrade.
+     *
+     * Requires: app/schemas/.../11.json.
+     */
+    @Test
+    fun migrate11To12_strengthMovesToDoseAmount() {
+        helper.createDatabase(DB_NAME, 11).apply {
+            execSQL(
+                "INSERT INTO medications " +
+                    "(id, userId, profileId, name, form, dose, sortOrder, createdAt, updatedAt, syncStatus, isDeleted) " +
+                    "VALUES ('m1', 'u1', 'default', 'Pentasa', 'TABLET', '1g', 0, 1000, 2000, 'SYNCED', 0)",
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(DB_NAME, 12, true, *ALL_MIGRATIONS)
+
+        db.query("SELECT doseAmount, doseUnit, name, syncStatus FROM medications WHERE id = 'm1'").use { c ->
+            assertEquals(1, c.count)
+            c.moveToFirst()
+            assertEquals("1g", c.getString(0))
+            assertEquals("", c.getString(1))
+            assertEquals("Pentasa", c.getString(2))
+            // Reshaped rows are re-pushed so Firestore gets the new field names.
+            assertEquals("PENDING", c.getString(3))
+        }
+        db.close()
+    }
+
+    /**
      * Verifies every migration overrides migrate(SQLiteConnection).
      *
      * MigrationTestHelper uses SupportSQLiteOpenHelper internally and calls

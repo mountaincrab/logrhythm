@@ -125,7 +125,7 @@ poop_tags               ← id, profileId, name, isDeleted, sortOrder, createdAt
 note_tags               ← id, profileId, name, isDeleted, sortOrder, createdAt, updatedAt, syncStatus
 poop_entry_tag_refs     ← entryId, tagId  (composite PK — many-to-many join)
 note_entry_tag_refs     ← entryId, tagId  (composite PK — many-to-many join)
-medications             ← id, userId, profileId, name, form (MedicationForm), dose (strength of one unit, e.g. "1g"), sortOrder, createdAt, updatedAt, syncStatus, isDeleted
+medications             ← id, userId, profileId, name, form (MedicationForm), doseAmount + doseUnit (strength of one unit, e.g. "1" + "g"), sortOrder, createdAt, updatedAt, syncStatus, isDeleted
 medication_schedules    ← id, userId, profileId, medicationId, quantity, timeMinutes (Int, mins from midnight), repeatRule (RepeatRule), daysMask (ISO day bitmask), startEpochDay, isActive, createdAt, updatedAt, syncStatus, isDeleted
 medication_entries      ← id, userId, profileId, medicationId, medicationName, dose, quantity, occurredAt, scheduleId?, notes?, createdAt, updatedAt, syncStatus, isDeleted
 ```
@@ -145,14 +145,16 @@ notes. Three pieces:
 
 - **Catalog** (`medications`) — a medication is defined **once** and referenced everywhere: by scheduled doses
   and by recorded ones. Drug names are never free text on an entry. A medication is *name + form + strength*
-  — "Pentasa, tablet, 1g". How many you take is **not** part of the definition.
+  — "Pentasa, tablet, 1g". How many you take is **not** part of the definition. The strength is stored split
+  as `doseAmount` + `doseUnit` (both free text) and joined into the one string — `formatDose()` on either
+  surface — everywhere it's displayed or snapshotted onto a dose.
 - **Schedule** (`medication_schedules`) — one row per scheduled dose (medication + quantity + time + repeat).
   `quantity` is how many units, so "2" against Pentasa 1g means two 1g tablets. A med taken morning and night
   is two rows. Because each row carries its `medicationId`, the same data renders either as a flat list of
   doses or grouped per medication; the Meds screen ships both behind a toggle, so that choice stays
   presentation-only and never becomes a schema change.
-- **Doses** (`medication_entries`) — what happened. `medicationName` and `dose` are snapshots so a dose still
-  reads correctly after its catalog entry is edited or deleted.
+- **Doses** (`medication_entries`) — what happened. `medicationName` and `dose` (the joined strength) are
+  snapshots so a dose still reads correctly after its catalog entry is edited or deleted.
 
 **The schedule exists only to automate adding dose entries.** Once a scheduled dose's time has passed it is
 *materialised* into a real timeline row. There is deliberately **no per-dose status** and no review screen:
@@ -172,6 +174,9 @@ Rules that both surfaces must keep identical (`data/model/Medication.kt` ↔ `we
   happened yet.
 - Materialisation runs after the sync pull, is bounded to a 14-day backfill, and skips ids that already exist
   — **including soft-deleted ones**, so a dose the user deleted isn't resurrected on the next pass.
+- A medication's strength lives on the catalog row as `doseAmount` + `doseUnit`; a recorded dose snapshots
+  the **joined** string in its own `dose` field. Splitting it there too would buy nothing — nothing edits a
+  snapshot's units.
 - `MedicationForm` is a closed set — `TABLET`, `GRANULES`, `FOAM`, `ENEMA`, `SUPPOSITORY` — and both surfaces
   must list the same values in the same order.
 

@@ -334,7 +334,49 @@ private val MIGRATION_10_11 = object : Migration(10, 11) {
     }
 }
 
+/**
+ * Splits a medication's strength into `doseAmount` + `doseUnit` ("1g" → "1" + "g"), so the
+ * editor can offer the number and its unit as separate fields. Everything that displays a
+ * strength re-joins them, so nothing else changes shape.
+ *
+ * Table rebuild rather than ALTER: the old `dose` column has to go, and DROP COLUMN isn't
+ * available on every SQLite version Android ships. Existing strengths move into `doseAmount`
+ * whole, leaving `doseUnit` empty — they still read exactly as before, and splitting them
+ * properly is a job for the editor, not a regex.
+ */
+private val MIGRATION_11_12 = object : Migration(11, 12) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("""
+            CREATE TABLE medications_new (
+                id TEXT NOT NULL PRIMARY KEY,
+                userId TEXT NOT NULL,
+                profileId TEXT NOT NULL,
+                name TEXT NOT NULL,
+                form TEXT NOT NULL,
+                doseAmount TEXT NOT NULL,
+                doseUnit TEXT NOT NULL,
+                sortOrder INTEGER NOT NULL,
+                createdAt INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL,
+                syncStatus TEXT NOT NULL,
+                isDeleted INTEGER NOT NULL
+            )
+        """.trimIndent())
+        // syncStatus is forced to PENDING so the reshaped rows get pushed to Firestore.
+        connection.execSQL("""
+            INSERT INTO medications_new
+                (id, userId, profileId, name, form, doseAmount, doseUnit, sortOrder,
+                 createdAt, updatedAt, syncStatus, isDeleted)
+            SELECT id, userId, profileId, name, form, dose, '', sortOrder,
+                   createdAt, updatedAt, 'PENDING', isDeleted
+            FROM medications
+        """.trimIndent())
+        connection.execSQL("DROP TABLE medications")
+        connection.execSQL("ALTER TABLE medications_new RENAME TO medications")
+    }
+}
+
 val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_3_4, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
-    MIGRATION_10_11,
+    MIGRATION_10_11, MIGRATION_11_12,
 )

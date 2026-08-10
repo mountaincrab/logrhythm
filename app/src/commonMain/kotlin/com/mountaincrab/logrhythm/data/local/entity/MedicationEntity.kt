@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.mountaincrab.logrhythm.data.model.MedicationForm
 import com.mountaincrab.logrhythm.data.model.SyncStatus
+import com.mountaincrab.logrhythm.data.model.formatDose
 import com.mountaincrab.logrhythm.util.currentTimeMillis
 import com.mountaincrab.logrhythm.util.randomUUID
 
@@ -22,11 +23,19 @@ data class MedicationEntity(
     val profileId: String = DEFAULT_PROFILE_ID,
     val name: String,
     val form: MedicationForm = MedicationForm.TABLET,
-    /** Strength of a single unit of this medication, e.g. "1g" — free text so odd units fit. */
-    val dose: String = "",
+    /** How much one unit is, e.g. "1" of "1g" — free text, so "1/2" or "2.5" fit too. */
+    val doseAmount: String = "",
+    /** What that amount is measured in, e.g. "g" of "1g" — free text, so odd units fit. */
+    val doseUnit: String = "",
     val sortOrder: Int = 0,
     val createdAt: Long = currentTimeMillis(),
     val updatedAt: Long = currentTimeMillis(),
     val syncStatus: SyncStatus = SyncStatus.PENDING,
     val isDeleted: Boolean = false,
 )
+
+/**
+ * The strength as one string, e.g. "1g" — what every display site and every dose snapshot
+ * wants. Stored split so the editor can offer amount and unit as separate fields.
+ */
+val MedicationEntity.dose: String get() = formatDose(doseAmount, doseUnit)

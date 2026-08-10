@@ -4,6 +4,7 @@ import com.mountaincrab.logrhythm.data.local.entity.MedicationEntryEntity
 import com.mountaincrab.logrhythm.data.model.RepeatRule
 import com.mountaincrab.logrhythm.data.model.TimeOfDay
 import com.mountaincrab.logrhythm.data.model.daysFromMask
+import com.mountaincrab.logrhythm.data.model.formatDose
 import com.mountaincrab.logrhythm.data.model.formatDoseAmount
 import com.mountaincrab.logrhythm.data.model.formatMinutesOfDay
 import com.mountaincrab.logrhythm.data.model.maskFromDays
@@ -127,5 +128,11 @@ class MedicationScheduleTest {
         assertEquals("2", formatDoseAmount("2", ""))
         assertEquals("1g", formatDoseAmount("", "1g"))
         assertEquals("", formatDoseAmount("", ""))
+        // A strength is stored as amount + unit and joined back into the one string.
+        assertEquals("1g", formatDose("1", "g"))
+        assertEquals("500mg", formatDose(" 500 ", " mg "))
+        assertEquals("2", formatDose("2", ""))
+        assertEquals("puff", formatDose("", "puff"))
+        assertEquals("", formatDose("", ""))
     }
 }

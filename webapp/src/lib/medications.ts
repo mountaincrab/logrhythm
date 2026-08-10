@@ -70,6 +70,21 @@ export function formatMinutesOfDay(minutes: number): string {
 }
 
 /**
+ * The strength of one unit as a single string, e.g. "1g" from amount "1" + unit "g".
+ *
+ * Amount and unit are captured separately when defining a medication, but everything that
+ * *shows* a strength wants the one string, so they're joined here and nowhere else. Both
+ * sides are free text and either may be blank.
+ */
+export function formatDose(amount: string, unit: string): string {
+  return amount.trim() + unit.trim()
+}
+
+/** A medication's strength as one string — the display form of doseAmount + doseUnit. */
+export const medicationDose = (m: { doseAmount: string; doseUnit: string }): string =>
+  formatDose(m.doseAmount, m.doseUnit)
+
+/**
  * How much was taken, e.g. "2 × 1g" for two 1g tablets. `dose` is the medication's own
  * strength (defined once on the catalog entry) and `quantity` is how many of them.
  */

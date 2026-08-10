@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mountaincrab.logrhythm.data.local.entity.dose
 import com.mountaincrab.logrhythm.ui.components.FieldLabel
 import com.mountaincrab.logrhythm.ui.components.SaveBar
 import com.mountaincrab.logrhythm.ui.components.SheetHeader
@@ -44,8 +45,8 @@ fun AddMedicineScreen(
     if (showNewMedication) {
         MedicationEditorDialog(
             initial = null,
-            onConfirm = { name, form, dose ->
-                viewModel.createMedicationAndSelect(name, form, dose)
+            onConfirm = { name, form, doseAmount, doseUnit ->
+                viewModel.createMedicationAndSelect(name, form, doseAmount, doseUnit)
                 showNewMedication = false
             },
             onDismiss = { showNewMedication = false },

@@ -8,7 +8,8 @@ import {
 import { useMedicationsContext } from '../contexts/MedicationsContext'
 import { Medication, MedicationSchedule, RepeatRule } from '../types'
 import {
-  describeRepeat, formEmoji, formLabel, formatDoseAmount, formatMinutesOfDay, timeOfDayLabel,
+  describeRepeat, formEmoji, formLabel, formatDoseAmount, formatMinutesOfDay, medicationDose,
+  timeOfDayLabel,
 } from '../lib/medications'
 
 type Tab = 'schedule' | 'catalog'
@@ -85,6 +86,10 @@ function ScheduleTab() {
 
   const byId = useMemo(() => new Map(medications.map((m) => [m.id, m])), [medications])
   const nameOf = (s: MedicationSchedule) => byId.get(s.medicationId)?.name ?? 'Unknown medication'
+  const doseOf = (s: MedicationSchedule) => {
+    const med = byId.get(s.medicationId)
+    return med ? medicationDose(med) : ''
+  }
 
   const groups = useMemo(() => {
     const map = new Map<string, MedicationSchedule[]>()
@@ -97,7 +102,7 @@ function ScheduleTab() {
       key={s.id}
       schedule={s}
       name={nameOf(s)}
-      amount={formatDoseAmount(s.quantity, byId.get(s.medicationId)?.dose ?? '')}
+      amount={formatDoseAmount(s.quantity, doseOf(s))}
       showName={showName}
       onEdit={() => setEditing(s)}
       onDelete={() => deleteSchedule(s.id)}
@@ -250,7 +255,7 @@ function ScheduleDialog({ initial, onClose }: { initial?: MedicationSchedule; on
               />
             </Field>
             {/* How many units — the strength itself is part of the medication's definition. */}
-            <Field label="Quantity" hint={selected?.dose ? `× ${selected.dose}` : undefined}>
+            <Field label="Quantity" hint={selected && medicationDose(selected) ? `× ${medicationDose(selected)}` : undefined}>
               <input
                 className={inputClass}
                 value={quantity}
@@ -327,7 +332,7 @@ function CatalogTab() {
                 <span className="text-xl shrink-0">{formEmoji(m.form)}</span>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-fg truncate">{m.name}</div>
-                  <div className="text-xs text-fg-muted">{[formLabel(m.form), m.dose].filter(Boolean).join(' · ')}</div>
+                  <div className="text-xs text-fg-muted">{[formLabel(m.form), medicationDose(m)].filter(Boolean).join(' · ')}</div>
                 </div>
                 <button onClick={() => setEditing(m)} className="p-2 text-fg-muted hover:text-fg transition-colors" aria-label="Edit">
                   <Pencil size={16} />

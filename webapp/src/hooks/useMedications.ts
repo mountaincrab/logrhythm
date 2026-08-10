@@ -6,7 +6,7 @@ import {
 import { db } from '../firebase'
 import { Medication, MedicationForm, MedicationSchedule, RepeatRule } from '../types'
 import {
-  doseMillis, isoDateString, localEpochDay, materialisedDoseId, scheduleOccursOn,
+  doseMillis, isoDateString, localEpochDay, materialisedDoseId, medicationDose, scheduleOccursOn,
 } from '../lib/medications'
 
 /** How far back a first run (or a long absence) will fill in missed doses. */
@@ -18,7 +18,8 @@ function mapMedication(id: string, d: Record<string, unknown>): Medication {
     profileId: (d.profileId as string) ?? 'default',
     name: (d.name as string) ?? '',
     form: (d.form as MedicationForm) ?? 'TABLET',
-    dose: (d.dose as string) ?? '',
+    doseAmount: (d.doseAmount as string) ?? '',
+    doseUnit: (d.doseUnit as string) ?? '',
     sortOrder: (d.sortOrder as number) ?? 0,
     createdAt: (d.createdAt as number) ?? 0,
     isDeleted: (d.isDeleted as boolean) ?? false,
@@ -44,7 +45,8 @@ function mapSchedule(id: string, d: Record<string, unknown>): MedicationSchedule
 export interface MedicationInput {
   name: string
   form: MedicationForm
-  dose: string
+  doseAmount: string
+  doseUnit: string
 }
 
 export interface ScheduleInput {
@@ -102,7 +104,8 @@ export function useMedications(userId: string, profileId: string) {
       userId, profileId,
       name: input.name.trim(),
       form: input.form,
-      dose: input.dose.trim(),
+      doseAmount: input.doseAmount.trim(),
+      doseUnit: input.doseUnit.trim(),
       sortOrder: medications.length,
       createdAt: Date.now(),
       updatedAt: serverTimestamp(),
@@ -115,7 +118,8 @@ export function useMedications(userId: string, profileId: string) {
     await updateDoc(doc(col('medications'), id), {
       name: input.name.trim(),
       form: input.form,
-      dose: input.dose.trim(),
+      doseAmount: input.doseAmount.trim(),
+      doseUnit: input.doseUnit.trim(),
       updatedAt: serverTimestamp(),
     })
   }
@@ -221,7 +225,7 @@ export function useMedications(userId: string, profileId: string) {
             userId, profileId,
             medicationId: medication.id,
             medicationName: medication.name,
-            dose: medication.dose,
+            dose: medicationDose(medication),
             quantity: schedule.quantity,
             occurredAt: dueAt,
             scheduleId: schedule.id,
