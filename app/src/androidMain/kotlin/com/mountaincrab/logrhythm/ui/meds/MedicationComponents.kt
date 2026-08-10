@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mountaincrab.logrhythm.data.local.entity.MedicationEntity
+import com.mountaincrab.logrhythm.data.local.entity.dose
 import com.mountaincrab.logrhythm.data.model.MedicationForm
 import com.mountaincrab.logrhythm.data.model.RepeatRule
 import com.mountaincrab.logrhythm.data.model.TimeOfDay
@@ -272,16 +273,20 @@ fun MedicationPicker(
 /**
  * Create/edit a catalog medication — name, form and the strength of one unit, e.g.
  * "Pentasa, tablet, 1g". How many you take isn't defined here; that's a dose's quantity.
+ *
+ * The strength is captured as amount + unit, both free text, and joined back into "1g"
+ * wherever a medication is displayed.
  */
 @Composable
 fun MedicationEditorDialog(
     initial: MedicationEntity?,
-    onConfirm: (name: String, form: MedicationForm, dose: String) -> Unit,
+    onConfirm: (name: String, form: MedicationForm, doseAmount: String, doseUnit: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var name by remember { mutableStateOf(initial?.name.orEmpty()) }
     var form by remember { mutableStateOf(initial?.form ?: MedicationForm.TABLET) }
-    var dose by remember { mutableStateOf(initial?.dose.orEmpty()) }
+    var doseAmount by remember { mutableStateOf(initial?.doseAmount.orEmpty()) }
+    var doseUnit by remember { mutableStateOf(initial?.doseUnit.orEmpty()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -301,14 +306,27 @@ fun MedicationEditorDialog(
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     FieldLabel("DOSE")
-                    PlainInput(dose, { dose = it }, "e.g. 1g", modifier = Modifier.fillMaxWidth())
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        PlainInput(
+                            value = doseAmount,
+                            onValueChange = { doseAmount = it },
+                            placeholder = "Amount, e.g. 1",
+                            modifier = Modifier.weight(1f),
+                        )
+                        PlainInput(
+                            value = doseUnit,
+                            onValueChange = { doseUnit = it },
+                            placeholder = "Unit, e.g. g",
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 }
             }
         },
         confirmButton = {
             TextButton(
                 enabled = name.isNotBlank(),
-                onClick = { onConfirm(name, form, dose) },
+                onClick = { onConfirm(name, form, doseAmount, doseUnit) },
             ) { Text(if (initial == null) "Add" else "Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },

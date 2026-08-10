@@ -44,7 +44,7 @@ import com.mountaincrab.logrhythm.data.model.SyncStatus
         MedicationScheduleEntity::class,
         MedicationEntryEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)

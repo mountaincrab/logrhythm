@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mountaincrab.logrhythm.data.local.entity.MedicationEntity
 import com.mountaincrab.logrhythm.data.local.entity.MedicationScheduleEntity
+import com.mountaincrab.logrhythm.data.local.entity.dose
 import com.mountaincrab.logrhythm.data.model.MedicationForm
 import com.mountaincrab.logrhythm.data.model.RepeatRule
 import com.mountaincrab.logrhythm.data.repository.MedicationRepository
@@ -54,8 +55,14 @@ class MedsViewModel(
         viewModelScope.launch { repository.materialiseDueDoses() }
     }
 
-    fun saveMedication(id: String?, name: String, form: MedicationForm, dose: String) {
-        viewModelScope.launch { repository.saveMedication(id, name, form, dose) }
+    fun saveMedication(
+        id: String?,
+        name: String,
+        form: MedicationForm,
+        doseAmount: String,
+        doseUnit: String,
+    ) {
+        viewModelScope.launch { repository.saveMedication(id, name, form, doseAmount, doseUnit) }
     }
 
     fun deleteMedication(id: String) {

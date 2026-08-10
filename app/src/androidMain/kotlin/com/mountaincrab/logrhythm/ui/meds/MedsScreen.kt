@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mountaincrab.logrhythm.data.local.entity.MedicationEntity
+import com.mountaincrab.logrhythm.data.local.entity.dose
 import com.mountaincrab.logrhythm.data.model.RepeatRule
 import com.mountaincrab.logrhythm.data.model.TimeOfDay
 import com.mountaincrab.logrhythm.data.model.daysFromMask
@@ -67,8 +68,8 @@ fun MedsScreen(
     if (showMedicationEditor) {
         MedicationEditorDialog(
             initial = editingMedication,
-            onConfirm = { name, form, dose ->
-                viewModel.saveMedication(editingMedication?.id, name, form, dose)
+            onConfirm = { name, form, doseAmount, doseUnit ->
+                viewModel.saveMedication(editingMedication?.id, name, form, doseAmount, doseUnit)
                 showMedicationEditor = false
                 editingMedication = null
             },
@@ -92,8 +93,8 @@ fun MedsScreen(
                 showScheduleEditor = false
                 editingSchedule = null
             },
-            onCreateMedication = { name, form, dose ->
-                viewModel.saveMedication(null, name, form, dose)
+            onCreateMedication = { name, form, doseAmount, doseUnit ->
+                viewModel.saveMedication(null, name, form, doseAmount, doseUnit)
             },
             onDismiss = { showScheduleEditor = false; editingSchedule = null },
         )
@@ -306,7 +307,7 @@ private fun ScheduleEditorDialog(
     initial: ScheduleRow?,
     medications: List<MedicationEntity>,
     onConfirm: (medicationId: String, quantity: String, minutes: Int, rule: RepeatRule, daysMask: Int) -> Unit,
-    onCreateMedication: (String, com.mountaincrab.logrhythm.data.model.MedicationForm, String) -> Unit,
+    onCreateMedication: (String, com.mountaincrab.logrhythm.data.model.MedicationForm, String, String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var medicationId by remember { mutableStateOf(initial?.schedule?.medicationId ?: medications.firstOrNull()?.id) }
@@ -319,8 +320,8 @@ private fun ScheduleEditorDialog(
     if (showNewMedication) {
         MedicationEditorDialog(
             initial = null,
-            onConfirm = { name, form, dose ->
-                onCreateMedication(name, form, dose)
+            onConfirm = { name, form, doseAmount, doseUnit ->
+                onCreateMedication(name, form, doseAmount, doseUnit)
                 showNewMedication = false
             },
             onDismiss = { showNewMedication = false },

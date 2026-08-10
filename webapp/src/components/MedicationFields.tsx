@@ -3,7 +3,7 @@ import { Field } from './Sheet'
 import { Medication, MedicationForm, RepeatRule } from '../types'
 import {
   DAY_NAMES, MEDICATION_FORMS, REPEAT_RULES, TIMES_OF_DAY,
-  formEmoji, formatMinutesOfDay, timeOfDayFor,
+  formEmoji, formatMinutesOfDay, medicationDose, timeOfDayFor,
 } from '../lib/medications'
 
 const chipClass = (on: boolean) =>
@@ -114,7 +114,7 @@ export function MedicationPicker({
         return (
           <Chip
             key={m.id}
-            label={`${formEmoji(m.form)} ${m.name}${m.dose ? ` · ${m.dose}` : ''}`}
+            label={`${formEmoji(m.form)} ${m.name}${medicationDose(m) ? ` · ${medicationDose(m)}` : ''}`}
             on={m.id === selectedId}
             onClick={() => onSelect(m)}
           />
@@ -134,12 +134,16 @@ export function MedicationPicker({
 export interface MedicationDraft {
   name: string
   form: MedicationForm
-  dose: string
+  doseAmount: string
+  doseUnit: string
 }
 
 /**
  * Create/edit a catalog medication — name, form and the strength of one unit, e.g.
  * "Pentasa, tablet, 1g". How many you take isn't defined here; that's a dose's quantity.
+ *
+ * The strength is captured as amount + unit, both free text, and joined back into "1g"
+ * wherever a medication is displayed.
  */
 export function MedicationDialog({
   initial, onSave, onClose,
@@ -150,14 +154,15 @@ export function MedicationDialog({
 }) {
   const [name, setName] = useState(initial?.name ?? '')
   const [form, setForm] = useState<MedicationForm>(initial?.form ?? 'TABLET')
-  const [dose, setDose] = useState(initial?.dose ?? '')
+  const [doseAmount, setDoseAmount] = useState(initial?.doseAmount ?? '')
+  const [doseUnit, setDoseUnit] = useState(initial?.doseUnit ?? '')
   const [saving, setSaving] = useState(false)
 
   const save = async () => {
     if (!name.trim()) return
     setSaving(true)
     try {
-      await onSave({ name, form, dose })
+      await onSave({ name, form, doseAmount, doseUnit })
       onClose()
     } finally {
       setSaving(false)
@@ -186,12 +191,20 @@ export function MedicationDialog({
             <FormChips value={form} onChange={setForm} />
           </Field>
           <Field label="Dose" hint="strength of one unit">
-            <input
-              className={inputClass}
-              value={dose}
-              onChange={(e) => setDose(e.target.value)}
-              placeholder="e.g. 1g"
-            />
+            <div className="flex gap-2">
+              <input
+                className={inputClass + ' flex-1 min-w-0'}
+                value={doseAmount}
+                onChange={(e) => setDoseAmount(e.target.value)}
+                placeholder="Amount, e.g. 1"
+              />
+              <input
+                className={inputClass + ' flex-1 min-w-0'}
+                value={doseUnit}
+                onChange={(e) => setDoseUnit(e.target.value)}
+                placeholder="Unit, e.g. g"
+              />
+            </div>
           </Field>
         </div>
         <div className="px-5 py-3 border-t border-DEFAULT bg-surface flex gap-2 shrink-0">

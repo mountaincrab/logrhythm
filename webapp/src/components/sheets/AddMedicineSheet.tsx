@@ -3,6 +3,7 @@ import Sheet, { Field } from '../Sheet'
 import WhenField from '../WhenField'
 import { MedicationDialog, MedicationPicker, inputClass } from '../MedicationFields'
 import { MedicineInput } from '../../hooks/useEntries'
+import { medicationDose } from '../../lib/medications'
 import { useMedicationsContext } from '../../contexts/MedicationsContext'
 
 interface Props {
@@ -41,7 +42,7 @@ export default function AddMedicineSheet({ onClose, onSave, onDelete, initial }:
         occurredAt,
         medicationId,
         medicationName: selected?.name ?? initial?.medicationName ?? '',
-        dose: selected?.dose ?? initial?.dose ?? '',
+        dose: selected ? medicationDose(selected) : initial?.dose ?? '',
         quantity: quantity.trim(),
         notes: notes.trim() || null,
       })
@@ -77,7 +78,7 @@ export default function AddMedicineSheet({ onClose, onSave, onDelete, initial }:
         </Field>
 
         {/* How many units — the strength itself is part of the medication's definition. */}
-        <Field label="Quantity" hint={selected?.dose ? `× ${selected.dose}` : undefined}>
+        <Field label="Quantity" hint={selected && medicationDose(selected) ? `× ${medicationDose(selected)}` : undefined}>
           <input
             className={inputClass}
             value={quantity}

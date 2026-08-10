@@ -73,8 +73,10 @@ export interface Medication {
   profileId: string
   name: string
   form: MedicationForm
-  /** Strength of a single unit, e.g. "1g". */
-  dose: string
+  /** How much one unit is, e.g. "1" of "1g" — free text. */
+  doseAmount: string
+  /** What that amount is measured in, e.g. "g" of "1g" — free text. */
+  doseUnit: string
   sortOrder: number
   createdAt: number
   isDeleted: boolean
