@@ -126,6 +126,19 @@ class EntryRepository(
         return if (boundaries.size < pageSize) Long.MIN_VALUE else boundaries.last()
     }
 
+    /**
+     * Recorded doses for the active profile alongside the catalog they resolve through.
+     * The catalog is the archived-inclusive lookup: a dose of a medication archived
+     * mid-range still has to render its name and strength.
+     */
+    fun observeDosesWithCatalog(): Flow<Pair<List<MedicationEntryEntity>, List<MedicationEntity>>> =
+        activeProfileId.flatMapLatest { pid ->
+            combine(
+                medicationEntryDao.observeAll(pid),
+                medicationDao.observeForLookup(pid),
+            ) { doses, medications -> doses to medications }
+        }
+
     fun observePoops(): Flow<List<PoopEntryEntity>> =
         activeProfileId.flatMapLatest { poopDao.observeAll(it) }
     fun observePoopsSince(sinceMillis: Long): Flow<List<PoopEntryEntity>> =
