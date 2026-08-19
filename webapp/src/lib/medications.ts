@@ -152,3 +152,51 @@ export function scheduleOccursOn(
       return false
   }
 }
+
+/**
+ * The numeric value in a free-text amount, or null when there isn't one.
+ *
+ * A medication's strength (`doseAmount`) and a dose's quantity are both free text, so
+ * anything that adds doses up has to agree on what counts as a number. "1", " 0.5 " and
+ * "1,5" parse; "1 puff" and "" do not. Mirror of `parseAmount` in Medication.kt.
+ */
+export function parseAmount(text: string): number | null {
+  const t = text.trim().replace(',', '.')
+  if (t === '') return null
+  // Number('') is 0 and Number(' 1 ') is 1, so the blank check above has to come first.
+  const n = Number(t)
+  return Number.isFinite(n) && n >= 0 ? n : null
+}
+
+/**
+ * How much one dose is worth: quantity × the strength of a single unit.
+ *
+ * A blank or non-numeric quantity counts as one unit. `unitAmount` is null for a medication
+ * whose strength isn't numeric ("1 puff"), and the dose is then worth its quantity in bare
+ * units — the honest fallback, since there is no number to multiply.
+ */
+export function doseUnits(quantity: string, unitAmount: number | null): number {
+  return (parseAmount(quantity) ?? 1) * (unitAmount ?? 1)
+}
+
+/**
+ * A total as short text: "27", "3.9", "0.5" — no trailing zeros.
+ * `decimals` caps the fraction (2 for totals, 1 for averages).
+ */
+export function formatMedicationValue(value: number, decimals = 2): string {
+  return String(Number(value.toFixed(Math.min(Math.max(decimals, 0), 6))))
+}
+
+/**
+ * Per-medication series colours for the Trends medication rows — mirrors
+ * MedicationSeriesColors in ui/theme/Theme.kt.
+ *
+ * Four hues, checked for lightness, chroma and colour-blind separation against the card
+ * surface. A medication's slot is its position in the catalog, so the colour is stable
+ * across ranges; past four the palette repeats, which is safe here because every row is
+ * labelled with its medication's name — the colour is a marker, never the identity.
+ */
+export const MEDICATION_SERIES_COLORS = ['#12A0C4', '#8B5CF6', '#E14D96', '#C08410']
+
+export const medicationSeriesColor = (index: number): string =>
+  MEDICATION_SERIES_COLORS[((index % MEDICATION_SERIES_COLORS.length) + MEDICATION_SERIES_COLORS.length) % MEDICATION_SERIES_COLORS.length]

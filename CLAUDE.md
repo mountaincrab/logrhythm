@@ -187,6 +187,13 @@ Rules that both surfaces must keep identical (`data/model/Medication.kt` ↔ `we
   the same reason.
 - Editing a definition is a **correction** and propagates. A prescription change (1g → 2g) is a *different
   medication*: add the new one and archive the old, rather than mutating a row that history points at.
+- **Trends totals each medication in its own unit, never across medications.** A dose is worth
+  `quantity × parseAmount(doseAmount)`, so 2 × 1g tablets morning and night is 4g that day; a
+  strength that isn't numeric ("1 puff") has nothing to multiply by and the row counts units taken
+  instead (shown with a `×` suffix). Grams and milligrams share no axis, so each medication is its
+  own row scaled to its own peak — there is deliberately no combined total. Rows follow the catalog's
+  order, which is also the series-colour slot (`MedicationSeriesColors` ↔ `MEDICATION_SERIES_COLORS`),
+  so changing the range never repaints a medication.
 - `MedicationForm` is a closed set — `TABLET`, `GRANULES`, `FOAM`, `ENEMA`, `SUPPOSITORY` — and both surfaces
   must list the same values in the same order.
 

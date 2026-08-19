@@ -118,3 +118,38 @@ fun formatDoseAmount(quantity: String, dose: String): String {
         else -> d
     }
 }
+
+/**
+ * The numeric value in a free-text amount, or null when there isn't one.
+ *
+ * A medication's strength (`doseAmount`) and a dose's quantity are both
+ * free text, so anything that adds doses up has to agree on what counts as a number.
+ * "1", " 0.5 " and "1,5" parse; "1 puff" and "" do not.
+ */
+fun parseAmount(text: String): Double? =
+    text.trim().replace(',', '.').toDoubleOrNull()?.takeIf { it.isFinite() && it >= 0.0 }
+
+/**
+ * How much one dose is worth: quantity × the strength of a single unit.
+ *
+ * A blank or non-numeric quantity counts as one unit. [unitAmount] is null for a medication
+ * whose strength isn't numeric ("1 puff"), and the dose is then worth its quantity in bare
+ * units — the honest fallback, since there is no number to multiply.
+ */
+fun doseUnits(quantity: String, unitAmount: Double?): Double =
+    (parseAmount(quantity) ?: 1.0) * (unitAmount ?: 1.0)
+
+/**
+ * A total as short text: "27", "3.9", "0.5" — no trailing zeros, no locale surprises.
+ * [decimals] caps the fraction (2 for totals, 1 for averages).
+ */
+fun formatMedicationValue(value: Double, decimals: Int = 2): String {
+    var factor = 1L
+    repeat(decimals.coerceIn(0, 6)) { factor *= 10 }
+    val scaled = kotlin.math.round(value * factor).toLong()
+    val whole = scaled / factor
+    val frac = (scaled % factor).let { if (it < 0) -it else it }
+    if (frac == 0L) return whole.toString()
+    val fracText = frac.toString().padStart(decimals, '0').trimEnd('0')
+    return "$whole.$fracText"
+}

@@ -31,6 +31,25 @@ val AccentGreen = Color(0xFF10B981)
 val AccentAmber = Color(0xFFF59E0B)
 val AccentOrange = Color(0xFFF97316)
 
+/**
+ * Per-medication series colours for the Trends medication rows — mirrored in
+ * webapp/src/lib/medications.ts.
+ *
+ * Four hues, checked for lightness, chroma and colour-blind separation against the card
+ * surface. A medication's slot is its position in the catalog, so the colour is stable
+ * across ranges; past four the palette repeats, which is safe here because every row is
+ * labelled with its medication's name — the colour is a marker, never the identity.
+ */
+val MedicationSeriesColors = listOf(
+    Color(0xFF12A0C4),
+    Color(0xFF8B5CF6),
+    Color(0xFFE14D96),
+    Color(0xFFC08410),
+)
+
+fun medicationSeriesColor(index: Int): Color =
+    MedicationSeriesColors[((index % MedicationSeriesColors.size) + MedicationSeriesColors.size) % MedicationSeriesColors.size]
+
 // Rating colours 1..5 (green → red) — match phone.jsx RATING_COLORS.
 data class RatingColor(val bg: Color, val fg: Color, val soft: Color, val label: String)
 val RatingColors = mapOf(

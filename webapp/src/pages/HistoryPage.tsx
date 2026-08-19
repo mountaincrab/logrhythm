@@ -2,8 +2,12 @@ import { useMemo, useState } from 'react'
 import { CalendarDays, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react'
 import AppShell from '../components/AppShell'
 import { useEntriesContext } from '../contexts/EntriesContext'
-import { PoopEntry, FoodEntry } from '../types'
+import { useMedicationsContext } from '../contexts/MedicationsContext'
+import { PoopEntry, FoodEntry, Medication, MedicationEntry } from '../types'
 import { ratingColor, RATING_COLORS } from '../lib/ratings'
+import {
+  doseUnits, formatDose, formatMedicationValue, formEmoji, medicationSeriesColor, parseAmount,
+} from '../lib/medications'
 import { dayKey } from '../lib/dates'
 
 type Tab = 'calendar' | 'trends'
@@ -259,6 +263,8 @@ function TrendsView({ poops, foods }: { poops: PoopEntry[]; foods: FoodEntry[] }
       </div>
       </div>
 
+      <MedicationTotals days={days} />
+
       {/* Food suspects */}
       <div className="bg-surface-raised border border-DEFAULT rounded-2xl p-4">
         <div className="ds-eyebrow mb-1">Food suspects</div>
@@ -280,6 +286,166 @@ function TrendsView({ poops, foods }: { poops: PoopEntry[]; foods: FoodEntry[] }
         )}
       </div>
     </>
+  )
+}
+
+interface MedicationSeries {
+  id: string
+  name: string
+  emoji: string
+  /** The medication's strength as defined, e.g. "1g". */
+  strength: string
+  /** "g" / "mg" when the strength is numeric, "×" when it isn't — see buildMedicationSeries. */
+  unit: string
+  color: string
+  /** One total per day of the range, oldest first. */
+  daily: number[]
+  total: number
+  avgPerDay: number
+  peak: number
+}
+
+/** Local midnights across the range, oldest first — the medication rows' shared x-axis. */
+function rangeDayKeys(days: number): number[] {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() - (days - 1))
+  const keys: number[] = []
+  for (let i = 0; i < days; i++) {
+    keys.push(d.getTime())
+    d.setDate(d.getDate() + 1)
+  }
+  return keys
+}
+
+/**
+ * Daily totals per medication over the range.
+ *
+ * Doses carry only a quantity; the strength lives on the catalog row, so a dose is worth
+ * `quantity × strength` and every medication is totalled in its own unit — grams of one drug
+ * and milligrams of another are never added together. Rows keep the catalog's order, the same
+ * order the Meds page uses, so a medication's colour never moves when the range changes or
+ * when another medication drops out of it. Mirror of buildMedicationSeries in
+ * HistoryViewModel.kt.
+ */
+function buildMedicationSeries(
+  entries: MedicationEntry[],
+  catalog: Medication[],
+  days: number,
+): MedicationSeries[] {
+  if (catalog.length === 0) return []
+  const dayKeys = rangeDayKeys(days)
+  const indexByDay = new Map(dayKeys.map((k, i) => [k, i]))
+
+  const byMedication = new Map<string, MedicationEntry[]>()
+  for (const e of entries) {
+    if (!indexByDay.has(dayKey(e.occurredAt))) continue
+    const list = byMedication.get(e.medicationId)
+    if (list) list.push(e)
+    else byMedication.set(e.medicationId, [e])
+  }
+
+  const out: MedicationSeries[] = []
+  catalog.forEach((med, index) => {
+    const doses = byMedication.get(med.id)
+    if (!doses) return
+    const unitAmount = parseAmount(med.doseAmount)
+    const daily = new Array<number>(dayKeys.length).fill(0)
+    for (const dose of doses) {
+      const i = indexByDay.get(dayKey(dose.occurredAt))
+      if (i === undefined) continue
+      daily[i] += doseUnits(dose.quantity, unitAmount)
+    }
+    const total = daily.reduce((a, b) => a + b, 0)
+    if (total <= 0) return
+    out.push({
+      id: med.id,
+      name: med.name,
+      emoji: formEmoji(med.form),
+      strength: formatDose(med.doseAmount, med.doseUnit),
+      // A non-numeric strength has nothing to multiply by, so the row counts units taken.
+      unit: unitAmount !== null ? med.doseUnit.trim() : '×',
+      color: medicationSeriesColor(index),
+      daily,
+      total,
+      avgPerDay: total / dayKeys.length,
+      peak: Math.max(...daily),
+    })
+  })
+  return out
+}
+
+/**
+ * Total taken per medication over the range.
+ *
+ * Deliberately one row per medication rather than one stacked chart: grams of one drug and
+ * milligrams of another can't share an axis, and a total across them would be a number that
+ * means nothing. Each row is scaled to its own peak and labelled with its own unit, so the
+ * comparison is a medication against its own history — which is the one that matters.
+ */
+function MedicationTotals({ days }: { days: number }) {
+  const { medicationEntries } = useEntriesContext()
+  const { medicationsById } = useMedicationsContext()
+
+  // The archived-inclusive catalog, in its own order: a dose of a medication archived
+  // mid-range still has to resolve its name and strength.
+  const catalog = useMemo(() => [...medicationsById.values()], [medicationsById])
+  const dayKeys = useMemo(() => rangeDayKeys(days), [days])
+  const series = useMemo(
+    () => buildMedicationSeries(medicationEntries, catalog, days),
+    [medicationEntries, catalog, days],
+  )
+
+  const value = (s: MedicationSeries, v: number, decimals = 2) =>
+    formatMedicationValue(v, decimals) + s.unit
+
+  return (
+    <div className="bg-surface-raised border border-DEFAULT rounded-2xl p-4 mb-3">
+      <div className="ds-eyebrow mb-1">Medication · total taken</div>
+      {series.length === 0 ? (
+        <p className="text-sm text-fg-muted py-3">
+          {catalog.length === 0
+            ? 'No medications yet — add them on the Meds page and doses will total up here.'
+            : 'No doses logged in this range.'}
+        </p>
+      ) : (
+        <>
+          {series.map((s) => (
+            <div key={s.id} className="py-3 border-t border-subtle first:border-t-0 first:pt-1.5">
+              <div className="flex items-baseline gap-1.5 pb-2">
+                <span className="text-xs leading-none">{s.emoji}</span>
+                <span className="text-[13px] font-bold tracking-tightish">{s.name}</span>
+                <span className="text-[11px] text-fg-faint flex-1 truncate">{s.strength}</span>
+                <span className="text-[13px] font-bold tabular-nums" style={{ color: s.color }}>
+                  {value(s, s.total)}
+                </span>
+              </div>
+              <div className="flex gap-[3px] items-end h-[34px]">
+                {s.daily.map((v, i) => (
+                  <div
+                    key={i}
+                    title={`${value(s, v)} on ${new Date(dayKeys[i]).toLocaleDateString()}`}
+                    className="flex-1 rounded-[2px]"
+                    style={{
+                      height: v > 0 ? `${Math.max(6, (v / s.peak) * 100)}%` : '2px',
+                      background: v > 0 ? s.color : 'var(--border)',
+                    }}
+                  />
+                ))}
+              </div>
+              <div className="flex justify-between text-[9px] text-fg-faint font-mono pt-1.5">
+                <span>{value(s, s.avgPerDay, 1)} / day avg</span>
+                <span>peak {value(s, s.peak)}</span>
+              </div>
+            </div>
+          ))}
+          {/* Every row shares the range's time axis, so it's labelled once at the foot. */}
+          <div className="flex justify-between text-[9px] text-fg-faint font-mono pt-1 border-t border-subtle mt-1">
+            <span>{days}d ago</span><span>today</span>
+          </div>
+        </>
+      )}
+    </div>
   )
 }
 

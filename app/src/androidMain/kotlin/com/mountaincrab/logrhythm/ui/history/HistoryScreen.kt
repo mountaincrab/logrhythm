@@ -32,9 +32,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mountaincrab.logrhythm.ui.components.BottomTabBar
+import com.mountaincrab.logrhythm.ui.meds.emoji
 import com.mountaincrab.logrhythm.ui.navigation.Screen
 import com.mountaincrab.logrhythm.ui.theme.LocalAppPalette
 import com.mountaincrab.logrhythm.ui.theme.RatingColors
+import com.mountaincrab.logrhythm.ui.theme.medicationSeriesColor
 import org.koin.compose.viewmodel.koinViewModel
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -365,6 +367,11 @@ private fun TrendsView(state: HistoryUiState, viewModel: HistoryViewModel) {
 
     Spacer(modifier = Modifier.height(12.dp))
 
+    // Medication totals — one row per medication, each in its own unit
+    MedicationTotalsCard(state)
+
+    Spacer(modifier = Modifier.height(12.dp))
+
     // Food suspects placeholder
     Column(
         modifier = Modifier
@@ -382,6 +389,111 @@ private fun TrendsView(state: HistoryUiState, viewModel: HistoryViewModel) {
             text = "Foods eaten in the 24h before a rating ≥ 3, ranked by how much they nudged the rating up or down. Needs more data — keep logging.",
             color = palette.fgMuted, fontSize = 12.sp, lineHeight = 17.sp,
         )
+    }
+}
+
+/**
+ * Total taken per medication over the range.
+ *
+ * Deliberately one row per medication rather than one stacked chart: grams of one drug and
+ * milligrams of another can't share an axis, and a total across them would be a number that
+ * means nothing. Each row is scaled to its own peak and labelled with its own unit, so the
+ * comparison is a medication against its own history — which is the one that matters.
+ */
+@Composable
+private fun MedicationTotalsCard(state: HistoryUiState) {
+    val palette = LocalAppPalette.current
+    Column(
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(palette.surfaceRaised)
+            .border(1.dp, palette.border, RoundedCornerShape(16.dp))
+            .padding(16.dp),
+    ) {
+        Text("MEDICATION · TOTAL TAKEN", color = palette.fgMuted,
+            fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.1.sp)
+        if (state.medicationSeries.isEmpty()) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = if (state.hasMedications) "No doses logged in this range."
+                else "No medications yet — add them on the Meds tab and doses will total up here.",
+                color = palette.fgMuted, fontSize = 12.sp, lineHeight = 17.sp,
+            )
+            return@Column
+        }
+        state.medicationSeries.forEachIndexed { index, series ->
+            MedicationSeriesRow(series, isFirst = index == 0)
+        }
+        // Every row shares the range's time axis, so it's labelled once at the foot.
+        XAxisLabels(state.rangeStart, state.rangeEnd)
+    }
+}
+
+@Composable
+private fun MedicationSeriesRow(series: MedicationSeries, isFirst: Boolean) {
+    val palette = LocalAppPalette.current
+    val color = medicationSeriesColor(series.colorIndex)
+
+    if (!isFirst) {
+        Box(modifier = Modifier
+            .padding(top = 12.dp)
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(palette.border))
+    }
+    Column(modifier = Modifier.padding(top = if (isFirst) 10.dp else 12.dp)) {
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(series.form.emoji(), fontSize = 12.sp)
+            Text(series.name, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface)
+            if (series.strength.isNotEmpty()) {
+                Text(series.strength, fontSize = 10.5.sp, color = palette.fgFaint,
+                    modifier = Modifier.weight(1f))
+            } else {
+                Spacer(modifier = Modifier.weight(1f))
+            }
+            Text(series.format(series.total), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = color)
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        MedicationSparkline(series.dailyTotals, series.peak, color)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 5.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text("${series.format(series.avgPerDay, decimals = 1)} / day avg",
+                color = palette.fgFaint, fontSize = 9.5.sp)
+            Text("peak ${series.format(series.peak)}", color = palette.fgFaint, fontSize = 9.5.sp)
+        }
+    }
+}
+
+/** Daily totals for one medication, scaled to that medication's own peak. */
+@Composable
+private fun MedicationSparkline(dailyTotals: List<Double>, peak: Double, color: Color) {
+    val palette = LocalAppPalette.current
+    val emptyDayColor = palette.border
+    Canvas(modifier = Modifier.fillMaxWidth().height(34.dp)) {
+        if (dailyTotals.isEmpty()) return@Canvas
+        val n = dailyTotals.size
+        val w = size.width
+        val h = size.height
+        // Gaps shrink as the range grows so a year of bars still fits the width.
+        val gap = 2.dp.toPx().coerceAtMost(w / n * 0.35f)
+        val barW = ((w - gap * (n - 1)) / n).coerceAtLeast(1f)
+        val stub = 2.dp.toPx()
+        val radius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx(), 2.dp.toPx())
+        val max = peak.takeIf { it > 0.0 } ?: 1.0
+        dailyTotals.forEachIndexed { i, v ->
+            val barH = if (v <= 0.0) stub else ((v / max).toFloat() * h).coerceAtLeast(stub)
+            drawRoundRect(
+                color = if (v <= 0.0) emptyDayColor else color,
+                topLeft = Offset(i * (barW + gap), h - barH),
+                size = androidx.compose.ui.geometry.Size(barW, barH),
+                cornerRadius = radius,
+            )
+        }
     }
 }
 
