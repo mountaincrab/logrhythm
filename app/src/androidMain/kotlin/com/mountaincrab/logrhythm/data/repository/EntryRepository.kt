@@ -74,15 +74,17 @@ class EntryRepository(
             .flatMapLatest { (pid, since) -> timelineWindow(pid, since) }
 
     private fun timelineWindow(pid: String, sinceMillis: Long): Flow<List<TimelineEntry>> {
+        // Both tag maps use the lookup query, deleted tags included: deleting a tag retires it
+        // from the pickers, it doesn't strip it from the entries already carrying it.
         val poopTagsFlow = combine(
-            poopTagDao.observeAll(pid),
+            poopTagDao.observeForLookup(pid),
             poopTagDao.observeAllCrossRefs(),
         ) { tags, refs ->
             val tagMap = tags.associateBy { it.id }
             refs.groupBy { it.entryId }.mapValues { (_, r) -> r.mapNotNull { tagMap[it.tagId] } }
         }
         val noteTagsFlow = combine(
-            noteTagDao.observeAll(pid),
+            noteTagDao.observeForLookup(pid),
             noteTagDao.observeAllCrossRefs(),
         ) { tags, refs ->
             val tagMap = tags.associateBy { it.id }
@@ -144,6 +146,10 @@ class EntryRepository(
     fun observeAllPoopTags(): Flow<List<PoopTagEntity>> =
         activeProfileId.flatMapLatest { poopTagDao.observeAll(it) }
 
+    /** Every poop tag including deleted ones — see [PoopTagDao.observeForLookup]. */
+    fun observePoopTagsForLookup(): Flow<List<PoopTagEntity>> =
+        activeProfileId.flatMapLatest { poopTagDao.observeForLookup(it) }
+
     suspend fun getPoopTags(entryId: String): List<PoopTagEntity> =
         poopTagDao.getTagsForEntry(entryId)
 
@@ -161,6 +167,10 @@ class EntryRepository(
 
     fun observeAllNoteTags(): Flow<List<NoteTagEntity>> =
         activeProfileId.flatMapLatest { noteTagDao.observeAll(it) }
+
+    /** Every note tag including deleted ones — see [NoteTagDao.observeForLookup]. */
+    fun observeNoteTagsForLookup(): Flow<List<NoteTagEntity>> =
+        activeProfileId.flatMapLatest { noteTagDao.observeForLookup(it) }
 
     suspend fun getNoteTags(entryId: String): List<NoteTagEntity> =
         noteTagDao.getTagsForEntry(entryId)

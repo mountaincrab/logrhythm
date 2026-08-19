@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -32,8 +33,19 @@ class AddPoopViewModel(
     private val _state = MutableStateFlow(AddPoopUiState())
     val state: StateFlow<AddPoopUiState> = _state.asStateFlow()
 
-    val allTags: StateFlow<List<PoopTagEntity>> = repository.observeAllPoopTags()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    /**
+     * The pickable tags: every live tag, plus any deleted tag this entry already carries so
+     * it still renders as a selected chip (and can be unselected) instead of disappearing
+     * from the picker while silently staying on the entry.
+     */
+    val allTags: StateFlow<List<PoopTagEntity>> = combine(
+        repository.observeAllPoopTags(),
+        repository.observePoopTagsForLookup(),
+        _state,
+    ) { live, all, s ->
+        val liveIds = live.mapTo(mutableSetOf()) { it.id }
+        live + all.filter { it.id in s.selectedTagIds && it.id !in liveIds }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     init {
         if (existingId != null) {
