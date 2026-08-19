@@ -252,7 +252,9 @@ fun MedicationPicker(
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         medications.forEach { med ->
-            val label = listOf(med.form.emoji() + " " + med.name, med.dose)
+            // An archived medication only appears here when an entry being edited points at
+            // it; saying so beats a chip that looks like any other but isn't offered again.
+            val label = listOf(med.form.emoji() + " " + med.name, med.dose, if (med.isArchived) "archived" else "")
                 .filter { it.isNotBlank() }
                 .joinToString(" · ")
             SelectChip(text = label, selected = med.id == selectedId, onClick = { onSelect(med) })

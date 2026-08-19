@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   collection, doc, query, where, onSnapshot, getDocs,
   setDoc, updateDoc, serverTimestamp, runTransaction,
@@ -6,7 +6,7 @@ import {
 import { db } from '../firebase'
 import { Medication, MedicationForm, MedicationSchedule, RepeatRule } from '../types'
 import {
-  doseMillis, isoDateString, localEpochDay, materialisedDoseId, medicationDose, scheduleOccursOn,
+  doseMillis, isoDateString, localEpochDay, materialisedDoseId, scheduleOccursOn,
 } from '../lib/medications'
 
 /** How far back a first run (or a long absence) will fill in missed doses. */
@@ -22,7 +22,7 @@ function mapMedication(id: string, d: Record<string, unknown>): Medication {
     doseUnit: (d.doseUnit as string) ?? '',
     sortOrder: (d.sortOrder as number) ?? 0,
     createdAt: (d.createdAt as number) ?? 0,
-    isDeleted: (d.isDeleted as boolean) ?? false,
+    isArchived: (d.isArchived as boolean) ?? false,
   }
 }
 
@@ -38,7 +38,7 @@ function mapSchedule(id: string, d: Record<string, unknown>): MedicationSchedule
     startEpochDay: (d.startEpochDay as number) ?? 0,
     isActive: (d.isActive as boolean) ?? true,
     createdAt: (d.createdAt as number) ?? 0,
-    isDeleted: (d.isDeleted as boolean) ?? false,
+    isArchived: (d.isArchived as boolean) ?? false,
   }
 }
 
@@ -58,8 +58,11 @@ export interface ScheduleInput {
 }
 
 export function useMedications(userId: string, profileId: string) {
-  const [medications, setMedications] = useState<Medication[]>([])
-  const [schedules, setSchedules] = useState<MedicationSchedule[]>([])
+  // Everything for this profile, archived included: a recorded dose reads its medication's
+  // name and strength through `medicationId`, so lookups must never filter archived rows.
+  // Only the pickers and the Meds tabs work off the live lists below.
+  const [allMedications, setAllMedications] = useState<Medication[]>([])
+  const [allSchedules, setAllSchedules] = useState<MedicationSchedule[]>([])
   const [loading, setLoading] = useState(true)
 
   const col = useCallback(
@@ -74,20 +77,20 @@ export function useMedications(userId: string, profileId: string) {
     const markReady = () => { if (medsReady && schedulesReady) setLoading(false) }
 
     const unsubMeds = onSnapshot(query(col('medications')), (snap) => {
-      setMedications(
+      setAllMedications(
         snap.docs
           .map((d) => mapMedication(d.id, d.data()))
-          .filter((m) => !m.isDeleted && m.profileId === profileId)
+          .filter((m) => m.profileId === profileId)
           .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
       )
       medsReady = true
       markReady()
     })
     const unsubSchedules = onSnapshot(query(col('medication_schedules')), (snap) => {
-      setSchedules(
+      setAllSchedules(
         snap.docs
           .map((d) => mapSchedule(d.id, d.data()))
-          .filter((s) => !s.isDeleted && s.profileId === profileId)
+          .filter((s) => s.profileId === profileId)
           .sort((a, b) => a.timeMinutes - b.timeMinutes),
       )
       schedulesReady = true
@@ -95,6 +98,16 @@ export function useMedications(userId: string, profileId: string) {
     })
     return () => { unsubMeds(); unsubSchedules() }
   }, [col, profileId])
+
+  const medications = useMemo(() => allMedications.filter((m) => !m.isArchived), [allMedications])
+  const schedules = useMemo(() => allSchedules.filter((s) => !s.isArchived), [allSchedules])
+  const archivedMedications = useMemo(() => allMedications.filter((m) => m.isArchived), [allMedications])
+  const archivedSchedules = useMemo(() => allSchedules.filter((s) => s.isArchived), [allSchedules])
+  /** Lookup map for resolving a dose's medication — archived rows included. */
+  const medicationsById = useMemo(
+    () => new Map(allMedications.map((m) => [m.id, m])),
+    [allMedications],
+  )
 
   // ── catalog ──────────────────────────────────────────────────────────────
 
@@ -109,7 +122,7 @@ export function useMedications(userId: string, profileId: string) {
       sortOrder: medications.length,
       createdAt: Date.now(),
       updatedAt: serverTimestamp(),
-      isDeleted: false,
+      isArchived: false,
     })
     return id
   }
@@ -124,16 +137,27 @@ export function useMedications(userId: string, profileId: string) {
     })
   }
 
-  /** Deleting a medication retires its scheduled doses; recorded history is left intact. */
-  const deleteMedication = async (id: string) => {
-    await updateDoc(doc(col('medications'), id), { isDeleted: true, updatedAt: serverTimestamp() })
+  /**
+   * Archiving a medication takes it out of the pickers and retires its scheduled doses. The
+   * document is never removed: recorded doses read their name and strength through it.
+   */
+  const archiveMedication = async (id: string) => {
+    await updateDoc(doc(col('medications'), id), { isArchived: true, updatedAt: serverTimestamp() })
     await Promise.all(
       schedules
         .filter((s) => s.medicationId === id)
         .map((s) => updateDoc(doc(col('medication_schedules'), s.id), {
-          isDeleted: true, updatedAt: serverTimestamp(),
+          isArchived: true, updatedAt: serverTimestamp(),
         })),
     )
+  }
+
+  /**
+   * Puts an archived medication back in the pickers. Its schedules stay archived — restoring
+   * those would back-fill doses that never happened, so the user opts back in per schedule.
+   */
+  const restoreMedication = async (id: string) => {
+    await updateDoc(doc(col('medications'), id), { isArchived: false, updatedAt: serverTimestamp() })
   }
 
   // ── schedule ─────────────────────────────────────────────────────────────
@@ -151,7 +175,7 @@ export function useMedications(userId: string, profileId: string) {
       isActive: true,
       createdAt: Date.now(),
       updatedAt: serverTimestamp(),
-      isDeleted: false,
+      isArchived: false,
     })
   }
 
@@ -170,8 +194,25 @@ export function useMedications(userId: string, profileId: string) {
     await updateDoc(doc(col('medication_schedules'), id), { isActive, updatedAt: serverTimestamp() })
   }
 
-  const deleteSchedule = async (id: string) => {
-    await updateDoc(doc(col('medication_schedules'), id), { isDeleted: true, updatedAt: serverTimestamp() })
+  /** Retires a scheduled dose. Doses it already produced keep pointing at it. */
+  const archiveSchedule = async (id: string) => {
+    await updateDoc(doc(col('medication_schedules'), id), { isArchived: true, updatedAt: serverTimestamp() })
+  }
+
+  /**
+   * Puts an archived schedule back on the Schedule tab, re-anchored to today.
+   *
+   * Resetting startEpochDay is not cosmetic: materialisation back-fills 14 days, so a
+   * schedule archived months ago would otherwise reappear having "recorded" a fortnight of
+   * doses that never happened. It also re-anchors EVERY_OTHER_DAY parity, which is what a
+   * fresh start should do.
+   */
+  const restoreSchedule = async (id: string) => {
+    await updateDoc(doc(col('medication_schedules'), id), {
+      isArchived: false,
+      startEpochDay: localEpochDay(new Date()),
+      updatedAt: serverTimestamp(),
+    })
   }
 
   // ── materialisation ──────────────────────────────────────────────────────
@@ -189,7 +230,7 @@ export function useMedications(userId: string, profileId: string) {
   const materialiseDueDoses = useCallback(async () => {
     const active = schedules.filter((s) => s.isActive)
     if (active.length === 0) return
-    const byId = new Map(medications.map((m) => [m.id, m]))
+    const byId = medicationsById
 
     const now = Date.now()
     const today = new Date()
@@ -208,7 +249,7 @@ export function useMedications(userId: string, profileId: string) {
 
     const pending: { id: string; data: Record<string, unknown> }[] = []
     for (const schedule of active) {
-      // A schedule whose medication was deleted produces nothing.
+      // A schedule whose medication has vanished entirely produces nothing.
       const medication = byId.get(schedule.medicationId)
       if (!medication) continue
 
@@ -224,8 +265,6 @@ export function useMedications(userId: string, profileId: string) {
           data: {
             userId, profileId,
             medicationId: medication.id,
-            medicationName: medication.name,
-            dose: medicationDose(medication),
             quantity: schedule.quantity,
             occurredAt: dueAt,
             scheduleId: schedule.id,
@@ -245,7 +284,7 @@ export function useMedications(userId: string, profileId: string) {
         tx.set(ref, { ...data, updatedAt: serverTimestamp() })
       }).catch(() => { /* another device won the race; its document stands */ }),
     ))
-  }, [col, medications, schedules, userId, profileId])
+  }, [col, medicationsById, schedules, userId, profileId])
 
   // Fill in anything that came due while the app was closed. Re-runs when the schedule
   // changes, and hourly so a dose materialises during a long-lived session too.
@@ -256,14 +295,17 @@ export function useMedications(userId: string, profileId: string) {
     materialise.current()
     const timer = setInterval(() => materialise.current(), 60 * 60 * 1000)
     return () => clearInterval(timer)
-  }, [loading, schedules, medications])
+  }, [loading, schedules, medicationsById])
 
   return {
     medications,
     schedules,
+    archivedMedications,
+    archivedSchedules,
+    medicationsById,
     loading,
-    addMedication, updateMedication, deleteMedication,
-    addSchedule, updateSchedule, setScheduleActive, deleteSchedule,
+    addMedication, updateMedication, archiveMedication, restoreMedication,
+    addSchedule, updateSchedule, setScheduleActive, archiveSchedule, restoreSchedule,
   }
 }
 

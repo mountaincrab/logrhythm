@@ -376,7 +376,109 @@ private val MIGRATION_11_12 = object : Migration(11, 12) {
     }
 }
 
+/**
+ * Makes the medication catalog the single source of truth for a dose's name and strength.
+ *
+ * `medication_entries` drops its `medicationName` / `dose` snapshots: both are now read
+ * through `medicationId` at display time, so correcting a definition corrects every dose of
+ * it and any field added to the catalog later needs no back-fill.
+ *
+ * That only holds if the lookup can never miss, so `medications` and `medication_schedules`
+ * rename `isDeleted` to `isArchived`: neither is ever really removed, and a flag that must
+ * never be read as "gone" shouldn't be named that. Entries keep `isDeleted` — those genuinely
+ * are deletable.
+ *
+ * Table rebuilds rather than ALTERs: DROP COLUMN and RENAME COLUMN aren't available on every
+ * SQLite version Android ships. syncStatus is forced to PENDING so reshaped rows get pushed.
+ */
+private val MIGRATION_12_13 = object : Migration(12, 13) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("""
+            CREATE TABLE medications_new (
+                id TEXT NOT NULL PRIMARY KEY,
+                userId TEXT NOT NULL,
+                profileId TEXT NOT NULL,
+                name TEXT NOT NULL,
+                form TEXT NOT NULL,
+                doseAmount TEXT NOT NULL,
+                doseUnit TEXT NOT NULL,
+                sortOrder INTEGER NOT NULL,
+                createdAt INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL,
+                syncStatus TEXT NOT NULL,
+                isArchived INTEGER NOT NULL
+            )
+        """.trimIndent())
+        connection.execSQL("""
+            INSERT INTO medications_new
+                (id, userId, profileId, name, form, doseAmount, doseUnit, sortOrder,
+                 createdAt, updatedAt, syncStatus, isArchived)
+            SELECT id, userId, profileId, name, form, doseAmount, doseUnit, sortOrder,
+                   createdAt, updatedAt, 'PENDING', isDeleted
+            FROM medications
+        """.trimIndent())
+        connection.execSQL("DROP TABLE medications")
+        connection.execSQL("ALTER TABLE medications_new RENAME TO medications")
+
+        connection.execSQL("""
+            CREATE TABLE medication_schedules_new (
+                id TEXT NOT NULL PRIMARY KEY,
+                userId TEXT NOT NULL,
+                profileId TEXT NOT NULL,
+                medicationId TEXT NOT NULL,
+                quantity TEXT NOT NULL,
+                timeMinutes INTEGER NOT NULL,
+                repeatRule TEXT NOT NULL,
+                daysMask INTEGER NOT NULL,
+                startEpochDay INTEGER NOT NULL,
+                isActive INTEGER NOT NULL,
+                createdAt INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL,
+                syncStatus TEXT NOT NULL,
+                isArchived INTEGER NOT NULL
+            )
+        """.trimIndent())
+        connection.execSQL("""
+            INSERT INTO medication_schedules_new
+                (id, userId, profileId, medicationId, quantity, timeMinutes, repeatRule,
+                 daysMask, startEpochDay, isActive, createdAt, updatedAt, syncStatus, isArchived)
+            SELECT id, userId, profileId, medicationId, quantity, timeMinutes, repeatRule,
+                   daysMask, startEpochDay, isActive, createdAt, updatedAt, 'PENDING', isDeleted
+            FROM medication_schedules
+        """.trimIndent())
+        connection.execSQL("DROP TABLE medication_schedules")
+        connection.execSQL("ALTER TABLE medication_schedules_new RENAME TO medication_schedules")
+
+        connection.execSQL("""
+            CREATE TABLE medication_entries_new (
+                id TEXT NOT NULL PRIMARY KEY,
+                userId TEXT NOT NULL,
+                profileId TEXT NOT NULL,
+                medicationId TEXT NOT NULL,
+                quantity TEXT NOT NULL,
+                occurredAt INTEGER NOT NULL,
+                scheduleId TEXT,
+                notes TEXT,
+                createdAt INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL,
+                syncStatus TEXT NOT NULL,
+                isDeleted INTEGER NOT NULL
+            )
+        """.trimIndent())
+        connection.execSQL("""
+            INSERT INTO medication_entries_new
+                (id, userId, profileId, medicationId, quantity, occurredAt, scheduleId,
+                 notes, createdAt, updatedAt, syncStatus, isDeleted)
+            SELECT id, userId, profileId, medicationId, quantity, occurredAt, scheduleId,
+                   notes, createdAt, updatedAt, 'PENDING', isDeleted
+            FROM medication_entries
+        """.trimIndent())
+        connection.execSQL("DROP TABLE medication_entries")
+        connection.execSQL("ALTER TABLE medication_entries_new RENAME TO medication_entries")
+    }
+}
+
 val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_3_4, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
-    MIGRATION_10_11, MIGRATION_11_12,
+    MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13,
 )

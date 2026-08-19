@@ -8,7 +8,8 @@ import { ratingColor, ratingBlurb } from '../lib/ratings'
 import { bristol } from '../lib/bristol'
 import { mealTagLabel } from '../lib/mealTags'
 import { formatTime, formatDayFull } from '../lib/dates'
-import { formatDoseAmount } from '../lib/medications'
+import { formatDoseAmount, medicationDose } from '../lib/medications'
+import { useMedicationsContext } from '../contexts/MedicationsContext'
 import AddPoopSheet from '../components/sheets/AddPoopSheet'
 import AddFoodSheet from '../components/sheets/AddFoodSheet'
 import AddNoteSheet from '../components/sheets/AddNoteSheet'
@@ -63,6 +64,7 @@ export default function EntryDetailPage() {
   const { kind, id } = useParams<{ kind: EntryKind; id: string }>()
   const navigate = useNavigate()
   const ctx = useEntriesContext()
+  const { medicationsById } = useMedicationsContext()
   const [editing, setEditing] = useState(false)
 
   const poop = kind === 'poop' ? ctx.poops.find((p) => p.id === id) : undefined
@@ -184,12 +186,14 @@ export default function EntryDetailPage() {
   }
 
   if (medicine) {
-    const amount = formatDoseAmount(medicine.quantity, medicine.dose)
+    // Name and strength are read from the catalog row, not copied onto the dose.
+    const definition = medicationsById.get(medicine.medicationId)
+    const amount = formatDoseAmount(medicine.quantity, definition ? medicationDose(definition) : '')
     return (
       <>
         <DetailFrame eyebrow="Medicine" headerLine={headerLine} onEdit={() => setEditing(true)}>
           <Card label="Medication">
-            <div className="text-base font-semibold">{medicine.medicationName}</div>
+            <div className="text-base font-semibold">{definition?.name ?? 'Medication'}</div>
             {amount && <div className="text-sm text-fg-muted mt-0.5">{amount}</div>}
           </Card>
           {medicine.scheduleId !== null && (
@@ -212,8 +216,6 @@ export default function EntryDetailPage() {
             initial={{
               occurredAt: medicine.occurredAt,
               medicationId: medicine.medicationId,
-              medicationName: medicine.medicationName,
-              dose: medicine.dose,
               quantity: medicine.quantity,
               notes: medicine.notes,
             }}

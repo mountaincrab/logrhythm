@@ -31,11 +31,16 @@ data class MedicationEntity(
     val createdAt: Long = currentTimeMillis(),
     val updatedAt: Long = currentTimeMillis(),
     val syncStatus: SyncStatus = SyncStatus.PENDING,
-    val isDeleted: Boolean = false,
+    /**
+     * Archived medications leave the pickers but are never removed: recorded doses resolve
+     * their name and strength through [id], so the lookup must always find a row. Restoring
+     * one from Settings puts it back in the pickers.
+     */
+    val isArchived: Boolean = false,
 )
 
 /**
- * The strength as one string, e.g. "1g" — what every display site and every dose snapshot
- * wants. Stored split so the editor can offer amount and unit as separate fields.
+ * The strength as one string, e.g. "1g" — what every display site wants. Stored split so
+ * the editor can offer amount and unit as separate fields.
  */
 val MedicationEntity.dose: String get() = formatDose(doseAmount, doseUnit)

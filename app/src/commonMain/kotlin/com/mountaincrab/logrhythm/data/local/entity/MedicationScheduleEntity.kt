@@ -36,10 +36,16 @@ data class MedicationScheduleEntity(
      * stops materialisation from back-filling doses from before the schedule existed.
      */
     val startEpochDay: Long,
-    /** Paused schedules keep their history but stop producing new doses. */
+    /** Paused schedules stay on the Schedule tab but stop producing new doses. */
     val isActive: Boolean = true,
     val createdAt: Long = currentTimeMillis(),
     val updatedAt: Long = currentTimeMillis(),
     val syncStatus: SyncStatus = SyncStatus.PENDING,
-    val isDeleted: Boolean = false,
+    /**
+     * Archived schedules leave the Schedule tab and stop producing doses, but are never
+     * removed — a recorded dose's `scheduleId` points here. Distinct from [isActive], which
+     * is the visible pause toggle. Restoring one re-anchors [startEpochDay] to today so the
+     * next materialisation pass can't back-fill doses that never happened.
+     */
+    val isArchived: Boolean = false,
 )

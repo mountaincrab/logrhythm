@@ -32,6 +32,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mountaincrab.logrhythm.data.local.entity.NoteTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopTagEntity
+import com.mountaincrab.logrhythm.data.local.entity.dose
 import com.mountaincrab.logrhythm.data.model.bristol
 import com.mountaincrab.logrhythm.ui.theme.LocalAppPalette
 import com.mountaincrab.logrhythm.ui.theme.RatingColors
@@ -96,8 +97,12 @@ fun EntryDetailScreen(
                 "medicine" -> state.medication?.let { m ->
                     DetailNotesCard("Time", m.occurredAt.formatTime())
                     DetailNotesCard("Date", m.occurredAt.formatFullDay())
-                    DetailNotesCard("Medication", m.medicationName)
-                    val amount = com.mountaincrab.logrhythm.data.model.formatDoseAmount(m.quantity, m.dose)
+                    val definition = state.medicationDefinition
+                    DetailNotesCard("Medication", definition?.name ?: "Medication")
+                    val amount = com.mountaincrab.logrhythm.data.model.formatDoseAmount(
+                        m.quantity,
+                        definition?.dose ?: "",
+                    )
                     if (amount.isNotEmpty()) DetailNotesCard("Amount", amount)
                     if (m.scheduleId != null) {
                         DetailNotesCard("Source", "Added automatically from your schedule")

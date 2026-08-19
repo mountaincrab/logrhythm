@@ -6,7 +6,6 @@ import com.mountaincrab.logrhythm.data.local.dao.MedicationScheduleDao
 import com.mountaincrab.logrhythm.data.local.entity.MedicationEntity
 import com.mountaincrab.logrhythm.data.local.entity.MedicationEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.MedicationScheduleEntity
-import com.mountaincrab.logrhythm.data.local.entity.dose
 import com.mountaincrab.logrhythm.data.model.MedicationForm
 import com.mountaincrab.logrhythm.data.model.RepeatRule
 import com.mountaincrab.logrhythm.data.model.SyncStatus
@@ -39,6 +38,12 @@ class MedicationRepository(
 
     fun observeSchedules(): Flow<List<MedicationScheduleEntity>> =
         activeProfileId.flatMapLatest { scheduleDao.observeAll(it) }
+
+    fun observeArchivedMedications(): Flow<List<MedicationEntity>> =
+        activeProfileId.flatMapLatest { medicationDao.observeArchived(it) }
+
+    fun observeArchivedSchedules(): Flow<List<MedicationScheduleEntity>> =
+        activeProfileId.flatMapLatest { scheduleDao.observeArchived(it) }
 
     suspend fun getMedication(id: String): MedicationEntity? = medicationDao.getById(id)
     suspend fun getEntry(id: String): MedicationEntryEntity? = entryDao.getById(id)
@@ -75,10 +80,23 @@ class MedicationRepository(
         return med
     }
 
-    /** Deleting a medication retires its scheduled doses too; recorded history is left intact. */
-    suspend fun deleteMedication(id: String) {
-        medicationDao.softDelete(id)
-        scheduleDao.softDeleteByMedication(id)
+    /**
+     * Archiving a medication takes it out of the pickers and retires its scheduled doses.
+     * The row itself is never removed: recorded doses read their name and strength through
+     * it, so the lookup has to keep resolving.
+     */
+    suspend fun archiveMedication(id: String) {
+        medicationDao.setArchived(id, archived = true)
+        scheduleDao.archiveByMedication(id)
+        syncScheduler.enqueue()
+    }
+
+    /**
+     * Puts an archived medication back in the pickers. Its schedules stay archived — restoring
+     * those would back-fill doses that never happened, so the user opts back in per schedule.
+     */
+    suspend fun restoreMedication(id: String) {
+        medicationDao.setArchived(id, archived = false)
         syncScheduler.enqueue()
     }
 
@@ -124,8 +142,30 @@ class MedicationRepository(
         }
     }
 
-    suspend fun deleteSchedule(id: String) {
-        scheduleDao.softDelete(id)
+    /** Retires a scheduled dose. Doses it already produced keep pointing at it. */
+    suspend fun archiveSchedule(id: String) {
+        scheduleDao.setArchived(id, archived = true)
+        syncScheduler.enqueue()
+    }
+
+    /**
+     * Puts an archived schedule back on the Schedule tab, re-anchored to today.
+     *
+     * Resetting [MedicationScheduleEntity.startEpochDay] is not cosmetic: materialisation
+     * back-fills 14 days, so a schedule archived months ago would otherwise reappear having
+     * "recorded" a fortnight of doses that never happened. It also re-anchors EVERY_OTHER_DAY
+     * parity, which is what a fresh start should do.
+     */
+    suspend fun restoreSchedule(id: String) {
+        val schedule = scheduleDao.getById(id) ?: return
+        scheduleDao.upsert(
+            schedule.copy(
+                isArchived = false,
+                startEpochDay = LocalDate.now(zone).toEpochDay(),
+                updatedAt = currentTimeMillis(),
+                syncStatus = SyncStatus.PENDING,
+            ),
+        )
         syncScheduler.enqueue()
     }
 
@@ -142,12 +182,10 @@ class MedicationRepository(
         quantity: String,
         notes: String?,
     ) {
-        val med = medicationDao.getById(medicationId) ?: return
+        medicationDao.getById(medicationId) ?: return
         val existing = id?.let { entryDao.getById(it) }
         val entry = existing?.copy(
             medicationId = medicationId,
-            medicationName = med.name,
-            dose = med.dose,
             quantity = quantity.trim(),
             occurredAt = occurredAt,
             notes = notes?.takeIf { it.isNotBlank() },
@@ -157,8 +195,6 @@ class MedicationRepository(
             userId = getUserId(),
             profileId = profileId(),
             medicationId = medicationId,
-            medicationName = med.name,
-            dose = med.dose,
             quantity = quantity.trim(),
             occurredAt = occurredAt,
             notes = notes?.takeIf { it.isNotBlank() },
@@ -173,8 +209,8 @@ class MedicationRepository(
     }
 
     suspend fun deleteProfileData(profileId: String) {
-        medicationDao.softDeleteByProfile(profileId)
-        scheduleDao.softDeleteByProfile(profileId)
+        medicationDao.archiveByProfile(profileId)
+        scheduleDao.archiveByProfile(profileId)
         entryDao.softDeleteByProfile(profileId)
         syncScheduler.enqueue()
     }
@@ -197,7 +233,7 @@ class MedicationRepository(
         val pid = profileId()
         val schedules = scheduleDao.getActive(pid)
         if (schedules.isEmpty()) return 0
-        val medications = medicationDao.getAll(pid).associateBy { it.id }
+        val medications = medicationDao.getAllForLookup(pid).associateBy { it.id }
 
         val nowMillis = currentTimeMillis()
         val today = LocalDate.now(zone)
@@ -210,7 +246,7 @@ class MedicationRepository(
         val created = mutableListOf<MedicationEntryEntity>()
 
         for (schedule in schedules) {
-            // A schedule whose medication was deleted produces nothing.
+            // A schedule whose medication has vanished entirely produces nothing.
             val medication = medications[schedule.medicationId] ?: continue
             var date = maxOf(earliest, LocalDate.ofEpochDay(schedule.startEpochDay))
             while (!date.isAfter(today)) {
@@ -231,8 +267,6 @@ class MedicationRepository(
                                 userId = userId,
                                 profileId = pid,
                                 medicationId = medication.id,
-                                medicationName = medication.name,
-                                dose = medication.dose,
                                 quantity = schedule.quantity,
                                 occurredAt = dueAt,
                                 scheduleId = schedule.id,

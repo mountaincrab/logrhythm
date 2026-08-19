@@ -54,8 +54,6 @@ export function mapMedicationEntry(id: string, d: Record<string, unknown>): Medi
     id,
     profileId: (d.profileId as string) ?? 'default',
     medicationId: (d.medicationId as string) ?? '',
-    medicationName: (d.medicationName as string) ?? '',
-    dose: (d.dose as string) ?? '',
     quantity: (d.quantity as string) ?? '',
     occurredAt: (d.occurredAt as number) ?? 0,
     scheduleId: (d.scheduleId as string) ?? null,
@@ -113,9 +111,6 @@ export interface NoteInput {
 export interface MedicineInput {
   occurredAt: number
   medicationId: string
-  medicationName: string
-  /** Strength snapshot from the catalog entry, e.g. "1g". */
-  dose: string
   /** How many units, e.g. "2". */
   quantity: string
   notes: string | null
@@ -215,8 +210,6 @@ export function useEntries(userId: string, profileId: string) {
     await setDoc(doc(col('medication_entries'), id), {
       userId, profileId,
       medicationId: input.medicationId,
-      medicationName: input.medicationName,
-      dose: input.dose,
       quantity: input.quantity,
       occurredAt: input.occurredAt,
       scheduleId: null,
@@ -229,8 +222,6 @@ export function useEntries(userId: string, profileId: string) {
   const updateMedicine = async (id: string, input: MedicineInput) => {
     await updateDoc(doc(col('medication_entries'), id), {
       medicationId: input.medicationId,
-      medicationName: input.medicationName,
-      dose: input.dose,
       quantity: input.quantity,
       occurredAt: input.occurredAt,
       notes: input.notes,

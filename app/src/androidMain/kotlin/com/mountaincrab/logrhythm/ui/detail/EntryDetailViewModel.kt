@@ -3,6 +3,7 @@ package com.mountaincrab.logrhythm.ui.detail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mountaincrab.logrhythm.data.local.entity.FoodEntryEntity
+import com.mountaincrab.logrhythm.data.local.entity.MedicationEntity
 import com.mountaincrab.logrhythm.data.local.entity.MedicationEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.NoteEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.NoteTagEntity
@@ -23,6 +24,8 @@ data class EntryDetailUiState(
     val note: NoteEntryEntity? = null,
     val noteTags: List<NoteTagEntity> = emptyList(),
     val medication: MedicationEntryEntity? = null,
+    /** The catalog row [medication] points at — where its name and strength are read from. */
+    val medicationDefinition: MedicationEntity? = null,
     val foodWindow: List<FoodEntryEntity> = emptyList(),
     val deleted: Boolean = false,
 )
@@ -58,7 +61,15 @@ class EntryDetailViewModel(
                     val tags = repository.getNoteTags(entryId)
                     _state.update { it.copy(note = n, noteTags = tags) }
                 }
-                "medicine" -> _state.update { it.copy(medication = medicationRepository.getEntry(entryId)) }
+                "medicine" -> {
+                    val dose = medicationRepository.getEntry(entryId) ?: return@launch
+                    _state.update {
+                        it.copy(
+                            medication = dose,
+                            medicationDefinition = medicationRepository.getMedication(dose.medicationId),
+                        )
+                    }
+                }
             }
         }
     }

@@ -79,6 +79,7 @@ val appModule = module {
             foodDao = get(),
             noteDao = get(),
             medicationEntryDao = get(),
+            medicationDao = get(),
             poopTagDao = get(),
             noteTagDao = get(),
             timelineDao = get(),

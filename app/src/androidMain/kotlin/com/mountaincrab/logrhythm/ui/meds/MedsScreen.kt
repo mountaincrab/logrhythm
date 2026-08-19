@@ -12,7 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -58,6 +58,8 @@ fun MedsScreen(
 
     val scheduleRows by viewModel.scheduleRows.collectAsStateWithLifecycle()
     val medications by viewModel.medications.collectAsStateWithLifecycle()
+    val archivedMedications by viewModel.archivedMedications.collectAsStateWithLifecycle()
+    val archivedScheduleRows by viewModel.archivedScheduleRows.collectAsStateWithLifecycle()
     val groupByMedication by viewModel.groupByMedication.collectAsStateWithLifecycle()
 
     var editingMedication by remember { mutableStateOf<MedicationEntity?>(null) }
@@ -143,16 +145,20 @@ fun MedsScreen(
                     grouped = groupByMedication,
                     onToggleGrouping = viewModel::toggleGrouping,
                     onEdit = { editingSchedule = it; showScheduleEditor = true },
-                    onDelete = { viewModel.deleteSchedule(it) },
+                    onArchive = { viewModel.archiveSchedule(it) },
                     onToggleActive = { id, active -> viewModel.setScheduleActive(id, active) },
                     onAdd = { editingSchedule = null; showScheduleEditor = true },
                     hasMedications = medications.isNotEmpty(),
+                    archivedRows = archivedScheduleRows,
+                    onRestore = { viewModel.restoreSchedule(it) },
                 )
                 MedsTab.CATALOG -> catalogTab(
                     medications = medications,
                     onEdit = { editingMedication = it; showMedicationEditor = true },
-                    onDelete = { viewModel.deleteMedication(it) },
+                    onArchive = { viewModel.archiveMedication(it) },
                     onAdd = { editingMedication = null; showMedicationEditor = true },
+                    archived = archivedMedications,
+                    onRestore = { viewModel.restoreMedication(it) },
                 )
             }
         }
@@ -168,10 +174,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.scheduleTab(
     grouped: Boolean,
     onToggleGrouping: () -> Unit,
     onEdit: (ScheduleRow) -> Unit,
-    onDelete: (String) -> Unit,
+    onArchive: (String) -> Unit,
     onToggleActive: (String, Boolean) -> Unit,
     onAdd: () -> Unit,
     hasMedications: Boolean,
+    archivedRows: List<ScheduleRow>,
+    onRestore: (String) -> Unit,
 ) {
     item {
         Row(
@@ -217,20 +225,34 @@ private fun androidx.compose.foundation.lazy.LazyListScope.scheduleTab(
             }
             items(group, key = { "grouped-${it.schedule.id}" }) { row ->
                 ScheduleCard(row, showName = false, onEdit = { onEdit(row) },
-                    onDelete = { onDelete(row.schedule.id) },
+                    onArchive = { onArchive(row.schedule.id) },
                     onToggleActive = { onToggleActive(row.schedule.id, !row.schedule.isActive) })
             }
         }
     } else {
         items(rows, key = { "flat-${it.schedule.id}" }) { row ->
             ScheduleCard(row, showName = true, onEdit = { onEdit(row) },
-                onDelete = { onDelete(row.schedule.id) },
+                onArchive = { onArchive(row.schedule.id) },
                 onToggleActive = { onToggleActive(row.schedule.id, !row.schedule.isActive) })
         }
     }
 
     if (hasMedications) {
         item { AddRowButton("+ Add a dose", onAdd) }
+    }
+
+    if (archivedRows.isNotEmpty()) {
+        item { ArchivedHeader("Restored doses start from today — nothing is back-filled.") }
+        items(archivedRows, key = { "archived-${it.schedule.id}" }) { row ->
+            ArchivedRow(
+                title = row.name,
+                subtitle = listOfNotNull(
+                    formatMinutesOfDay(row.schedule.timeMinutes),
+                    repeatLabel(row.schedule.repeatRule, row.schedule.daysMask),
+                ).joinToString(" · "),
+                onRestore = { onRestore(row.schedule.id) },
+            )
+        }
     }
 }
 
@@ -239,7 +261,7 @@ private fun ScheduleCard(
     row: ScheduleRow,
     showName: Boolean,
     onEdit: () -> Unit,
-    onDelete: () -> Unit,
+    onArchive: () -> Unit,
     onToggleActive: () -> Unit,
 ) {
     val palette = LocalAppPalette.current
@@ -285,7 +307,7 @@ private fun ScheduleCard(
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             ActionButton(if (s.isActive) "Pause" else "Resume", Modifier.weight(1f), onClick = onToggleActive)
             ActionButton("Edit", Modifier.weight(1f), onClick = onEdit)
-            ActionButton("Delete", Modifier.weight(1f), danger = true, onClick = onDelete)
+            ActionButton("Archive", Modifier.weight(1f), danger = true, onClick = onArchive)
         }
         if (!s.isActive) {
             Text("Paused — not adding doses", color = palette.warning, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
@@ -394,8 +416,10 @@ private fun ScheduleEditorDialog(
 private fun androidx.compose.foundation.lazy.LazyListScope.catalogTab(
     medications: List<MedicationEntity>,
     onEdit: (MedicationEntity) -> Unit,
-    onDelete: (String) -> Unit,
+    onArchive: (String) -> Unit,
     onAdd: () -> Unit,
+    archived: List<MedicationEntity>,
+    onRestore: (String) -> Unit,
 ) {
     if (medications.isEmpty()) {
         item {
@@ -407,30 +431,84 @@ private fun androidx.compose.foundation.lazy.LazyListScope.catalogTab(
         }
     }
     items(medications, key = { it.id }) { med ->
-        MedicationCard(med, onEdit = { onEdit(med) }, onDelete = { onDelete(med.id) })
+        MedicationCard(med, onEdit = { onEdit(med) }, onArchive = { onArchive(med.id) })
     }
     item { AddRowButton("+ Add medication", onAdd) }
+
+    if (archived.isNotEmpty()) {
+        item { ArchivedHeader("Doses you already recorded still read from these.") }
+        items(archived, key = { "archived-${it.id}" }) { med ->
+            ArchivedRow(
+                title = med.name,
+                subtitle = listOfNotNull(med.form.label, med.dose.takeIf { it.isNotBlank() })
+                    .joinToString(" · "),
+                onRestore = { onRestore(med.id) },
+            )
+        }
+    }
+}
+
+/**
+ * Archived medications and schedules are hidden from the pickers, never removed: recorded
+ * doses read their name and strength through them.
+ */
+@Composable
+private fun ArchivedHeader(body: String) {
+    val palette = LocalAppPalette.current
+    Column(modifier = Modifier.padding(top = 18.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            text = "ARCHIVED",
+            color = palette.fgMuted,
+            fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp,
+        )
+        Text(text = body, color = palette.fgFaint, fontSize = 12.sp)
+    }
 }
 
 @Composable
-private fun MedicationCard(medication: MedicationEntity, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun ArchivedRow(title: String, subtitle: String, onRestore: () -> Unit) {
     val palette = LocalAppPalette.current
-    var confirmDelete by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(palette.surfaceRaised)
+            .border(1.dp, palette.borderSubtle, RoundedCornerShape(14.dp))
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, color = palette.fgMuted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            if (subtitle.isNotBlank()) {
+                Text(text = subtitle, color = palette.fgFaint, fontSize = 12.sp)
+            }
+        }
+        ActionButton("Restore", onClick = onRestore)
+    }
+}
 
-    if (confirmDelete) {
+@Composable
+private fun MedicationCard(medication: MedicationEntity, onEdit: () -> Unit, onArchive: () -> Unit) {
+    val palette = LocalAppPalette.current
+    var confirmArchive by remember { mutableStateOf(false) }
+
+    if (confirmArchive) {
         AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text("Delete ${medication.name}?") },
+            onDismissRequest = { confirmArchive = false },
+            title = { Text("Archive ${medication.name}?") },
             text = {
                 Text(
-                    "Its scheduled doses stop, but doses already recorded stay on your timeline.",
+                    "Its scheduled doses stop and it leaves the pickers. Doses you already " +
+                        "recorded stay on your timeline and keep reading their name and strength " +
+                        "from it. You can restore it from the bottom of this tab.",
                     fontSize = 13.sp,
                 )
             },
             confirmButton = {
-                TextButton(onClick = { onDelete(); confirmDelete = false }) { Text("Delete") }
+                TextButton(onClick = { onArchive(); confirmArchive = false }) { Text("Archive") }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirmArchive = false }) { Text("Cancel") } },
         )
     }
 
@@ -464,9 +542,9 @@ private fun MedicationCard(medication: MedicationEntity, onEdit: () -> Unit, onD
             modifier = Modifier.size(18.dp).clickable(onClick = onEdit),
         )
         Icon(
-            Icons.Outlined.DeleteOutline, contentDescription = "Delete",
+            Icons.Outlined.Archive, contentDescription = "Archive",
             tint = palette.dangerText,
-            modifier = Modifier.size(18.dp).clickable { confirmDelete = true },
+            modifier = Modifier.size(18.dp).clickable { confirmArchive = true },
         )
     }
 }
