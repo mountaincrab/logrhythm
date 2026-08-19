@@ -18,7 +18,7 @@ interface Props {
  * you correct the quantity you actually took.
  */
 export default function AddMedicineSheet({ onClose, onSave, onDelete, initial }: Props) {
-  const { medications, addMedication } = useMedicationsContext()
+  const { medications, medicationsById, addMedication } = useMedicationsContext()
   const [occurredAt, setOccurredAt] = useState(initial?.occurredAt ?? Date.now())
   const [medicationId, setMedicationId] = useState<string | null>(initial?.medicationId ?? null)
   const [quantity, setQuantity] = useState(initial?.quantity ?? '1')
@@ -32,7 +32,10 @@ export default function AddMedicineSheet({ onClose, onSave, onDelete, initial }:
     setMedicationId(medications[0].id)
   }, [medications, medicationId, initial])
 
-  const selected = medications.find((m) => m.id === medicationId)
+  const selected = medicationId ? medicationsById.get(medicationId) ?? null : null
+  // An archived medication stays in the picker while the dose that points at it is being
+  // edited — otherwise the sheet looks like nothing is selected.
+  const pickable = selected && selected.isArchived ? [...medications, selected] : medications
 
   const save = async () => {
     if (!medicationId) return
@@ -41,8 +44,6 @@ export default function AddMedicineSheet({ onClose, onSave, onDelete, initial }:
       await onSave({
         occurredAt,
         medicationId,
-        medicationName: selected?.name ?? initial?.medicationName ?? '',
-        dose: selected ? medicationDose(selected) : initial?.dose ?? '',
         quantity: quantity.trim(),
         notes: notes.trim() || null,
       })
@@ -70,7 +71,7 @@ export default function AddMedicineSheet({ onClose, onSave, onDelete, initial }:
             <p className="text-[13px] text-fg-muted mb-2">No medications yet — add one to log a dose.</p>
           )}
           <MedicationPicker
-            medications={medications}
+            medications={pickable}
             selectedId={medicationId}
             onSelect={(m) => setMedicationId(m.id)}
             onCreateNew={() => setCreating(true)}

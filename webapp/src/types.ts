@@ -79,7 +79,11 @@ export interface Medication {
   doseUnit: string
   sortOrder: number
   createdAt: number
-  isDeleted: boolean
+  /**
+   * Archived medications leave the pickers but are never removed: recorded doses resolve
+   * their name and strength through the id, so the lookup must always find a row.
+   */
+  isArchived: boolean
 }
 
 /** One scheduled dose: a medication, a quantity, a time of day and a repeat rule. */
@@ -96,9 +100,14 @@ export interface MedicationSchedule {
   daysOfWeek: number[]
   /** Local epoch-day the schedule starts on; also the EVERY_OTHER_DAY parity anchor. */
   startEpochDay: number
+  /** Paused schedules stay on the Schedule tab but stop producing new doses. */
   isActive: boolean
   createdAt: number
-  isDeleted: boolean
+  /**
+   * Archived schedules leave the Schedule tab and stop producing doses, but are never
+   * removed — a recorded dose's scheduleId points here. Distinct from isActive.
+   */
+  isArchived: boolean
 }
 
 /**
@@ -109,10 +118,12 @@ export interface MedicationSchedule {
 export interface MedicationEntry {
   id: string
   profileId: string
+  /**
+   * The catalog medication this dose is of. Its name and strength are read through this id
+   * at display time rather than copied here, so correcting a definition corrects every dose
+   * of it and fields added to the catalog later need no back-fill.
+   */
   medicationId: string
-  /** Snapshots, so a dose still reads correctly if its catalog entry is edited or deleted. */
-  medicationName: string
-  dose: string
   quantity: string
   occurredAt: number
   /** The scheduled dose this materialised from, or null when logged by hand. */

@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -35,13 +36,25 @@ class AddMedicineViewModel(
     private val _state = MutableStateFlow(AddMedicineUiState())
     val state: StateFlow<AddMedicineUiState> = _state.asStateFlow()
 
-    val medications: StateFlow<List<MedicationEntity>> = repository.observeMedications()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    /**
+     * An archived medication this dose already points at. It is kept in the picker so editing
+     * an old dose doesn't look like nothing is selected — and so saving can't silently
+     * re-point the dose at something else.
+     */
+    private val archivedSelection = MutableStateFlow<MedicationEntity?>(null)
+
+    val medications: StateFlow<List<MedicationEntity>> =
+        combine(repository.observeMedications(), archivedSelection) { live, archived ->
+            if (archived != null && live.none { it.id == archived.id }) live + archived else live
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     init {
         viewModelScope.launch {
             if (existingId != null) {
                 repository.getEntry(existingId)?.let { e ->
+                    repository.getMedication(e.medicationId)
+                        ?.takeIf { it.isArchived }
+                        ?.let { archivedSelection.value = it }
                     _state.update {
                         it.copy(
                             occurredAt = e.occurredAt,

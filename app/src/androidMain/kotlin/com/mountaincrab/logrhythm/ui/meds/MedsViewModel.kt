@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/** A scheduled dose paired with its catalog medication (null if that was deleted). */
+/** A scheduled dose paired with its catalog medication (null only if that vanished entirely). */
 data class ScheduleRow(
     val schedule: MedicationScheduleEntity,
     val medication: MedicationEntity?,
@@ -35,8 +35,30 @@ class MedsViewModel(
     private val schedules: StateFlow<List<MedicationScheduleEntity>> = repository.observeSchedules()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** Archived medications and schedules, for the Archived sections that restore them. */
+    val archivedMedications: StateFlow<List<MedicationEntity>> = repository.observeArchivedMedications()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val archivedScheduleList: StateFlow<List<MedicationScheduleEntity>> =
+        repository.observeArchivedSchedules()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * Schedule rows resolve their medication through the archived-inclusive catalog: a
+     * schedule can outlive its medication leaving the pickers, and it still has to read.
+     */
+    private val catalogForLookup: StateFlow<List<MedicationEntity>> =
+        combine(medications, archivedMedications) { live, archived -> live + archived }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     val scheduleRows: StateFlow<List<ScheduleRow>> =
-        combine(schedules, medications) { scheduleList, medicationList ->
+        combine(schedules, catalogForLookup) { scheduleList, medicationList ->
+            val byId = medicationList.associateBy { it.id }
+            scheduleList.map { ScheduleRow(it, byId[it.medicationId]) }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val archivedScheduleRows: StateFlow<List<ScheduleRow>> =
+        combine(archivedScheduleList, catalogForLookup) { scheduleList, medicationList ->
             val byId = medicationList.associateBy { it.id }
             scheduleList.map { ScheduleRow(it, byId[it.medicationId]) }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -65,8 +87,12 @@ class MedsViewModel(
         viewModelScope.launch { repository.saveMedication(id, name, form, doseAmount, doseUnit) }
     }
 
-    fun deleteMedication(id: String) {
-        viewModelScope.launch { repository.deleteMedication(id) }
+    fun archiveMedication(id: String) {
+        viewModelScope.launch { repository.archiveMedication(id) }
+    }
+
+    fun restoreMedication(id: String) {
+        viewModelScope.launch { repository.restoreMedication(id) }
     }
 
     fun saveSchedule(
@@ -83,8 +109,13 @@ class MedsViewModel(
         }
     }
 
-    fun deleteSchedule(id: String) {
-        viewModelScope.launch { repository.deleteSchedule(id) }
+    fun archiveSchedule(id: String) {
+        viewModelScope.launch { repository.archiveSchedule(id) }
+    }
+
+    /** Restoring re-anchors the schedule to today — see [MedicationRepository.restoreSchedule]. */
+    fun restoreSchedule(id: String) {
+        viewModelScope.launch { repository.restoreSchedule(id) }
     }
 
     fun setScheduleActive(id: String, active: Boolean) {

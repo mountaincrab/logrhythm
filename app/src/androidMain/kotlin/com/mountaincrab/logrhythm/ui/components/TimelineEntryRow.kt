@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mountaincrab.logrhythm.data.local.entity.dose
 import com.mountaincrab.logrhythm.data.model.bristol
 import com.mountaincrab.logrhythm.data.model.formatDoseAmount
 import com.mountaincrab.logrhythm.data.repository.TimelineEntry
@@ -159,7 +160,10 @@ private fun FoodBody(entry: TimelineEntry.Food) {
 private fun MedicationBody(entry: TimelineEntry.Medication) {
     val palette = LocalAppPalette.current
     val e = entry.entity
-    val amount = formatDoseAmount(e.quantity, e.dose)
+    // Name and strength come from the catalog row, so correcting a medication corrects
+    // every dose of it. Archiving keeps the row around, so this normally resolves.
+    val name = entry.medication?.name ?: "Medication"
+    val amount = formatDoseAmount(e.quantity, entry.medication?.dose ?: "")
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -177,7 +181,7 @@ private fun MedicationBody(entry: TimelineEntry.Medication) {
             modifier = Modifier.align(Alignment.CenterVertically),
         )
         Text(
-            text = e.medicationName,
+            text = name,
             color = MaterialTheme.colorScheme.onSurface,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,

@@ -236,7 +236,7 @@ class FirestoreRepository {
                 "sortOrder" to med.sortOrder,
                 "createdAt" to med.createdAt,
                 "updatedAt" to FieldValue.serverTimestamp(),
-                "isDeleted" to med.isDeleted,
+                "isArchived" to med.isArchived,
             ),
             SetOptions.merge(),
         ).await()
@@ -258,7 +258,7 @@ class FirestoreRepository {
                 "isActive" to schedule.isActive,
                 "createdAt" to schedule.createdAt,
                 "updatedAt" to FieldValue.serverTimestamp(),
-                "isDeleted" to schedule.isDeleted,
+                "isArchived" to schedule.isArchived,
             ),
             SetOptions.merge(),
         ).await()
@@ -270,8 +270,6 @@ class FirestoreRepository {
                 "userId" to uid,
                 "profileId" to entry.profileId,
                 "medicationId" to entry.medicationId,
-                "medicationName" to entry.medicationName,
-                "dose" to entry.dose,
                 "quantity" to entry.quantity,
                 "occurredAt" to entry.occurredAt,
                 "scheduleId" to entry.scheduleId,
@@ -301,7 +299,7 @@ class FirestoreRepository {
                         createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis(),
                         updatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time ?: System.currentTimeMillis(),
                         syncStatus = SyncStatus.SYNCED,
-                        isDeleted = doc.getBoolean("isDeleted") ?: false,
+                        isArchived = doc.getBoolean("isArchived") ?: false,
                     )
                 } catch (_: Exception) { null }
             }
@@ -327,7 +325,7 @@ class FirestoreRepository {
                         createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis(),
                         updatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time ?: System.currentTimeMillis(),
                         syncStatus = SyncStatus.SYNCED,
-                        isDeleted = doc.getBoolean("isDeleted") ?: false,
+                        isArchived = doc.getBoolean("isArchived") ?: false,
                     )
                 } catch (_: Exception) { null }
             }
@@ -342,8 +340,6 @@ class FirestoreRepository {
                         userId = uid,
                         profileId = doc.getString("profileId") ?: DEFAULT_PROFILE_ID,
                         medicationId = doc.getString("medicationId") ?: return@mapNotNull null,
-                        medicationName = doc.getString("medicationName") ?: "",
-                        dose = doc.getString("dose") ?: "",
                         quantity = doc.getString("quantity") ?: "",
                         occurredAt = doc.getLong("occurredAt") ?: return@mapNotNull null,
                         scheduleId = doc.getString("scheduleId"),

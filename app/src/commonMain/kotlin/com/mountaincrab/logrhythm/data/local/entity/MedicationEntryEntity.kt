@@ -18,8 +18,10 @@ import com.mountaincrab.logrhythm.util.randomUUID
  * take is deleted, and one you took differently has its [quantity] edited — the same two
  * gestures every other entry type uses.
  *
- * [medicationName] and [dose] are snapshots so a recorded dose still reads correctly after
- * its catalog entry is edited or deleted.
+ * The medication's name and strength are *not* copied here: they are read from the catalog
+ * through [medicationId] whenever a dose is displayed, so correcting a definition corrects
+ * every dose of it, and fields added to the catalog later need no back-fill. Definitions are
+ * archived rather than deleted, so the lookup always resolves.
  */
 @Entity(tableName = "medication_entries")
 data class MedicationEntryEntity(
@@ -27,9 +29,6 @@ data class MedicationEntryEntity(
     val userId: String = "local",
     val profileId: String = DEFAULT_PROFILE_ID,
     val medicationId: String,
-    val medicationName: String,
-    /** Strength of one unit at the time this was recorded, e.g. "1g". */
-    val dose: String = "",
     /** How many units were taken, e.g. "2". */
     val quantity: String = "",
     val occurredAt: Long,

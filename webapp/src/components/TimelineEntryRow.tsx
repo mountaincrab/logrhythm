@@ -3,7 +3,8 @@ import { ratingColor } from '../lib/ratings'
 import { bristol } from '../lib/bristol'
 import { mealTagLabel } from '../lib/mealTags'
 import { formatTime } from '../lib/dates'
-import { formatDoseAmount } from '../lib/medications'
+import { formatDoseAmount, medicationDose } from '../lib/medications'
+import { useMedicationsContext } from '../contexts/MedicationsContext'
 
 function RatingPill({ n }: { n: number }) {
   const c = ratingColor(n)
@@ -32,6 +33,7 @@ function describePoop(types: number[]): string {
 }
 
 export default function TimelineEntryRow({ item, onClick }: { item: TimelineEntry; onClick: () => void }) {
+  const { medicationsById } = useMedicationsContext()
   let dotColor = 'var(--surface-high)'
   let kindLabel = ''
   let kindColor = 'var(--fg-faint)'
@@ -60,7 +62,12 @@ export default function TimelineEntryRow({ item, onClick }: { item: TimelineEntr
       </span>
     )
   } else if (item.kind === 'medicine') {
-    const { medicationName, quantity, dose, notes } = item.entry
+    const { medicationId, quantity, notes } = item.entry
+    // Name and strength come from the catalog row, so correcting a medication corrects
+    // every dose of it. Archiving keeps the row around, so this normally resolves.
+    const medication = medicationsById.get(medicationId)
+    const medicationName = medication?.name ?? 'Medication'
+    const dose = medication ? medicationDose(medication) : ''
     dotColor = 'var(--accent-text)'
     kindLabel = 'Medicine'
     kindColor = 'var(--accent-text)'

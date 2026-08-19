@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Archive, Pencil } from 'lucide-react'
 import AppShell from '../components/AppShell'
 import { Field } from '../components/Sheet'
 import {
@@ -79,12 +79,16 @@ function ActionButton({
 // ── Schedule ───────────────────────────────────────────────────────────────
 
 function ScheduleTab() {
-  const { schedules, medications, deleteSchedule, setScheduleActive } = useMedicationsContext()
+  const {
+    schedules, medications, medicationsById, archivedSchedules,
+    archiveSchedule, restoreSchedule, setScheduleActive,
+  } = useMedicationsContext()
   const [grouped, setGrouped] = useState(false)
   const [editing, setEditing] = useState<MedicationSchedule | null>(null)
   const [adding, setAdding] = useState(false)
 
-  const byId = useMemo(() => new Map(medications.map((m) => [m.id, m])), [medications])
+  // Archived-inclusive: a schedule can outlive its medication leaving the pickers.
+  const byId = medicationsById
   const nameOf = (s: MedicationSchedule) => byId.get(s.medicationId)?.name ?? 'Unknown medication'
   const doseOf = (s: MedicationSchedule) => {
     const med = byId.get(s.medicationId)
@@ -105,7 +109,7 @@ function ScheduleTab() {
       amount={formatDoseAmount(s.quantity, doseOf(s))}
       showName={showName}
       onEdit={() => setEditing(s)}
-      onDelete={() => deleteSchedule(s.id)}
+      onArchive={() => archiveSchedule(s.id)}
       onToggleActive={() => setScheduleActive(s.id, !s.isActive)}
     />
   )
@@ -160,6 +164,20 @@ function ScheduleTab() {
         </button>
       )}
 
+      {archivedSchedules.length > 0 && (
+        <ArchivedSection body="Restored doses start from today — nothing is back-filled.">
+          {archivedSchedules.map((s) => (
+            <ArchivedRow
+              key={s.id}
+              title={nameOf(s)}
+              subtitle={[formatMinutesOfDay(s.timeMinutes), describeRepeat(s.repeatRule, s.daysOfWeek)]
+                .filter(Boolean).join(' · ')}
+              onRestore={() => restoreSchedule(s.id)}
+            />
+          ))}
+        </ArchivedSection>
+      )}
+
       {(adding || editing) && (
         <ScheduleDialog
           initial={editing ?? undefined}
@@ -170,15 +188,48 @@ function ScheduleTab() {
   )
 }
 
+/**
+ * Archived medications and schedules are hidden from the pickers, never removed: recorded
+ * doses read their name and strength through them.
+ */
+function ArchivedSection({ body, children }: { body: string; children: React.ReactNode }) {
+  return (
+    <div className="mt-7">
+      <div className="ds-eyebrow">Archived</div>
+      <p className="text-xs text-fg-faint mb-2">{body}</p>
+      <div className="space-y-2">{children}</div>
+    </div>
+  )
+}
+
+function ArchivedRow({
+  title, subtitle, onRestore,
+}: { title: string; subtitle: string; onRestore: () => void }) {
+  return (
+    <div className="bg-surface-raised border border-subtle rounded-2xl px-3.5 py-2.5 flex items-center gap-3">
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold text-fg-muted truncate">{title}</div>
+        {subtitle && <div className="text-xs text-fg-faint">{subtitle}</div>}
+      </div>
+      <button
+        onClick={onRestore}
+        className="px-3 py-1.5 rounded-xl bg-surface-high text-fg text-xs font-bold transition-colors"
+      >
+        Restore
+      </button>
+    </div>
+  )
+}
+
 function ScheduleCard({
-  schedule, name, amount, showName, onEdit, onDelete, onToggleActive,
+  schedule, name, amount, showName, onEdit, onArchive, onToggleActive,
 }: {
   schedule: MedicationSchedule
   name: string
   amount: string
   showName: boolean
   onEdit: () => void
-  onDelete: () => void
+  onArchive: () => void
   onToggleActive: () => void
 }) {
   const detail = [amount, describeRepeat(schedule.repeatRule, schedule.daysOfWeek)]
@@ -198,7 +249,7 @@ function ScheduleCard({
       <div className="flex gap-1.5 mt-3">
         <ActionButton label={schedule.isActive ? 'Pause' : 'Resume'} onClick={onToggleActive} />
         <ActionButton label="Edit" onClick={onEdit} />
-        <ActionButton label="Delete" danger onClick={onDelete} />
+        <ActionButton label="Archive" danger onClick={onArchive} />
       </div>
       {!schedule.isActive && (
         <p className="text-[11px] font-semibold mt-2" style={{ color: 'var(--warning)' }}>
@@ -312,7 +363,10 @@ function ScheduleDialog({ initial, onClose }: { initial?: MedicationSchedule; on
 // ── Catalog ────────────────────────────────────────────────────────────────
 
 function CatalogTab() {
-  const { medications, addMedication, updateMedication, deleteMedication } = useMedicationsContext()
+  const {
+    medications, archivedMedications, addMedication, updateMedication,
+    archiveMedication, restoreMedication,
+  } = useMedicationsContext()
   const [editing, setEditing] = useState<Medication | null>(null)
   const [adding, setAdding] = useState(false)
   const [confirming, setConfirming] = useState<Medication | null>(null)
@@ -337,8 +391,8 @@ function CatalogTab() {
                 <button onClick={() => setEditing(m)} className="p-2 text-fg-muted hover:text-fg transition-colors" aria-label="Edit">
                   <Pencil size={16} />
                 </button>
-                <button onClick={() => setConfirming(m)} className="p-2 text-danger-text hover:opacity-80 transition-opacity" aria-label="Delete">
-                  <Trash2 size={16} />
+                <button onClick={() => setConfirming(m)} className="p-2 text-danger-text hover:opacity-80 transition-opacity" aria-label="Archive">
+                  <Archive size={16} />
                 </button>
               </div>
             )
@@ -352,6 +406,19 @@ function CatalogTab() {
       >
         + Add medication
       </button>
+
+      {archivedMedications.length > 0 && (
+        <ArchivedSection body="Doses you already recorded still read from these.">
+          {archivedMedications.map((m) => (
+            <ArchivedRow
+              key={m.id}
+              title={m.name}
+              subtitle={[formLabel(m.form), medicationDose(m)].filter(Boolean).join(' · ')}
+              onRestore={() => restoreMedication(m.id)}
+            />
+          ))}
+        </ArchivedSection>
+      )}
 
       {(adding || editing) && (
         <MedicationDialog
@@ -367,9 +434,11 @@ function CatalogTab() {
       {confirming && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-5">
           <div className="w-full max-w-sm bg-bg rounded-3xl shadow-dialog p-5">
-            <h2 className="text-lg font-extrabold">Delete {confirming.name}?</h2>
+            <h2 className="text-lg font-extrabold">Archive {confirming.name}?</h2>
             <p className="text-[13px] text-fg-muted mt-2 leading-relaxed">
-              Its scheduled doses stop, but doses already recorded stay on your timeline.
+              Its scheduled doses stop and it leaves the pickers. Doses you already recorded
+              stay on your timeline and keep reading their name and strength from it. You can
+              restore it from the bottom of this tab.
             </p>
             <div className="flex gap-2 mt-4">
               <button
@@ -379,10 +448,10 @@ function CatalogTab() {
                 Cancel
               </button>
               <button
-                onClick={async () => { await deleteMedication(confirming.id); setConfirming(null) }}
+                onClick={async () => { await archiveMedication(confirming.id); setConfirming(null) }}
                 className="flex-1 px-4 py-3 rounded-2xl text-[15px] font-bold bg-surface-high text-danger-text"
               >
-                Delete
+                Archive
               </button>
             </div>
           </div>

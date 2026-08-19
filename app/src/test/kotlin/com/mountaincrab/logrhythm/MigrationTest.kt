@@ -154,6 +154,65 @@ class MigrationTest {
     }
 
     /**
+     * Tests that v12→v13 makes the catalog the single source of truth for a dose's name and
+     * strength: `medication_entries` loses its snapshot columns, and the flags that must never
+     * be read as "gone" become `isArchived` — carrying the old `isDeleted` value across, so an
+     * already-deleted medication comes back archived rather than live.
+     *
+     * Requires: app/schemas/.../12.json.
+     */
+    @Test
+    fun migrate12To13_snapshotsDroppedAndDeletionBecomesArchival() {
+        helper.createDatabase(DB_NAME, 12).apply {
+            execSQL(
+                "INSERT INTO medications " +
+                    "(id, userId, profileId, name, form, doseAmount, doseUnit, sortOrder, " +
+                    "createdAt, updatedAt, syncStatus, isDeleted) " +
+                    "VALUES ('m1', 'u1', 'default', 'Pentasa', 'TABLET', '1', 'g', 0, 1000, 2000, 'SYNCED', 1)",
+            )
+            execSQL(
+                "INSERT INTO medication_schedules " +
+                    "(id, userId, profileId, medicationId, quantity, timeMinutes, repeatRule, " +
+                    "daysMask, startEpochDay, isActive, createdAt, updatedAt, syncStatus, isDeleted) " +
+                    "VALUES ('s1', 'u1', 'default', 'm1', '2', 480, 'DAILY', 0, 20000, 1, 1000, 2000, 'SYNCED', 0)",
+            )
+            execSQL(
+                "INSERT INTO medication_entries " +
+                    "(id, userId, profileId, medicationId, medicationName, dose, quantity, " +
+                    "occurredAt, scheduleId, notes, createdAt, updatedAt, syncStatus, isDeleted) " +
+                    "VALUES ('s1_2026-08-19', 'u1', 'default', 'm1', 'Pentasa', '1g', '2', " +
+                    "5000, 's1', null, 1000, 2000, 'SYNCED', 0)",
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(DB_NAME, 13, true, *ALL_MIGRATIONS)
+
+        db.query("SELECT isArchived, name, syncStatus FROM medications WHERE id = 'm1'").use { c ->
+            assertEquals(1, c.count)
+            c.moveToFirst()
+            assertEquals(1, c.getInt(0))
+            assertEquals("Pentasa", c.getString(1))
+            // Reshaped rows are re-pushed so Firestore gets the new field names.
+            assertEquals("PENDING", c.getString(2))
+        }
+        db.query("SELECT isArchived, isActive FROM medication_schedules WHERE id = 's1'").use { c ->
+            c.moveToFirst()
+            assertEquals(0, c.getInt(0))
+            assertEquals(1, c.getInt(1))
+        }
+        // The dose keeps its id, its link and its quantity; the copied name and strength are gone.
+        db.query("SELECT medicationId, quantity, scheduleId FROM medication_entries WHERE id = 's1_2026-08-19'").use { c ->
+            assertEquals(1, c.count)
+            c.moveToFirst()
+            assertEquals("m1", c.getString(0))
+            assertEquals("2", c.getString(1))
+            assertEquals("s1", c.getString(2))
+        }
+        db.close()
+    }
+
+    /**
      * Verifies every migration overrides migrate(SQLiteConnection).
      *
      * MigrationTestHelper uses SupportSQLiteOpenHelper internally and calls
