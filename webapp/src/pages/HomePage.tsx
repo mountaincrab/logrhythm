@@ -10,19 +10,21 @@ import { useEntriesContext } from '../contexts/EntriesContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useProfileContext } from '../contexts/ProfileContext'
 import { usePagedTimeline } from '../hooks/usePagedTimeline'
+import { MedicineIcon } from '../components/MedicationIcons'
 import { TimelineEntry } from '../types'
 import { dayKey, formatDayLabel, formatDayShort } from '../lib/dates'
 
 type SheetKind = 'poop' | 'food' | 'note' | 'medicine' | null
 
-// Medicine covers one-off doses; anything on a schedule records itself and is
-// corrected from the Meds page.
-const LOG_BUTTONS = [
-  ['poop', '💩', 'Poop'],
-  ['food', '🍴', 'Food'],
-  ['note', '📝', 'Note'],
-  ['medicine', '💊', 'Medicine'],
-] as const
+// Medicine covers one-off doses; anything on a schedule records itself and is corrected
+// from the Meds page. It's also the one icon here that isn't an emoji — there is no emoji
+// for four of the five medication forms, so that whole set is drawn (see MedicationIcons).
+const LOG_BUTTONS: { kind: Exclude<SheetKind, null>; label: string; icon: (size: number) => JSX.Element }[] = [
+  { kind: 'poop', label: 'Poop', icon: (s) => <span style={{ fontSize: s, lineHeight: 1 }}>💩</span> },
+  { kind: 'food', label: 'Food', icon: (s) => <span style={{ fontSize: s, lineHeight: 1 }}>🍴</span> },
+  { kind: 'note', label: 'Note', icon: (s) => <span style={{ fontSize: s, lineHeight: 1 }}>📝</span> },
+  { kind: 'medicine', label: 'Medicine', icon: (s) => <MedicineIcon size={s} /> },
+]
 
 export default function HomePage() {
   // CRUD stays on the shared context; the timeline feed is paged separately so
@@ -72,13 +74,13 @@ export default function HomePage() {
   // is gone and logging lives in the bottom bar (mirrors the Android app).
   const desktopLogButtons = (
     <div className="hidden md:flex gap-2">
-      {LOG_BUTTONS.map(([kind, emoji, label]) => (
+      {LOG_BUTTONS.map(({ kind, label, icon }) => (
         <button
           key={kind}
           onClick={() => setSheet(kind)}
           className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-raised border border-DEFAULT text-fg text-sm font-semibold hover:bg-surface-high transition-colors"
         >
-          <span className="text-base leading-none">{emoji}</span>
+          {icon(16)}
           {label}
         </button>
       ))}
@@ -89,13 +91,13 @@ export default function HomePage() {
   const mobileLogBar = (
     <div className="border-t border-DEFAULT bg-surface px-3 py-2.5">
       <div className="mx-auto max-w-4xl grid grid-cols-4 gap-2">
-        {LOG_BUTTONS.map(([kind, emoji, label]) => (
+        {LOG_BUTTONS.map(({ kind, label, icon }) => (
           <button
             key={kind}
             onClick={() => setSheet(kind)}
             className="flex flex-col items-center gap-1 py-2.5 rounded-2xl bg-surface-raised border border-DEFAULT text-fg-muted hover:bg-surface-high transition-colors"
           >
-            <span className="text-[22px] leading-none">{emoji}</span>
+            {icon(22)}
             <span className="text-[11px] font-bold">{label}</span>
           </button>
         ))}

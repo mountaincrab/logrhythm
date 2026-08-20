@@ -29,21 +29,25 @@ import com.mountaincrab.logrhythm.data.model.RepeatRule
 import com.mountaincrab.logrhythm.data.model.TimeOfDay
 import com.mountaincrab.logrhythm.data.model.formatMinutesOfDay
 import com.mountaincrab.logrhythm.ui.components.FieldLabel
+import com.mountaincrab.logrhythm.ui.components.MedicationFormIcon
 import com.mountaincrab.logrhythm.ui.theme.LocalAppPalette
 
-/** Emoji stand-in for the design's pill / spray-can icons. */
-fun MedicationForm.emoji(): String = if (isRectal) "🧴" else "💊"
-
-/** A pill-shaped selectable chip — the shared look for forms, repeats and medications. */
+/**
+ * A pill-shaped selectable chip — the shared look for forms, repeats and medications.
+ *
+ * [leading] is drawn before the text; the medication and form chips use it for the icon,
+ * which can't be part of [text] now that the icons are vectors rather than emoji.
+ */
 @Composable
 fun SelectChip(
     text: String,
     selected: Boolean,
     modifier: Modifier = Modifier,
+    leading: @Composable (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     val palette = LocalAppPalette.current
-    Box(
+    Row(
         modifier = modifier
             .clip(RoundedCornerShape(999.dp))
             .background(if (selected) palette.accentSoft else palette.surfaceRaised)
@@ -54,7 +58,10 @@ fun SelectChip(
             )
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
+        leading?.invoke()
         Text(
             text = text,
             color = if (selected) palette.accentText else MaterialTheme.colorScheme.onSurface,
@@ -105,7 +112,12 @@ fun MedicationFormChips(selected: MedicationForm, onSelect: (MedicationForm) -> 
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         MedicationForm.entries.forEach { form ->
-            SelectChip(text = form.label, selected = form == selected, onClick = { onSelect(form) })
+            SelectChip(
+                text = form.label,
+                selected = form == selected,
+                leading = { MedicationFormIcon(form = form, size = 16.dp) },
+                onClick = { onSelect(form) },
+            )
         }
     }
 }
@@ -254,10 +266,15 @@ fun MedicationPicker(
         medications.forEach { med ->
             // An archived medication only appears here when an entry being edited points at
             // it; saying so beats a chip that looks like any other but isn't offered again.
-            val label = listOf(med.form.emoji() + " " + med.name, med.dose, if (med.isArchived) "archived" else "")
+            val label = listOf(med.name, med.dose, if (med.isArchived) "archived" else "")
                 .filter { it.isNotBlank() }
                 .joinToString(" · ")
-            SelectChip(text = label, selected = med.id == selectedId, onClick = { onSelect(med) })
+            SelectChip(
+                text = label,
+                selected = med.id == selectedId,
+                leading = { MedicationFormIcon(form = med.form, size = 16.dp) },
+                onClick = { onSelect(med) },
+            )
         }
         Box(
             modifier = Modifier

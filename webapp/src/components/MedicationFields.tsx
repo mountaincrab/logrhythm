@@ -3,8 +3,9 @@ import { Field } from './Sheet'
 import { Medication, MedicationForm, RepeatRule } from '../types'
 import {
   DAY_NAMES, MEDICATION_FORMS, REPEAT_RULES, TIMES_OF_DAY,
-  formEmoji, formatMinutesOfDay, medicationDose, timeOfDayFor,
+  formatMinutesOfDay, medicationDose, timeOfDayFor,
 } from '../lib/medications'
+import { MedicationFormIcon } from './MedicationIcons'
 
 const chipClass = (on: boolean) =>
   'px-3 py-2 rounded-full border text-[13px] transition-colors ' +
@@ -14,15 +15,35 @@ export const inputClass =
   'w-full bg-surface-raised border border-DEFAULT rounded-xl px-3.5 py-3 text-[15px] font-semibold text-fg ' +
   'outline-none focus:border-accent placeholder:text-fg-faint placeholder:font-normal transition-colors'
 
-export function Chip({ label, on, onClick }: { label: string; on: boolean; onClick: () => void }) {
-  return <button type="button" onClick={onClick} className={chipClass(on)}>{label}</button>
+/** `leading` carries the icon on the form and medication chips — it can't live in `label`
+ * now that the medication icons are drawn rather than emoji. */
+export function Chip({
+  label, on, onClick, leading,
+}: {
+  label: string
+  on: boolean
+  onClick: () => void
+  leading?: React.ReactNode
+}) {
+  return (
+    <button type="button" onClick={onClick} className={`${chipClass(on)} inline-flex items-center gap-1.5`}>
+      {leading}
+      {label}
+    </button>
+  )
 }
 
 export function FormChips({ value, onChange }: { value: MedicationForm; onChange: (f: MedicationForm) => void }) {
   return (
     <div className="flex flex-wrap gap-1.5">
       {MEDICATION_FORMS.map((f) => (
-        <Chip key={f.value} label={f.label} on={f.value === value} onClick={() => onChange(f.value)} />
+        <Chip
+          key={f.value}
+          label={f.label}
+          on={f.value === value}
+          leading={<MedicationFormIcon form={f.value} size={16} />}
+          onClick={() => onChange(f.value)}
+        />
       ))}
     </div>
   )
@@ -114,8 +135,9 @@ export function MedicationPicker({
         return (
           <Chip
             key={m.id}
-            label={`${formEmoji(m.form)} ${m.name}${medicationDose(m) ? ` · ${medicationDose(m)}` : ''}`}
+            label={`${m.name}${medicationDose(m) ? ` · ${medicationDose(m)}` : ''}`}
             on={m.id === selectedId}
+            leading={<MedicationFormIcon form={m.form} size={16} />}
             onClick={() => onSelect(m)}
           />
         )

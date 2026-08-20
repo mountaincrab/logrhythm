@@ -1,15 +1,17 @@
 package com.mountaincrab.logrhythm.data.model
 
-/** Physical form of a medication — drives the icon shown next to it. */
+/**
+ * Physical form of a medication — drives the icon shown next to it.
+ *
+ * Every form has its own icon (`ui/components/MedicationIcons.kt`), so nothing here groups
+ * them: the set used to split oral from rectal only because there were two emoji to go round.
+ */
 enum class MedicationForm(val label: String) {
     TABLET("Tablet"),
     GRANULES("Granules"),
     FOAM("Foam"),
     ENEMA("Enema"),
     SUPPOSITORY("Suppository");
-
-    /** Rectal forms get their own icon in the design. */
-    val isRectal: Boolean get() = this == FOAM || this == ENEMA || this == SUPPOSITORY
 
     companion object {
         fun fromName(name: String?): MedicationForm =

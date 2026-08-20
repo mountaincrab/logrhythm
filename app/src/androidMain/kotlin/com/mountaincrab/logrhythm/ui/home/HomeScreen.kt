@@ -43,6 +43,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mountaincrab.logrhythm.data.local.entity.ProfileEntity
 import com.mountaincrab.logrhythm.data.repository.TimelineEntry
 import com.mountaincrab.logrhythm.ui.components.BottomTabBar
+import com.mountaincrab.logrhythm.ui.components.MedicineIcon
 import com.mountaincrab.logrhythm.ui.components.TimelineEntryRow
 import com.mountaincrab.logrhythm.ui.navigation.Screen
 import com.mountaincrab.logrhythm.ui.profiles.ProfileAvatar
@@ -203,10 +204,18 @@ fun HomeScreen(
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            LogButton(emoji = "💩", label = "Poop", modifier = Modifier.weight(1f), onClick = onOpenAddPoop)
-            LogButton(emoji = "🍴", label = "Food", modifier = Modifier.weight(1f), onClick = onOpenAddFood)
-            LogButton(emoji = "📝", label = "Note", modifier = Modifier.weight(1f), onClick = onOpenAddNote)
-            LogButton(emoji = "💊", label = "Medicine", modifier = Modifier.weight(1f), onClick = onOpenAddMedicine)
+            LogButton(label = "Poop", modifier = Modifier.weight(1f), onClick = onOpenAddPoop) {
+                Text(text = "💩", fontSize = 22.sp)
+            }
+            LogButton(label = "Food", modifier = Modifier.weight(1f), onClick = onOpenAddFood) {
+                Text(text = "🍴", fontSize = 22.sp)
+            }
+            LogButton(label = "Note", modifier = Modifier.weight(1f), onClick = onOpenAddNote) {
+                Text(text = "📝", fontSize = 22.sp)
+            }
+            LogButton(label = "Medicine", modifier = Modifier.weight(1f), onClick = onOpenAddMedicine) {
+                MedicineIcon(size = 24.dp)
+            }
         }
 
         BottomTabBar(active = Screen.Home.route, onSelect = onTabSelect)
@@ -221,7 +230,12 @@ private fun TimelineEntry.kindKey(): String = when (this) {
 }
 
 @Composable
-private fun LogButton(emoji: String, label: String, modifier: Modifier, onClick: () -> Unit) {
+private fun LogButton(
+    label: String,
+    modifier: Modifier,
+    onClick: () -> Unit,
+    icon: @Composable () -> Unit,
+) {
     val palette = LocalAppPalette.current
     Column(
         modifier = modifier
@@ -233,7 +247,7 @@ private fun LogButton(emoji: String, label: String, modifier: Modifier, onClick:
         verticalArrangement = Arrangement.spacedBy(4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(text = emoji, fontSize = 22.sp)
+        icon()
         Text(text = label, color = palette.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold,
             maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
