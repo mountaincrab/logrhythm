@@ -15,6 +15,15 @@ interface PoopTagDao {
     @Query("SELECT * FROM poop_tags WHERE isDeleted = 0 AND profileId = :profileId ORDER BY sortOrder ASC, createdAt ASC")
     fun observeAll(profileId: String): Flow<List<PoopTagEntity>>
 
+    /**
+     * Every tag, deleted included — what an entry resolves its tag names through. A deleted
+     * tag is only retired from the pickers and the Settings list; the entries that carry it
+     * keep showing it, so lookups must never filter [isDeleted] out or those chips would
+     * silently vanish from history.
+     */
+    @Query("SELECT * FROM poop_tags WHERE profileId = :profileId ORDER BY sortOrder ASC, createdAt ASC")
+    fun observeForLookup(profileId: String): Flow<List<PoopTagEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(tag: PoopTagEntity)
 

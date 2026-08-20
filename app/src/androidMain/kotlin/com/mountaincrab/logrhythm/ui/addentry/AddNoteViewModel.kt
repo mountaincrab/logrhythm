@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -31,8 +32,15 @@ class AddNoteViewModel(
     private val _state = MutableStateFlow(AddNoteUiState())
     val state: StateFlow<AddNoteUiState> = _state.asStateFlow()
 
-    val allNoteTags: StateFlow<List<NoteTagEntity>> = repository.observeAllNoteTags()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    /** See [AddPoopViewModel.allTags] — live tags plus any deleted one already on this entry. */
+    val allNoteTags: StateFlow<List<NoteTagEntity>> = combine(
+        repository.observeAllNoteTags(),
+        repository.observeNoteTagsForLookup(),
+        _state,
+    ) { live, all, s ->
+        val liveIds = live.mapTo(mutableSetOf()) { it.id }
+        live + all.filter { it.id in s.selectedNoteTagIds && it.id !in liveIds }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     init {
         if (existingId != null) {
