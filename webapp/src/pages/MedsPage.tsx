@@ -5,10 +5,11 @@ import { Field } from '../components/Sheet'
 import {
   DayPicker, MedicationDialog, MedicationPicker, RepeatChips, TimeOfDayPicker, inputClass,
 } from '../components/MedicationFields'
+import { MedicationFormIcon } from '../components/MedicationIcons'
 import { useMedicationsContext } from '../contexts/MedicationsContext'
 import { Medication, MedicationSchedule, RepeatRule } from '../types'
 import {
-  describeRepeat, formEmoji, formLabel, formatDoseAmount, formatMinutesOfDay, medicationDose,
+  describeRepeat, formLabel, formatDoseAmount, formatMinutesOfDay, medicationDose,
   timeOfDayLabel,
 } from '../lib/medications'
 
@@ -383,7 +384,7 @@ function CatalogTab() {
           {medications.map((m) => {
             return (
               <div key={m.id} className="bg-surface-raised border border-DEFAULT rounded-2xl px-3.5 py-3 flex items-center gap-3">
-                <span className="text-xl shrink-0">{formEmoji(m.form)}</span>
+                <MedicationFormIcon form={m.form} size={24} />
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-fg truncate">{m.name}</div>
                   <div className="text-xs text-fg-muted">{[formLabel(m.form), medicationDose(m)].filter(Boolean).join(' · ')}</div>

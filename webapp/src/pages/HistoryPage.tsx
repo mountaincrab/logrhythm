@@ -3,10 +3,11 @@ import { CalendarDays, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-reac
 import AppShell from '../components/AppShell'
 import { useEntriesContext } from '../contexts/EntriesContext'
 import { useMedicationsContext } from '../contexts/MedicationsContext'
-import { PoopEntry, FoodEntry, Medication, MedicationEntry } from '../types'
+import { PoopEntry, FoodEntry, Medication, MedicationEntry, MedicationForm } from '../types'
+import { MedicationFormIcon } from '../components/MedicationIcons'
 import { ratingColor, RATING_COLORS } from '../lib/ratings'
 import {
-  doseUnits, formatDose, formatMedicationValue, formEmoji, medicationSeriesColor, parseAmount,
+  doseUnits, formatDose, formatMedicationValue, medicationSeriesColor, parseAmount,
 } from '../lib/medications'
 import { dayKey } from '../lib/dates'
 
@@ -292,7 +293,7 @@ function TrendsView({ poops, foods }: { poops: PoopEntry[]; foods: FoodEntry[] }
 interface MedicationSeries {
   id: string
   name: string
-  emoji: string
+  form: MedicationForm
   /** The medication's strength as defined, e.g. "1g". */
   strength: string
   /** "g" / "mg" when the strength is numeric, "×" when it isn't — see buildMedicationSeries. */
@@ -361,7 +362,7 @@ function buildMedicationSeries(
     out.push({
       id: med.id,
       name: med.name,
-      emoji: formEmoji(med.form),
+      form: med.form,
       strength: formatDose(med.doseAmount, med.doseUnit),
       // A non-numeric strength has nothing to multiply by, so the row counts units taken.
       unit: unitAmount !== null ? med.doseUnit.trim() : '×',
@@ -413,7 +414,7 @@ function MedicationTotals({ days }: { days: number }) {
           {series.map((s) => (
             <div key={s.id} className="py-3 border-t border-subtle first:border-t-0 first:pt-1.5">
               <div className="flex items-baseline gap-1.5 pb-2">
-                <span className="text-xs leading-none">{s.emoji}</span>
+                <MedicationFormIcon form={s.form} size={14} />
                 <span className="text-[13px] font-bold tracking-tightish">{s.name}</span>
                 <span className="text-[11px] text-fg-faint flex-1 truncate">{s.strength}</span>
                 <span className="text-[13px] font-bold tabular-nums" style={{ color: s.color }}>

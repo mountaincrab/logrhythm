@@ -100,7 +100,7 @@ app/src/
       navigation/AppNavigation.kt           ← all routes
       auth/{SignInViewModel,SignInScreen}.kt
       profiles/{ProfilesViewModel,ProfilesScreen}.kt
-      components/{BottomTabBar,SheetHeader,WhenPicker,RatingPill,TimelineEntryRow}.kt
+      components/{BottomTabBar,SheetHeader,WhenPicker,RatingPill,TimelineEntryRow,MedicationIcons}.kt
       home/{HomeViewModel,HomeScreen}.kt
       addentry/{AddPoop,AddFood,AddNote,AddMedicine}{ViewModel,Screen}.kt
       meds/{MedsViewModel,MedsScreen,MedicationComponents}.kt
@@ -196,6 +196,16 @@ Rules that both surfaces must keep identical (`data/model/Medication.kt` ↔ `we
   so changing the range never repaints a medication.
 - `MedicationForm` is a closed set — `TABLET`, `GRANULES`, `FOAM`, `ENEMA`, `SUPPOSITORY` — and both surfaces
   must list the same values in the same order.
+- **Medication icons are drawn, not emoji** (`ui/components/MedicationIcons.kt` ↔
+  `webapp/src/components/MedicationIcons.tsx`): one general mark plus one icon per form, each a list of
+  filled paths on a 32×32 viewport, and the path data is identical on both surfaces. There is no emoji for
+  granules, foam, an enema or a suppository, so the five forms used to share two glyphs — and the busiest of
+  them was 💊, which was *also* the app-wide mark for "medicine". The general mark is a bottle precisely
+  because it's the one shape in the set that isn't a tablet, so a timeline row can say "a dose" and "which
+  form" without the two looking alike. The icons carry their own colours rather than taking a palette tint:
+  they sit next to the 💩 / 🍴 / 📝 emoji, so they have to read as part of that family on all three themes.
+  Poop, food and notes stay emoji — only medication is drawn. Change a shape on one surface and you must
+  change it on the other, or the same dose looks different on phone and web.
 
 `MedicationScheduleTest` covers the repeat rules, the derived id and the time-of-day buckets on the Kotlin
 side; keep the TS mirror in step with it.
@@ -236,7 +246,7 @@ webapp/src/
   lib/{bristol,ratings,mealTags,medications,dates,theme}.ts
   contexts/{AuthContext,ProfileContext,EntriesContext,MedicationsContext}.tsx
   hooks/{useProfiles,useEntries,useMedications}.ts   ← onSnapshot listeners + CRUD (soft-delete via isDeleted)
-  components/{AppShell,Sidebar,MobileNav,ProfileSwitcher,TimelineEntryRow,Sheet,WhenField,MedicationFields}.tsx, sheets/Add{Poop,Food,Note,Medicine}Sheet.tsx
+  components/{AppShell,Sidebar,MobileNav,ProfileSwitcher,TimelineEntryRow,Sheet,WhenField,MedicationFields,MedicationIcons}.tsx, sheets/Add{Poop,Food,Note,Medicine}Sheet.tsx
   pages/{Login,Home,History,EntryDetail,Meds,Settings}Page.tsx
 ```
 

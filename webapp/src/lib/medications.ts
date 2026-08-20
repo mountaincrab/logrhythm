@@ -16,12 +16,6 @@ export const MEDICATION_FORMS: { value: MedicationForm; label: string }[] = [
 export const formLabel = (form: MedicationForm): string =>
   MEDICATION_FORMS.find((f) => f.value === form)?.label ?? 'Tablet'
 
-const RECTAL_FORMS: MedicationForm[] = ['FOAM', 'ENEMA', 'SUPPOSITORY']
-
-/** Rectal forms read differently from something you swallow. */
-export const formEmoji = (form: MedicationForm): string =>
-  RECTAL_FORMS.includes(form) ? '🧴' : '💊'
-
 export const REPEAT_RULES: { value: RepeatRule; label: string }[] = [
   { value: 'DAILY', label: 'Every day' },
   { value: 'EVERY_OTHER_DAY', label: 'Every other day' },

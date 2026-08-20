@@ -35,6 +35,7 @@ import com.mountaincrab.logrhythm.data.model.daysFromMask
 import com.mountaincrab.logrhythm.data.model.formatDoseAmount
 import com.mountaincrab.logrhythm.data.model.formatMinutesOfDay
 import com.mountaincrab.logrhythm.data.model.maskFromDays
+import com.mountaincrab.logrhythm.ui.components.MedicationFormIcon
 import com.mountaincrab.logrhythm.ui.components.BottomTabBar
 import com.mountaincrab.logrhythm.ui.components.FieldLabel
 import com.mountaincrab.logrhythm.ui.navigation.Screen
@@ -523,7 +524,7 @@ private fun MedicationCard(medication: MedicationEntity, onEdit: () -> Unit, onA
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(text = medication.form.emoji(), fontSize = 20.sp)
+        MedicationFormIcon(form = medication.form, size = 24.dp)
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = medication.name,

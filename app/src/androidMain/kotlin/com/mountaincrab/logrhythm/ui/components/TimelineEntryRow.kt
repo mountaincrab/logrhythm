@@ -175,18 +175,32 @@ private fun MedicationBody(entry: TimelineEntry.Medication) {
             fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.CenterVertically),
         )
-        Text(
-            text = "💊",
-            fontSize = 14.sp,
+        MedicineIcon(size = 15.dp, modifier = Modifier.align(Alignment.CenterVertically))
+        // Name and form stay one unit — a bracket that wrapped away from what it qualifies
+        // would read as belonging to the dose amount instead.
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             modifier = Modifier.align(Alignment.CenterVertically),
-        )
-        Text(
-            text = name,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.align(Alignment.CenterVertically),
-        )
+        ) {
+            Text(
+                text = name,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            // Absent when the medication can't be resolved — there's no form to name then.
+            entry.medication?.let { med ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(1.dp),
+                ) {
+                    Text(text = "(", color = palette.fgFaint, fontSize = 13.sp)
+                    MedicationFormIcon(form = med.form, size = 14.dp)
+                    Text(text = ")", color = palette.fgFaint, fontSize = 13.sp)
+                }
+            }
+        }
         if (amount.isNotEmpty()) {
             Text(
                 text = amount,
