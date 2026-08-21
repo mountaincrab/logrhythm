@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mountaincrab.logrhythm.ui.components.BottomTabBar
+import com.mountaincrab.logrhythm.ui.components.EntryIconSizes
 import com.mountaincrab.logrhythm.ui.components.MedicationFormIcon
 import com.mountaincrab.logrhythm.ui.navigation.Screen
 import com.mountaincrab.logrhythm.ui.theme.LocalAppPalette
@@ -445,7 +446,7 @@ private fun MedicationSeriesRow(series: MedicationSeries, isFirst: Boolean) {
     }
     Column(modifier = Modifier.padding(top = if (isFirst) 10.dp else 12.dp)) {
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            MedicationFormIcon(form = series.form, size = 14.dp)
+            MedicationFormIcon(form = series.form, size = EntryIconSizes.TrendsIcon)
             Text(series.name, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface)
             if (series.strength.isNotEmpty()) {

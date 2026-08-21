@@ -35,6 +35,7 @@ import com.mountaincrab.logrhythm.data.model.daysFromMask
 import com.mountaincrab.logrhythm.data.model.formatDoseAmount
 import com.mountaincrab.logrhythm.data.model.formatMinutesOfDay
 import com.mountaincrab.logrhythm.data.model.maskFromDays
+import com.mountaincrab.logrhythm.ui.components.EntryIconSizes
 import com.mountaincrab.logrhythm.ui.components.MedicationFormIcon
 import com.mountaincrab.logrhythm.ui.components.BottomTabBar
 import com.mountaincrab.logrhythm.ui.components.FieldLabel
@@ -245,6 +246,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.scheduleTab(
     if (archivedRows.isNotEmpty()) {
         item { ArchivedHeader("Restored doses start from today — nothing is back-filled.") }
         items(archivedRows, key = { "archived-${it.schedule.id}" }) { row ->
+            val form = row.medication?.form
+            val leadingIcon: (@Composable () -> Unit)? =
+                if (form == null) null
+                else ({ MedicationFormIcon(form = form, size = EntryIconSizes.CardIcon) })
             ArchivedRow(
                 title = row.name,
                 subtitle = listOfNotNull(
@@ -252,6 +257,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.scheduleTab(
                     repeatLabel(row.schedule.repeatRule, row.schedule.daysMask),
                 ).joinToString(" · "),
                 onRestore = { onRestore(row.schedule.id) },
+                leading = leadingIcon,
             )
         }
     }
@@ -278,6 +284,10 @@ private fun ScheduleCard(
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            // The same mark the medication carries on its catalog card and on every dose it
+            // puts on the timeline — grouped by medication the name is a header instead, so
+            // without this the one view that's all about a medication showed nothing of it.
+            row.medication?.let { MedicationFormIcon(form = it.form, size = EntryIconSizes.CardIcon) }
             Column(modifier = Modifier.weight(1f)) {
                 if (showName) {
                     Text(
@@ -444,6 +454,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.catalogTab(
                 subtitle = listOfNotNull(med.form.label, med.dose.takeIf { it.isNotBlank() })
                     .joinToString(" · "),
                 onRestore = { onRestore(med.id) },
+                leading = { MedicationFormIcon(form = med.form, size = EntryIconSizes.CardIcon) },
             )
         }
     }
@@ -467,7 +478,12 @@ private fun ArchivedHeader(body: String) {
 }
 
 @Composable
-private fun ArchivedRow(title: String, subtitle: String, onRestore: () -> Unit) {
+private fun ArchivedRow(
+    title: String,
+    subtitle: String,
+    onRestore: () -> Unit,
+    leading: (@Composable () -> Unit)? = null,
+) {
     val palette = LocalAppPalette.current
     Row(
         modifier = Modifier
@@ -479,6 +495,7 @@ private fun ArchivedRow(title: String, subtitle: String, onRestore: () -> Unit) 
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        if (leading != null) leading()
         Column(modifier = Modifier.weight(1f)) {
             Text(text = title, color = palette.fgMuted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             if (subtitle.isNotBlank()) {
@@ -524,7 +541,7 @@ private fun MedicationCard(medication: MedicationEntity, onEdit: () -> Unit, onA
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        MedicationFormIcon(form = medication.form, size = 24.dp)
+        MedicationFormIcon(form = medication.form, size = EntryIconSizes.CardIcon)
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = medication.name,

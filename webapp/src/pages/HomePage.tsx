@@ -10,7 +10,7 @@ import { useEntriesContext } from '../contexts/EntriesContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useProfileContext } from '../contexts/ProfileContext'
 import { usePagedTimeline } from '../hooks/usePagedTimeline'
-import { MedicineIcon } from '../components/MedicationIcons'
+import { drawnIconSize, MedicineIcon } from '../components/MedicationIcons'
 import { TimelineEntry } from '../types'
 import { dayKey, formatDayLabel, formatDayShort } from '../lib/dates'
 
@@ -23,8 +23,24 @@ const LOG_BUTTONS: { kind: Exclude<SheetKind, null>; label: string; icon: (size:
   { kind: 'poop', label: 'Poop', icon: (s) => <span style={{ fontSize: s, lineHeight: 1 }}>💩</span> },
   { kind: 'food', label: 'Food', icon: (s) => <span style={{ fontSize: s, lineHeight: 1 }}>🍴</span> },
   { kind: 'note', label: 'Note', icon: (s) => <span style={{ fontSize: s, lineHeight: 1 }}>📝</span> },
-  { kind: 'medicine', label: 'Medicine', icon: (s) => <MedicineIcon size={s} /> },
+  // Sized through drawnIconSize so the bottle carries the same weight as the three
+  // emoji beside it — same nominal size, it paints ~22% less ink than they do.
+  { kind: 'medicine', label: 'Medicine', icon: (s) => <MedicineIcon size={drawnIconSize(s)} /> },
 ]
+
+/**
+ * A fixed slot for a log button's mark, sized for the tallest of them: the drawn bottle
+ * needs more box than the emoji do, and without this the Medicine button stood taller than
+ * its three neighbours and its label sat a few pixels lower.
+ */
+function IconSlot({ em, children }: { em: number; children: React.ReactNode }) {
+  const side = drawnIconSize(em)
+  return (
+    <span className="inline-flex items-center justify-center shrink-0" style={{ width: side, height: side }}>
+      {children}
+    </span>
+  )
+}
 
 export default function HomePage() {
   // CRUD stays on the shared context; the timeline feed is paged separately so
@@ -80,7 +96,7 @@ export default function HomePage() {
           onClick={() => setSheet(kind)}
           className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-raised border border-DEFAULT text-fg text-sm font-semibold hover:bg-surface-high transition-colors"
         >
-          {icon(16)}
+          <IconSlot em={16}>{icon(16)}</IconSlot>
           {label}
         </button>
       ))}
@@ -97,7 +113,7 @@ export default function HomePage() {
             onClick={() => setSheet(kind)}
             className="flex flex-col items-center gap-1 py-2.5 rounded-2xl bg-surface-raised border border-DEFAULT text-fg-muted hover:bg-surface-high transition-colors"
           >
-            {icon(22)}
+            <IconSlot em={22}>{icon(22)}</IconSlot>
             <span className="text-[11px] font-bold">{label}</span>
           </button>
         ))}

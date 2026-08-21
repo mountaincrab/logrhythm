@@ -99,6 +99,45 @@ function Glyph({ parts, size, className }: { parts: Part[]; size: number; classN
   )
 }
 
+/**
+ * How big an entry's mark is drawn.
+ *
+ * Every mark on a row is sized from here so the set reads as one family. They used to be
+ * sized against the text beside them, which left a dose's icon reading as punctuation next
+ * to a poop's rating circle — the circle is the weight to match, not the text.
+ *
+ * The drawn icons need a **bigger box than an emoji of the same nominal size**: their paths
+ * sit inside the 32x32 viewport with a couple of units of padding on each edge, so only
+ * about 78% of the box is ink, where an emoji fills its own. `drawnIconSize` is that
+ * correction — put an emoji's font size through it to get the icon size that reads at the
+ * same weight, and the sizes below already have it applied.
+ *
+ * The Android app has the same set in `ui/components/MedicationIcons.kt` (`EntryIconSizes`).
+ * The numbers differ because the two type scales do — Android matches a 24dp rating pill,
+ * the web an 18px rating circle — but the relationships hold on both, so keep them in step:
+ * an icon is the equal of the emoji beside it and of the rating circle it shares a row with.
+ */
+export const ENTRY_ICON_SIZES = {
+  /** The general "a dose" bottle on a timeline row. */
+  timelineIcon: 22,
+  /** The bracketed form icon qualifying a medication's name: subordinate to it, still legible. */
+  timelineFormIcon: 19,
+  /** A card that is *about* one medication — the Meds page's medication and schedule cards. */
+  cardIcon: 28,
+  /** A Trends series row, which shares its line with the medication's own totals. */
+  trendsIcon: 20,
+  /** Inside a picker chip, beside the chip's own label. */
+  chipIcon: 20,
+} as const
+
+/**
+ * The drawn-icon size that reads at the same weight as an emoji of `emojiPx` — see
+ * ENTRY_ICON_SIZES for why an icon needs the bigger box.
+ */
+export function drawnIconSize(emojiPx: number): number {
+  return Math.round(emojiPx * 1.27)
+}
+
 /** The general "a dose was taken" mark — never a specific form. */
 export function MedicineIcon({ size = 16, className }: { size?: number; className?: string }) {
   return <Glyph parts={GENERAL} size={size} className={className} />

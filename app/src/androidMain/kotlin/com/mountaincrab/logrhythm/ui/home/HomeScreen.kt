@@ -43,6 +43,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mountaincrab.logrhythm.data.local.entity.ProfileEntity
 import com.mountaincrab.logrhythm.data.repository.TimelineEntry
 import com.mountaincrab.logrhythm.ui.components.BottomTabBar
+import com.mountaincrab.logrhythm.ui.components.EntryIconSizes
 import com.mountaincrab.logrhythm.ui.components.MedicineIcon
 import com.mountaincrab.logrhythm.ui.components.TimelineEntryRow
 import com.mountaincrab.logrhythm.ui.navigation.Screen
@@ -205,16 +206,16 @@ fun HomeScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             LogButton(label = "Poop", modifier = Modifier.weight(1f), onClick = onOpenAddPoop) {
-                Text(text = "💩", fontSize = 22.sp)
+                Text(text = "💩", fontSize = EntryIconSizes.ButtonEmoji)
             }
             LogButton(label = "Food", modifier = Modifier.weight(1f), onClick = onOpenAddFood) {
-                Text(text = "🍴", fontSize = 22.sp)
+                Text(text = "🍴", fontSize = EntryIconSizes.ButtonEmoji)
             }
             LogButton(label = "Note", modifier = Modifier.weight(1f), onClick = onOpenAddNote) {
-                Text(text = "📝", fontSize = 22.sp)
+                Text(text = "📝", fontSize = EntryIconSizes.ButtonEmoji)
             }
             LogButton(label = "Medicine", modifier = Modifier.weight(1f), onClick = onOpenAddMedicine) {
-                MedicineIcon(size = 24.dp)
+                MedicineIcon(size = EntryIconSizes.ButtonIcon)
             }
         }
 
@@ -247,7 +248,13 @@ private fun LogButton(
         verticalArrangement = Arrangement.spacedBy(4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        icon()
+        // A fixed slot, sized for the tallest mark: the drawn bottle needs more box than
+        // the emoji do, and without this the Medicine card stood taller than its three
+        // neighbours and its label sat a couple of dp lower.
+        Box(
+            modifier = Modifier.height(EntryIconSizes.ButtonIcon),
+            contentAlignment = Alignment.Center,
+        ) { icon() }
         Text(text = label, color = palette.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold,
             maxLines = 1, overflow = TextOverflow.Ellipsis)
     }

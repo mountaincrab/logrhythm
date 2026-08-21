@@ -4,7 +4,7 @@ import AppShell from '../components/AppShell'
 import { useEntriesContext } from '../contexts/EntriesContext'
 import { useMedicationsContext } from '../contexts/MedicationsContext'
 import { PoopEntry, FoodEntry, Medication, MedicationEntry, MedicationForm } from '../types'
-import { MedicationFormIcon } from '../components/MedicationIcons'
+import { ENTRY_ICON_SIZES, MedicationFormIcon } from '../components/MedicationIcons'
 import { ratingColor, RATING_COLORS } from '../lib/ratings'
 import {
   doseUnits, formatDose, formatMedicationValue, medicationSeriesColor, parseAmount,
@@ -414,7 +414,7 @@ function MedicationTotals({ days }: { days: number }) {
           {series.map((s) => (
             <div key={s.id} className="py-3 border-t border-subtle first:border-t-0 first:pt-1.5">
               <div className="flex items-baseline gap-1.5 pb-2">
-                <MedicationFormIcon form={s.form} size={14} />
+                <MedicationFormIcon form={s.form} size={ENTRY_ICON_SIZES.trendsIcon} />
                 <span className="text-[13px] font-bold tracking-tightish">{s.name}</span>
                 <span className="text-[11px] text-fg-faint flex-1 truncate">{s.strength}</span>
                 <span className="text-[13px] font-bold tabular-nums" style={{ color: s.color }}>

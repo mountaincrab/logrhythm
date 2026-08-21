@@ -5,7 +5,7 @@ import {
   DAY_NAMES, MEDICATION_FORMS, REPEAT_RULES, TIMES_OF_DAY,
   formatMinutesOfDay, medicationDose, timeOfDayFor,
 } from '../lib/medications'
-import { MedicationFormIcon } from './MedicationIcons'
+import { ENTRY_ICON_SIZES, MedicationFormIcon } from './MedicationIcons'
 
 const chipClass = (on: boolean) =>
   'px-3 py-2 rounded-full border text-[13px] transition-colors ' +
@@ -41,7 +41,7 @@ export function FormChips({ value, onChange }: { value: MedicationForm; onChange
           key={f.value}
           label={f.label}
           on={f.value === value}
-          leading={<MedicationFormIcon form={f.value} size={16} />}
+          leading={<MedicationFormIcon form={f.value} size={ENTRY_ICON_SIZES.chipIcon} />}
           onClick={() => onChange(f.value)}
         />
       ))}
@@ -137,7 +137,7 @@ export function MedicationPicker({
             key={m.id}
             label={`${m.name}${medicationDose(m) ? ` · ${medicationDose(m)}` : ''}`}
             on={m.id === selectedId}
-            leading={<MedicationFormIcon form={m.form} size={16} />}
+            leading={<MedicationFormIcon form={m.form} size={ENTRY_ICON_SIZES.chipIcon} />}
             onClick={() => onSelect(m)}
           />
         )

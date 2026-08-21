@@ -28,6 +28,7 @@ import com.mountaincrab.logrhythm.data.model.MedicationForm
 import com.mountaincrab.logrhythm.data.model.RepeatRule
 import com.mountaincrab.logrhythm.data.model.TimeOfDay
 import com.mountaincrab.logrhythm.data.model.formatMinutesOfDay
+import com.mountaincrab.logrhythm.ui.components.EntryIconSizes
 import com.mountaincrab.logrhythm.ui.components.FieldLabel
 import com.mountaincrab.logrhythm.ui.components.MedicationFormIcon
 import com.mountaincrab.logrhythm.ui.theme.LocalAppPalette
@@ -115,7 +116,7 @@ fun MedicationFormChips(selected: MedicationForm, onSelect: (MedicationForm) -> 
             SelectChip(
                 text = form.label,
                 selected = form == selected,
-                leading = { MedicationFormIcon(form = form, size = 16.dp) },
+                leading = { MedicationFormIcon(form = form, size = EntryIconSizes.ChipIcon) },
                 onClick = { onSelect(form) },
             )
         }
@@ -272,7 +273,7 @@ fun MedicationPicker(
             SelectChip(
                 text = label,
                 selected = med.id == selectedId,
-                leading = { MedicationFormIcon(form = med.form, size = 16.dp) },
+                leading = { MedicationFormIcon(form = med.form, size = EntryIconSizes.ChipIcon) },
                 onClick = { onSelect(med) },
             )
         }
