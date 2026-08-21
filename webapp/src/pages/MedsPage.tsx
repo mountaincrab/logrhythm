@@ -5,9 +5,9 @@ import { Field } from '../components/Sheet'
 import {
   DayPicker, MedicationDialog, MedicationPicker, RepeatChips, TimeOfDayPicker, inputClass,
 } from '../components/MedicationFields'
-import { MedicationFormIcon } from '../components/MedicationIcons'
+import { ENTRY_ICON_SIZES, MedicationFormIcon } from '../components/MedicationIcons'
 import { useMedicationsContext } from '../contexts/MedicationsContext'
-import { Medication, MedicationSchedule, RepeatRule } from '../types'
+import { Medication, MedicationForm, MedicationSchedule, RepeatRule } from '../types'
 import {
   describeRepeat, formLabel, formatDoseAmount, formatMinutesOfDay, medicationDose,
   timeOfDayLabel,
@@ -91,6 +91,7 @@ function ScheduleTab() {
   // Archived-inclusive: a schedule can outlive its medication leaving the pickers.
   const byId = medicationsById
   const nameOf = (s: MedicationSchedule) => byId.get(s.medicationId)?.name ?? 'Unknown medication'
+  const formOf = (s: MedicationSchedule) => byId.get(s.medicationId)?.form ?? null
   const doseOf = (s: MedicationSchedule) => {
     const med = byId.get(s.medicationId)
     return med ? medicationDose(med) : ''
@@ -107,6 +108,7 @@ function ScheduleTab() {
       key={s.id}
       schedule={s}
       name={nameOf(s)}
+      form={formOf(s)}
       amount={formatDoseAmount(s.quantity, doseOf(s))}
       showName={showName}
       onEdit={() => setEditing(s)}
@@ -223,10 +225,11 @@ function ArchivedRow({
 }
 
 function ScheduleCard({
-  schedule, name, amount, showName, onEdit, onArchive, onToggleActive,
+  schedule, name, form, amount, showName, onEdit, onArchive, onToggleActive,
 }: {
   schedule: MedicationSchedule
   name: string
+  form: MedicationForm | null
   amount: string
   showName: boolean
   onEdit: () => void
@@ -238,6 +241,10 @@ function ScheduleCard({
   return (
     <div className="bg-surface-raised border border-DEFAULT rounded-2xl px-3.5 py-3">
       <div className="flex items-start gap-3">
+        {/* The same mark the medication carries on its catalog card and on every dose it
+            puts on the timeline — grouped by medication the name is a header instead, so
+            without this the one view that's all about a medication showed nothing of it. */}
+        {form && <MedicationFormIcon form={form} size={ENTRY_ICON_SIZES.cardIcon} />}
         <div className="flex-1 min-w-0">
           {showName && <div className="font-bold text-fg truncate">{name}</div>}
           <div className="text-xs text-fg-muted">{detail}</div>
@@ -384,7 +391,7 @@ function CatalogTab() {
           {medications.map((m) => {
             return (
               <div key={m.id} className="bg-surface-raised border border-DEFAULT rounded-2xl px-3.5 py-3 flex items-center gap-3">
-                <MedicationFormIcon form={m.form} size={24} />
+                <MedicationFormIcon form={m.form} size={ENTRY_ICON_SIZES.cardIcon} />
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-fg truncate">{m.name}</div>
                   <div className="text-xs text-fg-muted">{[formLabel(m.form), medicationDose(m)].filter(Boolean).join(' · ')}</div>

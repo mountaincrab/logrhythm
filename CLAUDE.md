@@ -206,6 +206,13 @@ Rules that both surfaces must keep identical (`data/model/Medication.kt` ↔ `we
   they sit next to the 💩 / 🍴 / 📝 emoji, so they have to read as part of that family on all three themes.
   Poop, food and notes stay emoji — only medication is drawn. Change a shape on one surface and you must
   change it on the other, or the same dose looks different on phone and web.
+- **Entry marks are sized from one place** (`EntryIconSizes` ↔ `ENTRY_ICON_SIZES`), never a literal at the
+  call site. The weight to match is the **rating pill** a mark shares its row with, not the 13sp text beside
+  it — sized against the text, a dose's icon reads as punctuation next to a poop's rating circle. A drawn
+  icon needs a bigger box than the emoji it sits beside: its paths sit inside the 32×32 viewport with a
+  couple of units of padding, so only ~78% of the box is ink where an emoji fills its own, and the drawn
+  sizes carry that ~1.27× (`drawnIconSize()` on the web). The two surfaces' numbers differ because their
+  type scales do (a 24dp rating pill on Android, an 18px circle on the web); the relationships don't.
 
 `MedicationScheduleTest` covers the repeat rules, the derived id and the time-of-day buckets on the Kotlin
 side; keep the TS mirror in step with it.

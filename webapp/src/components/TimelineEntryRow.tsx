@@ -4,7 +4,7 @@ import { bristol } from '../lib/bristol'
 import { mealTagLabel } from '../lib/mealTags'
 import { formatTime } from '../lib/dates'
 import { formatDoseAmount, medicationDose } from '../lib/medications'
-import { MedicationFormIcon, MedicineIcon } from './MedicationIcons'
+import { ENTRY_ICON_SIZES, MedicationFormIcon, MedicineIcon } from './MedicationIcons'
 import { useMedicationsContext } from '../contexts/MedicationsContext'
 
 function RatingPill({ n }: { n: number }) {
@@ -77,12 +77,12 @@ export default function TimelineEntryRow({ item, onClick }: { item: TimelineEntr
     // catalog, so an unresolvable medication drops the bracket rather than guessing a form.
     body = (
       <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-1">
-        <MedicineIcon size={15} />
+        <MedicineIcon size={ENTRY_ICON_SIZES.timelineIcon} />
         <span className="inline-flex items-center gap-1">
           {medicationName}
           {medication && (
             <span className="inline-flex items-center gap-px text-fg-faint">
-              (<MedicationFormIcon form={medication.form} size={14} />)
+              (<MedicationFormIcon form={medication.form} size={ENTRY_ICON_SIZES.timelineFormIcon} />)
             </span>
           )}
         </span>

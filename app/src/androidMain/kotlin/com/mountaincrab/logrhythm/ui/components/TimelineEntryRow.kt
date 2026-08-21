@@ -99,7 +99,7 @@ private fun PoopBody(entry: TimelineEntry.Poop) {
         )
         Text(
             text = "💩",
-            fontSize = 14.sp,
+            fontSize = EntryIconSizes.TimelineEmoji,
             modifier = Modifier.align(Alignment.CenterVertically),
         )
         if (bristolText.isNotEmpty()) {
@@ -149,7 +149,7 @@ private fun FoodBody(entry: TimelineEntry.Food) {
         )
         Text(
             text = "🍴",
-            fontSize = 14.sp,
+            fontSize = EntryIconSizes.TimelineEmoji,
             modifier = Modifier.align(Alignment.CenterVertically),
         )
     }
@@ -175,7 +175,10 @@ private fun MedicationBody(entry: TimelineEntry.Medication) {
             fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.CenterVertically),
         )
-        MedicineIcon(size = 15.dp, modifier = Modifier.align(Alignment.CenterVertically))
+        MedicineIcon(
+            size = EntryIconSizes.TimelineIcon,
+            modifier = Modifier.align(Alignment.CenterVertically),
+        )
         // Name and form stay one unit — a bracket that wrapped away from what it qualifies
         // would read as belonging to the dose amount instead.
         Row(
@@ -196,7 +199,7 @@ private fun MedicationBody(entry: TimelineEntry.Medication) {
                     horizontalArrangement = Arrangement.spacedBy(1.dp),
                 ) {
                     Text(text = "(", color = palette.fgFaint, fontSize = 13.sp)
-                    MedicationFormIcon(form = med.form, size = 14.dp)
+                    MedicationFormIcon(form = med.form, size = EntryIconSizes.TimelineFormIcon)
                     Text(text = ")", color = palette.fgFaint, fontSize = 13.sp)
                 }
             }
@@ -231,7 +234,7 @@ private fun NoteBody(entry: TimelineEntry.Note) {
         )
         Text(
             text = "📝",
-            fontSize = 14.sp,
+            fontSize = EntryIconSizes.TimelineEmoji,
             modifier = Modifier.align(Alignment.CenterVertically),
         )
         if (entry.entity.caffeine) {

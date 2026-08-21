@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.mountaincrab.logrhythm.data.model.MedicationForm
 
 /**
@@ -118,6 +119,46 @@ object MedicationIcons {
         part("M16 4c3.6 1.4 6 6 6 12v6a6 6 0 0 1-6 6Z", 0xFFDCAE3C),
         part("M11.5 12.4a1.5 2.6 0 1 0 3 0a1.5 2.6 0 1 0 -3 0Z", 0xFFFFFFFF, alpha = 0.5f),
     )
+}
+
+/**
+ * How big an entry's mark is drawn.
+ *
+ * Every mark on a row is sized from here so the set reads as one family. They used to be
+ * sized against the 13sp text beside them, which left a dose's icon reading as punctuation
+ * next to a poop's 24dp rating pill — the pill is the weight to match, not the text.
+ *
+ * The drawn icons need a **bigger box than an emoji of the same nominal size**: their paths
+ * sit inside the 32x32 viewport with a couple of units of padding on each edge, so only
+ * about 78% of the box is ink, where an emoji fills its own. The icon sizes below already
+ * carry that ~1.27x correction against the emoji they sit beside. The web app mirrors these
+ * in `MedicationIcons.tsx` (`ENTRY_ICON_SIZES` / `drawnIconSize`) — keep the two in step, or
+ * the same row reads at two different weights on phone and web.
+ */
+object EntryIconSizes {
+    /** The 💩 / 🍴 / 📝 on a timeline row. */
+    val TimelineEmoji = 20.sp
+
+    /** The general "a dose" bottle on a timeline row — the emoji's equal. */
+    val TimelineIcon = 26.dp
+
+    /** The bracketed form icon qualifying a medication's name: subordinate to it, still legible. */
+    val TimelineFormIcon = 22.dp
+
+    /** The emoji on Home's log buttons. */
+    val ButtonEmoji = 22.sp
+
+    /** The bottle on Home's Medicine button. */
+    val ButtonIcon = 28.dp
+
+    /** A card that is *about* one medication — the Meds tabs' medication and schedule cards. */
+    val CardIcon = 28.dp
+
+    /** A Trends series row, which shares its line with the medication's own totals. */
+    val TrendsIcon = 22.dp
+
+    /** Inside a picker chip, beside the chip's own label. */
+    val ChipIcon = 20.dp
 }
 
 /** The general "a dose was taken" mark — never a specific form. */
