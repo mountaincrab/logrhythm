@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -27,14 +28,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -74,13 +78,18 @@ fun HomeScreen(
 
     var showProfileSheet by remember { mutableStateOf(false) }
     var showAddDialog by remember { mutableStateOf(false) }
+    var selectedEntryTypes by rememberSaveable { mutableIntStateOf(EntryTypeFilter.AllMask) }
+
+    val filteredDays = remember(state.days, selectedEntryTypes) {
+        filterDays(state.days, selectedEntryTypes)
+    }
 
     val listState = rememberLazyListState()
     // When a new entry becomes the top-most item (e.g. after saving the first
     // poop of a new day), scroll the timeline back to the top so it's visible.
     // LazyColumn otherwise keeps the scroll anchored to the previously-visible
     // items by key, leaving the list stuck on an older day.
-    val topEntryId = state.days.firstOrNull()?.entries?.firstOrNull()?.id
+    val topEntryId = filteredDays.firstOrNull()?.entries?.firstOrNull()?.id
     LaunchedEffect(topEntryId) {
         if (topEntryId != null) {
             listState.animateScrollToItem(0)
@@ -143,6 +152,11 @@ fun HomeScreen(
             }
         }
 
+        EntryTypeFilterRow(
+            selectedMask = selectedEntryTypes,
+            onToggle = { filter -> selectedEntryTypes = selectedEntryTypes xor filter.bit },
+        )
+
         // Timeline with pull-to-refresh
         PullToRefreshBox(
             isRefreshing = isSyncing,
@@ -158,8 +172,16 @@ fun HomeScreen(
                     item { LoadingIndicator() }
                 } else if (state.days.isEmpty()) {
                     item { EmptyState() }
+                } else if (filteredDays.isEmpty()) {
+                    item {
+                        FilteredEmptyState(
+                            noTypesSelected = selectedEntryTypes == 0,
+                            hasMore = state.hasMore,
+                            onLoadMore = viewModel::loadMore,
+                        )
+                    }
                 }
-                state.days.forEach { day ->
+                filteredDays.forEach { day ->
                     item(key = "header-${day.date}") {
                         Row(
                             modifier = Modifier.fillMaxWidth()
@@ -220,6 +242,102 @@ fun HomeScreen(
         }
 
         BottomTabBar(active = Screen.Home.route, onSelect = onTabSelect)
+    }
+}
+
+internal enum class EntryTypeFilter(val bit: Int, val label: String) {
+    Poop(1 shl 0, "Poop"),
+    Food(1 shl 1, "Food"),
+    Note(1 shl 2, "Note"),
+    Medicine(1 shl 3, "Medicine");
+
+    companion object {
+        val AllMask = entries.fold(0) { mask, filter -> mask or filter.bit }
+    }
+}
+
+private fun TimelineEntry.filterBit(): Int = when (this) {
+    is TimelineEntry.Poop -> EntryTypeFilter.Poop.bit
+    is TimelineEntry.Food -> EntryTypeFilter.Food.bit
+    is TimelineEntry.Note -> EntryTypeFilter.Note.bit
+    is TimelineEntry.Medication -> EntryTypeFilter.Medicine.bit
+}
+
+internal fun filterDays(days: List<DayGroup>, selectedMask: Int): List<DayGroup> =
+    days.mapNotNull { day ->
+        day.entries.filter { entry -> selectedMask and entry.filterBit() != 0 }
+            .takeIf { it.isNotEmpty() }
+            ?.let { entries -> day.copy(entries = entries) }
+    }
+
+@Composable
+private fun EntryTypeFilterRow(
+    selectedMask: Int,
+    onToggle: (EntryTypeFilter) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        EntryTypeFilter.entries.forEach { filter ->
+            val selected = selectedMask and filter.bit != 0
+            EntryTypeFilterChip(
+                filter = filter,
+                selected = selected,
+                onToggle = { onToggle(filter) },
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun EntryTypeFilterChip(
+    filter: EntryTypeFilter,
+    selected: Boolean,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val palette = LocalAppPalette.current
+    val shape = RoundedCornerShape(18.dp)
+    Row(
+        modifier = modifier
+            .heightIn(min = 48.dp)
+            .clip(shape)
+            .background(if (selected) palette.accentSoft else palette.surfaceRaised)
+            .border(
+                width = 1.dp,
+                color = if (selected) MaterialTheme.colorScheme.primary else palette.borderStrong,
+                shape = shape,
+            )
+            .toggleable(
+                value = selected,
+                role = Role.Checkbox,
+                onValueChange = { onToggle() },
+            )
+            .padding(horizontal = 6.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Box(modifier = Modifier.size(20.dp), contentAlignment = Alignment.Center) {
+            when (filter) {
+                EntryTypeFilter.Poop -> Text("💩", fontSize = 16.sp)
+                EntryTypeFilter.Food -> Text("🍴", fontSize = 16.sp)
+                EntryTypeFilter.Note -> Text("📝", fontSize = 16.sp)
+                EntryTypeFilter.Medicine -> MedicineIcon(size = 20.dp)
+            }
+        }
+        Spacer(Modifier.width(4.dp))
+        Text(
+            text = filter.label,
+            color = if (selected) MaterialTheme.colorScheme.onSurface else palette.fgMuted,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
@@ -288,6 +406,39 @@ private fun EmptyState() {
             text = "Tap one of the buttons below to log a poop, food, note, or dose.",
             color = palette.fgMuted, fontSize = 13.sp,
         )
+    }
+}
+
+@Composable
+private fun FilteredEmptyState(
+    noTypesSelected: Boolean,
+    hasMore: Boolean,
+    onLoadMore: () -> Unit,
+) {
+    val palette = LocalAppPalette.current
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(40.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = "No matching entries",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        Text(
+            text = if (noTypesSelected) {
+                "Select at least one entry type to see your timeline."
+            } else {
+                "No selected entry types appear in the loaded timeline."
+            },
+            color = palette.fgMuted,
+            fontSize = 13.sp,
+        )
+        if (!noTypesSelected && hasMore) {
+            TextButton(onClick = onLoadMore) { Text("Load older entries") }
+        }
     }
 }
 
