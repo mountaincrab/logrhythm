@@ -11,10 +11,11 @@ import { useAuth } from '../contexts/AuthContext'
 import { useProfileContext } from '../contexts/ProfileContext'
 import { usePagedTimeline } from '../hooks/usePagedTimeline'
 import { drawnIconSize, MedicineIcon } from '../components/MedicationIcons'
-import { TimelineEntry } from '../types'
+import { EntryKind, TimelineEntry } from '../types'
 import { dayKey, formatDayLabel, formatDayShort } from '../lib/dates'
 
 type SheetKind = 'poop' | 'food' | 'note' | 'medicine' | null
+const ALL_ENTRY_KINDS: EntryKind[] = ['poop', 'food', 'note', 'medicine']
 
 // Medicine covers one-off doses; anything on a schedule records itself and is corrected
 // from the Meds page. It's also the one icon here that isn't an emoji — there is no emoji
@@ -50,6 +51,7 @@ export default function HomePage() {
   const { activeProfileId } = useProfileContext()
   const { timeline, loading, hasMore, loadingMore, loadMore } = usePagedTimeline(user!.uid, activeProfileId)
   const [sheet, setSheet] = useState<SheetKind>(null)
+  const [selectedKinds, setSelectedKinds] = useState<Set<EntryKind>>(() => new Set(ALL_ENTRY_KINDS))
   const navigate = useNavigate()
 
   // Infinite scroll: load the next page when the sentinel scrolls into view.
@@ -65,16 +67,21 @@ export default function HomePage() {
     return () => io.disconnect()
   }, [hasMore, loadMore])
 
+  const filteredTimeline = useMemo(
+    () => timeline.filter((item) => selectedKinds.has(item.kind)),
+    [timeline, selectedKinds],
+  )
+
   const groups = useMemo(() => {
     const map = new Map<number, TimelineEntry[]>()
-    for (const item of timeline) {
+    for (const item of filteredTimeline) {
       const key = dayKey(item.occurredAt)
       const arr = map.get(key) ?? []
       arr.push(item)
       map.set(key, arr)
     }
     return [...map.entries()].sort((a, b) => b[0] - a[0])
-  }, [timeline])
+  }, [filteredTimeline])
 
   const subtitle = useMemo(() => {
     const todayKey = dayKey(Date.now())
@@ -85,6 +92,39 @@ export default function HomePage() {
   }, [timeline])
 
   const openEntry = (item: TimelineEntry) => navigate(`/entry/${item.kind}/${item.entry.id}`)
+
+  const toggleEntryKind = (kind: EntryKind) => {
+    setSelectedKinds((current) => {
+      const next = new Set(current)
+      if (next.has(kind)) next.delete(kind)
+      else next.add(kind)
+      return next
+    })
+  }
+
+  const entryTypeFilters = (
+    <div className="grid grid-cols-4 gap-1.5 mb-6" role="group" aria-label="Filter entries">
+      {LOG_BUTTONS.map(({ kind, label, icon }) => {
+        const selected = selectedKinds.has(kind)
+        return (
+          <button
+            key={kind}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => toggleEntryKind(kind)}
+            className={`min-w-0 min-h-11 inline-flex items-center justify-center gap-1 px-1.5 py-2 rounded-full border text-[11px] sm:text-xs font-bold transition-colors ${
+              selected
+                ? 'bg-accent-soft border-accent text-fg'
+                : 'bg-surface-raised border-strong text-fg-muted hover:bg-surface-high'
+            }`}
+          >
+            <IconSlot em={16}>{icon(16)}</IconSlot>
+            <span className="truncate">{label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
 
   // Desktop: compact pills in the header. Hidden on phones, where the sidebar
   // is gone and logging lives in the bottom bar (mirrors the Android app).
@@ -123,13 +163,28 @@ export default function HomePage() {
 
   return (
     <AppShell title="Home" subtitle={subtitle} headerRight={desktopLogButtons} showProfileSwitcher bottomBar={mobileLogBar}>
+      {entryTypeFilters}
       {loading ? (
         <p className="text-fg-faint text-sm py-8">Loading…</p>
-      ) : groups.length === 0 ? (
+      ) : timeline.length === 0 ? (
         <div className="py-24 text-center">
           <div className="text-5xl mb-4">🩺</div>
           <p className="text-fg font-semibold">Nothing logged yet</p>
           <p className="text-fg-muted text-sm mt-1">Tap a log button to add your first entry.</p>
+        </div>
+      ) : groups.length === 0 ? (
+        <div className="py-24 text-center">
+          <p className="text-fg font-semibold">No matching entries</p>
+          <p className="text-fg-muted text-sm mt-1">
+            {selectedKinds.size === 0
+              ? 'Select at least one entry type to see your timeline.'
+              : 'No selected entry types appear in the loaded timeline.'}
+          </p>
+          {selectedKinds.size > 0 && hasMore && (
+            <button type="button" onClick={loadMore} className="mt-3 text-sm font-semibold text-accent-text">
+              Load older entries
+            </button>
+          )}
         </div>
       ) : (
         <div className="space-y-7">
