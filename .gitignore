@@ -18,3 +18,5 @@ service-account.json
 scripts/**/service-account.json
 scripts/**/node_modules/
 .kotlin/
+
+.worktrees
