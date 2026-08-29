@@ -8,6 +8,8 @@ interface Props {
   title: string
   subtitle?: string
   headerRight?: ReactNode
+  /** Optional screen-specific controls rendered between the header and scrollable content. */
+  subheader?: ReactNode
   /** When provided, renders a back arrow before the title. */
   onBack?: () => void
   /** Show the phone profile-switcher avatar in the header (mobile only). */
@@ -17,7 +19,7 @@ interface Props {
   children: ReactNode
 }
 
-export default function AppShell({ title, subtitle, headerRight, onBack, showProfileSwitcher, bottomBar, children }: Props) {
+export default function AppShell({ title, subtitle, headerRight, subheader, onBack, showProfileSwitcher, bottomBar, children }: Props) {
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-bg text-fg">
       <Sidebar />
@@ -49,6 +51,12 @@ export default function AppShell({ title, subtitle, headerRight, onBack, showPro
             </div>
           </div>
         </header>
+
+        {subheader && (
+          <div className="shrink-0 border-b border-DEFAULT bg-bg">
+            {subheader}
+          </div>
+        )}
 
         <main className="flex-1 min-h-0 overflow-y-auto">
           <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 lg:px-10 py-6">{children}</div>

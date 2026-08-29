@@ -3,6 +3,9 @@ package com.mountaincrab.logrhythm.ui.home
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -12,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -32,9 +36,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -95,8 +104,10 @@ fun HomeScreen(
             layout.totalItemsCount > 0 && last >= layout.totalItemsCount - 3
         }
     }
-    LaunchedEffect(reachedEnd, state.hasMore) {
-        if (reachedEnd && state.hasMore) viewModel.loadMore()
+    LaunchedEffect(reachedEnd, state.hasMore, state.loadingMore, state.enabledEntryTypes) {
+        if (reachedEnd && state.hasMore && !state.loadingMore && state.enabledEntryTypes.isNotEmpty()) {
+            viewModel.loadMore()
+        }
     }
 
     if (showProfileSheet) {
@@ -143,6 +154,13 @@ fun HomeScreen(
             }
         }
 
+
+        EntryFilterBar(
+            enabledTypes = state.enabledEntryTypes,
+            onToggle = viewModel::toggleEntryType,
+            onClear = viewModel::clearEntryFilters,
+        )
+
         // Timeline with pull-to-refresh
         PullToRefreshBox(
             isRefreshing = isSyncing,
@@ -156,8 +174,10 @@ fun HomeScreen(
             ) {
                 if (state.loading) {
                     item { LoadingIndicator() }
-                } else if (state.days.isEmpty()) {
+                } else if (state.totalEntryCount == 0) {
                     item { EmptyState() }
+                } else if (state.days.isEmpty()) {
+                    item { FilteredEmptyState(onClear = viewModel::clearEntryFilters) }
                 }
                 state.days.forEach { day ->
                     item(key = "header-${day.date}") {
@@ -174,7 +194,11 @@ fun HomeScreen(
                                 color = palette.fgMuted,
                             )
                             Text(
-                                text = "${day.entries.size} ${if (day.entries.size == 1) "entry" else "entries"}",
+                                text = if (state.filtersActive) {
+                                    "${day.entries.size} of ${day.totalEntryCount}"
+                                } else {
+                                    "${day.entries.size} ${if (day.entries.size == 1) "entry" else "entries"}"
+                                },
                                 fontSize = 11.sp, color = palette.fgFaint, fontWeight = FontWeight.SemiBold,
                             )
                         }
@@ -220,6 +244,138 @@ fun HomeScreen(
         }
 
         BottomTabBar(active = Screen.Home.route, onSelect = onTabSelect)
+    }
+}
+
+private data class EntryFilterOption(
+    val type: HomeEntryType,
+    val label: String,
+    val icon: @Composable () -> Unit,
+)
+
+@Composable
+private fun EntryFilterBar(
+    enabledTypes: Set<HomeEntryType>,
+    onToggle: (HomeEntryType) -> Unit,
+    onClear: () -> Unit,
+) {
+    val options = listOf(
+        EntryFilterOption(HomeEntryType.POOP, "Poop") {
+            Text(text = "💩", fontSize = 16.sp, lineHeight = 16.sp)
+        },
+        EntryFilterOption(HomeEntryType.FOOD, "Food") {
+            Text(text = "🍴", fontSize = 16.sp, lineHeight = 16.sp)
+        },
+        EntryFilterOption(HomeEntryType.NOTE, "Note") {
+            Text(text = "📝", fontSize = 16.sp, lineHeight = 16.sp)
+        },
+        EntryFilterOption(HomeEntryType.MEDICINE, "Medicine") {
+            MedicineIcon(size = EntryIconSizes.ChipIcon)
+        },
+    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        options.forEach { option ->
+            EntryFilterChip(
+                label = option.label,
+                selected = option.type in enabledTypes,
+                onToggle = { onToggle(option.type) },
+                icon = option.icon,
+            )
+        }
+        if (enabledTypes.size != HomeEntryType.entries.size) {
+            ClearFilterChip(onClick = onClear)
+        }
+    }
+}
+
+@Composable
+private fun EntryFilterChip(
+    label: String,
+    selected: Boolean,
+    onToggle: () -> Unit,
+    icon: @Composable () -> Unit,
+) {
+    val palette = LocalAppPalette.current
+    val shape = RoundedCornerShape(50)
+    Row(
+        modifier = Modifier
+            .clip(shape)
+            .background(if (selected) palette.accentSoft else palette.surfaceRaised)
+            .border(
+                width = 1.dp,
+                color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else palette.border,
+                shape = shape,
+            )
+            .toggleable(
+                value = selected,
+                role = Role.Checkbox,
+                onValueChange = { onToggle() },
+            )
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(20.dp)
+                .alpha(if (selected) 1f else 0.35f),
+            contentAlignment = Alignment.Center,
+        ) {
+            icon()
+        }
+        Text(
+            text = label,
+            color = if (selected) palette.accentText else palette.fgFaint,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun ClearFilterChip(onClick: () -> Unit) {
+    val palette = LocalAppPalette.current
+    val borderColor = palette.borderStrong
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .drawBehind {
+                val strokeWidth = 1.dp.toPx()
+                drawRoundRect(
+                    color = borderColor,
+                    topLeft = Offset(strokeWidth / 2, strokeWidth / 2),
+                    size = Size(size.width - strokeWidth, size.height - strokeWidth),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2),
+                    style = Stroke(
+                        width = strokeWidth,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 4.dp.toPx())),
+                    ),
+                )
+            }
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.Close,
+            contentDescription = null,
+            tint = palette.fgMuted,
+            modifier = Modifier.size(15.dp),
+        )
+        Text(
+            text = "Clear",
+            color = palette.fgMuted,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+        )
     }
 }
 
@@ -288,6 +444,31 @@ private fun EmptyState() {
             text = "Tap one of the buttons below to log a poop, food, note, or dose.",
             color = palette.fgMuted, fontSize = 13.sp,
         )
+    }
+}
+
+@Composable
+private fun FilteredEmptyState(onClear: () -> Unit) {
+    val palette = LocalAppPalette.current
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(40.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            "No matching entries",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        Text(
+            text = "Turn an entry type back on or clear the filter.",
+            color = palette.fgMuted,
+            fontSize = 13.sp,
+        )
+        TextButton(onClick = onClear) {
+            Text("Clear filter")
+        }
     }
 }
 
