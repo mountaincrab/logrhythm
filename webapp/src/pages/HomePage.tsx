@@ -11,7 +11,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useProfileContext } from '../contexts/ProfileContext'
 import { usePagedTimeline } from '../hooks/usePagedTimeline'
 import { drawnIconSize, MedicineIcon } from '../components/MedicationIcons'
-import { TimelineEntry } from '../types'
+import { EntryKind, TimelineEntry } from '../types'
 import { dayKey, formatDayLabel, formatDayShort } from '../lib/dates'
 
 type SheetKind = 'poop' | 'food' | 'note' | 'medicine' | null
@@ -27,6 +27,8 @@ const LOG_BUTTONS: { kind: Exclude<SheetKind, null>; label: string; icon: (size:
   // emoji beside it — same nominal size, it paints ~22% less ink than they do.
   { kind: 'medicine', label: 'Medicine', icon: (s) => <MedicineIcon size={drawnIconSize(s)} /> },
 ]
+
+const ALL_ENTRY_KINDS: EntryKind[] = ['poop', 'food', 'note', 'medicine']
 
 /**
  * A fixed slot for a log button's mark, sized for the tallest of them: the drawn bottle
@@ -50,6 +52,7 @@ export default function HomePage() {
   const { activeProfileId } = useProfileContext()
   const { timeline, loading, hasMore, loadingMore, loadMore } = usePagedTimeline(user!.uid, activeProfileId)
   const [sheet, setSheet] = useState<SheetKind>(null)
+  const [enabledKinds, setEnabledKinds] = useState<Set<EntryKind>>(() => new Set(ALL_ENTRY_KINDS))
   const navigate = useNavigate()
 
   // Infinite scroll: load the next page when the sentinel scrolls into view.
@@ -63,18 +66,34 @@ export default function HomePage() {
     )
     io.observe(el)
     return () => io.disconnect()
-  }, [hasMore, loadMore])
+  }, [hasMore, loadMore, timeline.length, enabledKinds])
+
+  const filtersActive = enabledKinds.size !== ALL_ENTRY_KINDS.length
+
+  const toggleKind = (kind: EntryKind) => {
+    setEnabledKinds((current) => {
+      const next = new Set(current)
+      if (next.has(kind)) next.delete(kind)
+      else next.add(kind)
+      return next
+    })
+  }
+
+  const clearFilters = () => setEnabledKinds(new Set(ALL_ENTRY_KINDS))
 
   const groups = useMemo(() => {
-    const map = new Map<number, TimelineEntry[]>()
+    const map = new Map<number, { items: TimelineEntry[]; total: number }>()
     for (const item of timeline) {
       const key = dayKey(item.occurredAt)
-      const arr = map.get(key) ?? []
-      arr.push(item)
-      map.set(key, arr)
+      const group = map.get(key) ?? { items: [], total: 0 }
+      group.total += 1
+      if (enabledKinds.has(item.kind)) group.items.push(item)
+      map.set(key, group)
     }
-    return [...map.entries()].sort((a, b) => b[0] - a[0])
-  }, [timeline])
+    return [...map.entries()]
+      .filter(([, group]) => group.items.length > 0)
+      .sort((a, b) => b[0] - a[0])
+  }, [timeline, enabledKinds])
 
   const subtitle = useMemo(() => {
     const todayKey = dayKey(Date.now())
@@ -121,29 +140,90 @@ export default function HomePage() {
     </div>
   )
 
+  const filterBar = (
+    <div
+      className="mx-auto w-full max-w-4xl px-4 sm:px-6 lg:px-10 py-2 overflow-x-auto no-scrollbar"
+      role="group"
+      aria-label="Filter entries by type"
+    >
+      <div className="flex items-center gap-2 w-max">
+        {LOG_BUTTONS.map(({ kind, label, icon }) => {
+          const enabled = enabledKinds.has(kind)
+          return (
+            <button
+              key={kind}
+              type="button"
+              aria-pressed={enabled}
+              onClick={() => toggleKind(kind)}
+              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-full border text-xs font-bold transition-colors ${
+                enabled
+                  ? 'bg-accent-soft border-accent text-accent-text'
+                  : 'bg-surface-raised border-DEFAULT text-fg-faint'
+              }`}
+            >
+              <span className={`inline-flex items-center justify-center w-5 h-5 ${enabled ? '' : 'opacity-35'}`}>
+                {icon(16)}
+              </span>
+              {label}
+            </button>
+          )
+        })}
+        {filtersActive && (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="inline-flex items-center gap-1 px-3 py-2 rounded-full border border-dashed border-strong text-fg-muted text-xs font-bold hover:text-fg transition-colors"
+          >
+            <span aria-hidden="true">×</span>
+            Clear
+          </button>
+        )}
+      </div>
+    </div>
+  )
+
   return (
-    <AppShell title="Home" subtitle={subtitle} headerRight={desktopLogButtons} showProfileSwitcher bottomBar={mobileLogBar}>
+    <AppShell
+      title="Home"
+      subtitle={subtitle}
+      headerRight={desktopLogButtons}
+      subheader={filterBar}
+      showProfileSwitcher
+      bottomBar={mobileLogBar}
+    >
       {loading ? (
         <p className="text-fg-faint text-sm py-8">Loading…</p>
-      ) : groups.length === 0 ? (
+      ) : timeline.length === 0 ? (
         <div className="py-24 text-center">
           <div className="text-5xl mb-4">🩺</div>
           <p className="text-fg font-semibold">Nothing logged yet</p>
           <p className="text-fg-muted text-sm mt-1">Tap a log button to add your first entry.</p>
         </div>
+      ) : groups.length === 0 ? (
+        <div className="py-24 text-center">
+          <p className="text-fg font-semibold">No matching entries</p>
+          <p className="text-fg-muted text-sm mt-1">Turn an entry type back on or clear the filter.</p>
+          <button type="button" onClick={clearFilters} className="mt-3 text-sm font-bold text-accent-text">
+            Clear filter
+          </button>
+          {hasMore && enabledKinds.size > 0 && <div ref={sentinel} className="h-px" />}
+          {loadingMore && <p className="text-fg-faint text-sm text-center py-4">Loading…</p>}
+        </div>
       ) : (
         <div className="space-y-7">
-          {groups.map(([key, items]) => (
+          {groups.map(([key, group]) => (
             <div key={key}>
               <div className="flex items-baseline justify-between mb-3">
                 <span className="ds-eyebrow">{formatDayLabel(key)}</span>
                 <span className="text-[11px] text-fg-faint font-semibold">
-                  {items.length} entr{items.length === 1 ? 'y' : 'ies'}
+                  {filtersActive
+                    ? `${group.items.length} of ${group.total}`
+                    : `${group.total} entr${group.total === 1 ? 'y' : 'ies'}`}
                 </span>
               </div>
               <div className="relative pl-[22px]">
                 <span className="absolute left-[7px] top-1.5 bottom-1.5 w-px bg-[var(--border)]" />
-                {items.map((item) => (
+                {group.items.map((item) => (
                   <TimelineEntryRow key={`${item.kind}-${item.entry.id}`} item={item} onClick={() => openEntry(item)} />
                 ))}
               </div>
