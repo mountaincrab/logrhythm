@@ -9,6 +9,7 @@ import com.mountaincrab.logrhythm.data.repository.EntryRepository
 import com.mountaincrab.logrhythm.data.repository.MedicationRepository
 import com.mountaincrab.logrhythm.data.repository.ProfileRepository
 import com.mountaincrab.logrhythm.data.repository.TimelineEntry
+import com.mountaincrab.logrhythm.preferences.UserPreferencesRepository
 import com.mountaincrab.logrhythm.sync.SyncScheduler
 import com.mountaincrab.logrhythm.ui.util.toLocalDate
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,7 +19,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -53,6 +53,7 @@ class HomeViewModel(
     private val repository: EntryRepository,
     private val profileRepository: ProfileRepository,
     private val medicationRepository: MedicationRepository,
+    private val preferencesRepository: UserPreferencesRepository,
     private val syncScheduler: SyncScheduler,
     workManager: WorkManager,
 ) : ViewModel() {
@@ -64,7 +65,13 @@ class HomeViewModel(
     private val initialised = MutableStateFlow(false)
     private val hasMore = MutableStateFlow(false)
     private val loadingMore = MutableStateFlow(false)
-    private val enabledEntryTypes = MutableStateFlow(HomeEntryType.entries.toSet())
+    private val enabledEntryTypes = preferencesRepository.disabledHomeEntryTypes
+        .map { disabled -> HomeEntryType.entries.filterNot { it.name in disabled }.toSet() }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = HomeEntryType.entries.toSet(),
+        )
 
     init {
         syncScheduler.enqueue()
@@ -97,14 +104,12 @@ class HomeViewModel(
     }
 
     fun toggleEntryType(type: HomeEntryType) {
-        enabledEntryTypes.update { current ->
-            if (type in current) current - type else current + type
-        }
+        viewModelScope.launch { preferencesRepository.toggleHomeEntryType(type.name) }
     }
 
     /** Clear the active filter, restoring every entry type. */
     fun clearEntryFilters() {
-        enabledEntryTypes.value = HomeEntryType.entries.toSet()
+        viewModelScope.launch { preferencesRepository.clearHomeEntryFilters() }
     }
 
     val profiles: StateFlow<List<ProfileEntity>> = profileRepository.profiles
