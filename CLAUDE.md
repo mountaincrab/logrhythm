@@ -16,7 +16,7 @@ LogRhythm tracks IBD-relevant signal: poop entries (Bristol type + blood rating 
 - Jetpack Compose + Material3
 - Room (KMP runtime, schemas exported to `app/schemas/`)
 - Koin DI
-- DataStore-Preferences (theme + stool-system pref + active profile)
+- DataStore-Preferences (theme + stool-system pref + active profile + home filters)
 - Navigation-Compose
 - Firebase Auth (Google) + Cloud Firestore; WorkManager-driven `SyncWorker`
 - kotlinx-serialization (lightweight, kept for future use)

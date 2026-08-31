@@ -96,6 +96,7 @@ val appModule = module {
             repository = get(),
             profileRepository = get(),
             medicationRepository = get(),
+            preferencesRepository = get(),
             syncScheduler = get(),
             workManager = get(),
         )

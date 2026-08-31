@@ -29,6 +29,33 @@ const LOG_BUTTONS: { kind: Exclude<SheetKind, null>; label: string; icon: (size:
 ]
 
 const ALL_ENTRY_KINDS: EntryKind[] = ['poop', 'food', 'note', 'medicine']
+const HOME_FILTER_STORAGE_KEY = 'logrhythm:disabledHomeEntryKinds'
+
+function storedEnabledEntryKinds(): Set<EntryKind> {
+  try {
+    const stored = localStorage.getItem(HOME_FILTER_STORAGE_KEY)
+    if (stored === null) return new Set(ALL_ENTRY_KINDS)
+
+    const parsed: unknown = JSON.parse(stored)
+    if (!Array.isArray(parsed)) return new Set(ALL_ENTRY_KINDS)
+
+    const disabled = new Set(parsed.filter((value): value is EntryKind =>
+      typeof value === 'string' && ALL_ENTRY_KINDS.includes(value as EntryKind),
+    ))
+    return new Set(ALL_ENTRY_KINDS.filter((kind) => !disabled.has(kind)))
+  } catch {
+    return new Set(ALL_ENTRY_KINDS)
+  }
+}
+
+function storeEnabledEntryKinds(enabled: Set<EntryKind>) {
+  try {
+    const disabled = ALL_ENTRY_KINDS.filter((kind) => !enabled.has(kind))
+    localStorage.setItem(HOME_FILTER_STORAGE_KEY, JSON.stringify(disabled))
+  } catch {
+    // Storage can be unavailable in restricted browser contexts; keep the filter in memory.
+  }
+}
 
 /**
  * A fixed slot for a log button's mark, sized for the tallest of them: the drawn bottle
@@ -52,8 +79,12 @@ export default function HomePage() {
   const { activeProfileId } = useProfileContext()
   const { timeline, loading, hasMore, loadingMore, loadMore } = usePagedTimeline(user!.uid, activeProfileId)
   const [sheet, setSheet] = useState<SheetKind>(null)
-  const [enabledKinds, setEnabledKinds] = useState<Set<EntryKind>>(() => new Set(ALL_ENTRY_KINDS))
+  const [enabledKinds, setEnabledKinds] = useState<Set<EntryKind>>(storedEnabledEntryKinds)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    storeEnabledEntryKinds(enabledKinds)
+  }, [enabledKinds])
 
   // Infinite scroll: load the next page when the sentinel scrolls into view.
   const sentinel = useRef<HTMLDivElement | null>(null)
