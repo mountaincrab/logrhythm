@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mountaincrab.logrhythm.data.local.entity.ProfileEntity
 import com.mountaincrab.logrhythm.data.repository.TimelineEntry
+import com.mountaincrab.logrhythm.preferences.HomeTimelineDensity
 import com.mountaincrab.logrhythm.ui.components.BottomTabBar
 import com.mountaincrab.logrhythm.ui.components.EntryIconSizes
 import com.mountaincrab.logrhythm.ui.components.MedicineIcon
@@ -79,7 +80,9 @@ fun HomeScreen(
     val isSyncing by viewModel.isSyncing.collectAsStateWithLifecycle()
     val profiles by viewModel.profiles.collectAsStateWithLifecycle()
     val activeProfile by viewModel.activeProfile.collectAsStateWithLifecycle()
+    val homeTimelineDensity by viewModel.homeTimelineDensity.collectAsStateWithLifecycle()
     val palette = LocalAppPalette.current
+    val compactTimeline = homeTimelineDensity == HomeTimelineDensity.COMPACT
 
     var showProfileSheet by remember { mutableStateOf(false) }
     var showAddDialog by remember { mutableStateOf(false) }
@@ -183,7 +186,12 @@ fun HomeScreen(
                     item(key = "header-${day.date}") {
                         Row(
                             modifier = Modifier.fillMaxWidth()
-                                .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 10.dp),
+                                .padding(
+                                    start = 20.dp,
+                                    end = 20.dp,
+                                    top = if (compactTimeline) 10.dp else 14.dp,
+                                    bottom = if (compactTimeline) 6.dp else 10.dp,
+                                ),
                             verticalAlignment = Alignment.Bottom,
                         ) {
                             Text(
@@ -206,8 +214,13 @@ fun HomeScreen(
                     items(day.entries, key = { it.id }) { entry ->
                         TimelineEntryRow(
                             entry = entry,
+                            density = homeTimelineDensity,
                             modifier = Modifier
-                                .padding(start = 20.dp, end = 20.dp, bottom = 8.dp)
+                                .padding(
+                                    start = 20.dp,
+                                    end = 20.dp,
+                                    bottom = if (compactTimeline) 4.dp else 8.dp,
+                                )
                                 .drawTimelineLine(palette.border),
                             onClick = { onOpenEntry(entry.kindKey(), entry.id) },
                         )

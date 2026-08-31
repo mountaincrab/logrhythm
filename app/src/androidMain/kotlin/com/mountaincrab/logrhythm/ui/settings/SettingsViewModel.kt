@@ -7,6 +7,8 @@ import com.mountaincrab.logrhythm.data.local.entity.NoteTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopTagEntity
 import com.mountaincrab.logrhythm.data.repository.EntryRepository
 import com.mountaincrab.logrhythm.data.repository.ProfileRepository
+import com.mountaincrab.logrhythm.preferences.HomeTimelineDensity
+import com.mountaincrab.logrhythm.preferences.UserPreferencesRepository
 import com.mountaincrab.logrhythm.ui.theme.AppTheme
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -18,6 +20,7 @@ class SettingsViewModel(
     private val profileRepository: ProfileRepository,
     private val repository: EntryRepository,
     private val authRepository: AuthRepository,
+    private val preferencesRepository: UserPreferencesRepository,
 ) : ViewModel() {
 
     val userEmail: String? get() = authRepository.currentUser.value?.email
@@ -31,6 +34,9 @@ class SettingsViewModel(
         .map { AppTheme.fromName(it?.theme) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, AppTheme.DEEP_NAVY)
 
+    val homeTimelineDensity: StateFlow<HomeTimelineDensity> = preferencesRepository.homeTimelineDensity
+        .stateIn(viewModelScope, SharingStarted.Eagerly, HomeTimelineDensity.STANDARD)
+
     val poopTags: StateFlow<List<PoopTagEntity>> = repository.observeAllPoopTags()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -39,6 +45,10 @@ class SettingsViewModel(
 
     fun setTheme(theme: AppTheme) {
         viewModelScope.launch { profileRepository.setActiveProfileTheme(theme.name) }
+    }
+
+    fun setHomeTimelineDensity(value: HomeTimelineDensity) {
+        viewModelScope.launch { preferencesRepository.setHomeTimelineDensity(value) }
     }
 
     fun addPoopTag(name: String) {

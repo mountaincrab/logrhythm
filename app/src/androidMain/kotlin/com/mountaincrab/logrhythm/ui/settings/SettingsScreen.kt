@@ -15,6 +15,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
@@ -29,6 +30,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mountaincrab.logrhythm.BuildConfig
 import com.mountaincrab.logrhythm.data.local.entity.NoteTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopTagEntity
+import com.mountaincrab.logrhythm.preferences.HomeTimelineDensity
 import com.mountaincrab.logrhythm.ui.components.BottomTabBar
 import com.mountaincrab.logrhythm.ui.navigation.Screen
 import com.mountaincrab.logrhythm.ui.theme.AppTheme
@@ -43,6 +45,7 @@ fun SettingsScreen(
 ) {
     val palette = LocalAppPalette.current
     val theme by viewModel.appTheme.collectAsStateWithLifecycle()
+    val homeTimelineDensity by viewModel.homeTimelineDensity.collectAsStateWithLifecycle()
     val poopTags by viewModel.poopTags.collectAsStateWithLifecycle()
     val noteTags by viewModel.noteTags.collectAsStateWithLifecycle()
 
@@ -148,6 +151,27 @@ fun SettingsScreen(
             }
             Spacer(modifier = Modifier.height(18.dp))
 
+            SectionLabel("Home timeline")
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(palette.surfaceRaised)
+                    .border(1.dp, palette.border, RoundedCornerShape(14.dp)),
+            ) {
+                HomeTimelineDensity.entries.forEachIndexed { index, density ->
+                    DensityOption(
+                        density = density,
+                        selected = density == homeTimelineDensity,
+                        onClick = { viewModel.setHomeTimelineDensity(density) },
+                    )
+                    if (index < HomeTimelineDensity.entries.lastIndex) {
+                        Divider(palette.borderSubtle)
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(18.dp))
+
             SectionLabel("Reminders")
             Column(
                 modifier = Modifier
@@ -199,6 +223,46 @@ fun SettingsScreen(
         }
 
         BottomTabBar(active = Screen.Settings.route, onSelect = onTabSelect)
+    }
+}
+
+@Composable
+private fun DensityOption(
+    density: HomeTimelineDensity,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val palette = LocalAppPalette.current
+    val title = when (density) {
+        HomeTimelineDensity.STANDARD -> "Standard"
+        HomeTimelineDensity.COMPACT -> "Compact"
+    }
+    val description = when (density) {
+        HomeTimelineDensity.STANDARD -> "Comfortable spacing between entries"
+        HomeTimelineDensity.COMPACT -> "Fit more entries on the Home screen"
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = null)
+        Column(modifier = Modifier.padding(start = 4.dp)) {
+            Text(
+                text = title,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = description,
+                color = palette.fgMuted,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(top = 1.dp),
+            )
+        }
     }
 }
 

@@ -9,6 +9,7 @@ import com.mountaincrab.logrhythm.data.repository.EntryRepository
 import com.mountaincrab.logrhythm.data.repository.MedicationRepository
 import com.mountaincrab.logrhythm.data.repository.ProfileRepository
 import com.mountaincrab.logrhythm.data.repository.TimelineEntry
+import com.mountaincrab.logrhythm.preferences.HomeTimelineDensity
 import com.mountaincrab.logrhythm.preferences.UserPreferencesRepository
 import com.mountaincrab.logrhythm.sync.SyncScheduler
 import com.mountaincrab.logrhythm.ui.util.toLocalDate
@@ -71,6 +72,13 @@ class HomeViewModel(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
             initialValue = HomeEntryType.entries.toSet(),
+        )
+
+    val homeTimelineDensity: StateFlow<HomeTimelineDensity> = preferencesRepository.homeTimelineDensity
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = HomeTimelineDensity.STANDARD,
         )
 
     init {
