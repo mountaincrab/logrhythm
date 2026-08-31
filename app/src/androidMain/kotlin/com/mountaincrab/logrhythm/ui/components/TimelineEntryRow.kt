@@ -14,7 +14,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -22,6 +21,7 @@ import com.mountaincrab.logrhythm.data.local.entity.dose
 import com.mountaincrab.logrhythm.data.model.bristol
 import com.mountaincrab.logrhythm.data.model.formatDoseAmount
 import com.mountaincrab.logrhythm.data.repository.TimelineEntry
+import com.mountaincrab.logrhythm.preferences.HomeTimelineDensity
 import com.mountaincrab.logrhythm.ui.theme.LocalAppPalette
 import com.mountaincrab.logrhythm.ui.theme.RatingColors
 import com.mountaincrab.logrhythm.ui.util.formatTime
@@ -33,10 +33,13 @@ import com.mountaincrab.logrhythm.ui.util.formatTime
 @Composable
 fun TimelineEntryRow(
     entry: TimelineEntry,
+    density: HomeTimelineDensity = HomeTimelineDensity.STANDARD,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     val palette = LocalAppPalette.current
+    val compact = density == HomeTimelineDensity.COMPACT
+    val cardShape = RoundedCornerShape(if (compact) 10.dp else 14.dp)
     val dotColor = when (entry) {
         is TimelineEntry.Poop -> RatingColors[entry.entity.blood]?.bg ?: palette.surfaceHigh
         is TimelineEntry.Food -> palette.surfaceHigh
@@ -48,8 +51,8 @@ fun TimelineEntryRow(
         // dot — positioned by parent's timeline padding (22dp from left).
         Box(
             modifier = Modifier
-                .padding(start = 2.dp, top = 16.dp)
-                .size(11.dp)
+                .padding(start = if (compact) 3.dp else 2.dp, top = if (compact) 12.dp else 16.dp)
+                .size(if (compact) 9.dp else 11.dp)
                 .clip(CircleShape)
                 .background(dotColor)
                 .border(2.dp, MaterialTheme.colorScheme.background, CircleShape)
@@ -58,25 +61,29 @@ fun TimelineEntryRow(
             modifier = Modifier
                 .padding(start = 22.dp)
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
+                .heightIn(min = if (compact) 40.dp else 0.dp)
+                .clip(cardShape)
                 .background(palette.surfaceRaised)
-                .border(1.dp, palette.border, RoundedCornerShape(14.dp))
+                .border(1.dp, palette.border, cardShape)
                 .clickable(onClick = onClick)
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+                .padding(
+                    horizontal = if (compact) 10.dp else 14.dp,
+                    vertical = if (compact) 6.dp else 12.dp,
+                ),
+            verticalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 4.dp),
         ) {
             when (entry) {
-                is TimelineEntry.Poop -> PoopBody(entry)
-                is TimelineEntry.Food -> FoodBody(entry)
-                is TimelineEntry.Note -> NoteBody(entry)
-                is TimelineEntry.Medication -> MedicationBody(entry)
+                is TimelineEntry.Poop -> PoopBody(entry, compact)
+                is TimelineEntry.Food -> FoodBody(entry, compact)
+                is TimelineEntry.Note -> NoteBody(entry, compact)
+                is TimelineEntry.Medication -> MedicationBody(entry, compact)
             }
         }
     }
 }
 
 @Composable
-private fun PoopBody(entry: TimelineEntry.Poop) {
+private fun PoopBody(entry: TimelineEntry.Poop, compact: Boolean) {
     val palette = LocalAppPalette.current
     val bristolNums = entry.entity.bristolTypes.sorted()
     val bristolText = buildString {
@@ -87,77 +94,82 @@ private fun PoopBody(entry: TimelineEntry.Poop) {
         }
     }
     FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp),
+        verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 6.dp),
     ) {
         Text(
             text = entry.entity.occurredAt.formatTime(),
             color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 13.sp,
+            fontSize = if (compact) 12.sp else 13.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.CenterVertically),
         )
         Text(
             text = "💩",
-            fontSize = EntryIconSizes.TimelineEmoji,
+            fontSize = EntryIconSizes.timelineEmoji(compact),
             modifier = Modifier.align(Alignment.CenterVertically),
         )
         if (bristolText.isNotEmpty()) {
             Text(
                 text = bristolText,
                 color = palette.fgMuted,
-                fontSize = 13.sp,
+                fontSize = if (compact) 12.sp else 13.sp,
                 modifier = Modifier.align(Alignment.CenterVertically),
             )
         }
         RatingPill(
             rating = entry.entity.blood,
+            compact = compact,
             modifier = Modifier.align(Alignment.CenterVertically),
         )
         entry.tags.forEach { tag ->
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterVertically)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(palette.surfaceHigh)
-                    .border(1.dp, palette.borderSubtle, RoundedCornerShape(999.dp))
-                    .padding(horizontal = 8.dp, vertical = 3.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(tag.name, color = palette.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-            }
+            TimelineTag(
+                text = tag.name,
+                compact = compact,
+                modifier = Modifier.align(Alignment.CenterVertically),
+            )
         }
     }
     if (!entry.entity.notes.isNullOrBlank()) {
-        Text(text = entry.entity.notes!!, color = palette.fgMuted, fontSize = 14.sp, lineHeight = 20.sp)
+        Text(
+            text = entry.entity.notes!!,
+            color = palette.fgMuted,
+            fontSize = if (compact) 12.sp else 14.sp,
+            lineHeight = if (compact) 16.sp else 20.sp,
+        )
     }
 }
 
 @Composable
-private fun FoodBody(entry: TimelineEntry.Food) {
+private fun FoodBody(entry: TimelineEntry.Food, compact: Boolean) {
     val palette = LocalAppPalette.current
     FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp),
+        verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 6.dp),
     ) {
         Text(
             text = entry.entity.occurredAt.formatTime(),
             color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 13.sp,
+            fontSize = if (compact) 12.sp else 13.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.CenterVertically),
         )
         Text(
             text = "🍴",
-            fontSize = EntryIconSizes.TimelineEmoji,
+            fontSize = EntryIconSizes.timelineEmoji(compact),
             modifier = Modifier.align(Alignment.CenterVertically),
         )
     }
-    Text(text = entry.entity.items, color = palette.fgMuted, fontSize = 14.sp, lineHeight = 20.sp)
+    Text(
+        text = entry.entity.items,
+        color = palette.fgMuted,
+        fontSize = if (compact) 12.sp else 14.sp,
+        lineHeight = if (compact) 16.sp else 20.sp,
+    )
 }
 
 @Composable
-private fun MedicationBody(entry: TimelineEntry.Medication) {
+private fun MedicationBody(entry: TimelineEntry.Medication, compact: Boolean) {
     val palette = LocalAppPalette.current
     val e = entry.entity
     // Name and strength come from the catalog row, so correcting a medication corrects
@@ -165,31 +177,31 @@ private fun MedicationBody(entry: TimelineEntry.Medication) {
     val name = entry.medication?.name ?: "Medication"
     val amount = formatDoseAmount(e.quantity, entry.medication?.dose ?: "")
     FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp),
+        verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 6.dp),
     ) {
         Text(
             text = e.occurredAt.formatTime(),
             color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 13.sp,
+            fontSize = if (compact) 12.sp else 13.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.CenterVertically),
         )
         MedicineIcon(
-            size = EntryIconSizes.TimelineIcon,
+            size = EntryIconSizes.timelineIcon(compact),
             modifier = Modifier.align(Alignment.CenterVertically),
         )
         // Name and form stay one unit — a bracket that wrapped away from what it qualifies
         // would read as belonging to the dose amount instead.
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (compact) 3.dp else 4.dp),
             modifier = Modifier.align(Alignment.CenterVertically),
         ) {
             Text(
                 text = name,
                 color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 13.sp,
+                fontSize = if (compact) 12.sp else 13.sp,
                 fontWeight = FontWeight.SemiBold,
             )
             // Absent when the medication can't be resolved — there's no form to name then.
@@ -198,9 +210,9 @@ private fun MedicationBody(entry: TimelineEntry.Medication) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(1.dp),
                 ) {
-                    Text(text = "(", color = palette.fgFaint, fontSize = 13.sp)
-                    MedicationFormIcon(form = med.form, size = EntryIconSizes.TimelineFormIcon)
-                    Text(text = ")", color = palette.fgFaint, fontSize = 13.sp)
+                    Text(text = "(", color = palette.fgFaint, fontSize = if (compact) 12.sp else 13.sp)
+                    MedicationFormIcon(form = med.form, size = EntryIconSizes.timelineFormIcon(compact))
+                    Text(text = ")", color = palette.fgFaint, fontSize = if (compact) 12.sp else 13.sp)
                 }
             }
         }
@@ -208,76 +220,91 @@ private fun MedicationBody(entry: TimelineEntry.Medication) {
             Text(
                 text = amount,
                 color = palette.fgMuted,
-                fontSize = 13.sp,
+                fontSize = if (compact) 12.sp else 13.sp,
                 modifier = Modifier.align(Alignment.CenterVertically),
             )
         }
     }
     if (!e.notes.isNullOrBlank()) {
-        Text(text = e.notes!!, color = palette.fgMuted, fontSize = 14.sp, lineHeight = 20.sp)
+        Text(
+            text = e.notes!!,
+            color = palette.fgMuted,
+            fontSize = if (compact) 12.sp else 14.sp,
+            lineHeight = if (compact) 16.sp else 20.sp,
+        )
     }
 }
 
 @Composable
-private fun NoteBody(entry: TimelineEntry.Note) {
+private fun NoteBody(entry: TimelineEntry.Note, compact: Boolean) {
     val palette = LocalAppPalette.current
     FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp),
+        verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 6.dp),
     ) {
         Text(
             text = entry.entity.occurredAt.formatTime(),
             color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 13.sp,
+            fontSize = if (compact) 12.sp else 13.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.CenterVertically),
         )
         Text(
             text = "📝",
-            fontSize = EntryIconSizes.TimelineEmoji,
+            fontSize = EntryIconSizes.timelineEmoji(compact),
             modifier = Modifier.align(Alignment.CenterVertically),
         )
         if (entry.entity.caffeine) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterVertically)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(palette.surfaceHigh)
-                    .border(1.dp, palette.borderSubtle, RoundedCornerShape(999.dp))
-                    .padding(horizontal = 8.dp, vertical = 3.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("☕", color = palette.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-            }
+            TimelineTag(
+                text = "☕",
+                compact = compact,
+                modifier = Modifier.align(Alignment.CenterVertically),
+            )
         }
         if (entry.entity.alcohol) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterVertically)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(palette.surfaceHigh)
-                    .border(1.dp, palette.borderSubtle, RoundedCornerShape(999.dp))
-                    .padding(horizontal = 8.dp, vertical = 3.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("🍺", color = palette.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-            }
+            TimelineTag(
+                text = "🍺",
+                compact = compact,
+                modifier = Modifier.align(Alignment.CenterVertically),
+            )
         }
         entry.tags.forEach { tag ->
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterVertically)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(palette.surfaceHigh)
-                    .border(1.dp, palette.borderSubtle, RoundedCornerShape(999.dp))
-                    .padding(horizontal = 8.dp, vertical = 3.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(tag.name, color = palette.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-            }
+            TimelineTag(
+                text = tag.name,
+                compact = compact,
+                modifier = Modifier.align(Alignment.CenterVertically),
+            )
         }
     }
     if (entry.entity.content.isNotBlank()) {
-        Text(text = entry.entity.content, color = palette.fgMuted, fontSize = 14.sp, lineHeight = 20.sp)
+        Text(
+            text = entry.entity.content,
+            color = palette.fgMuted,
+            fontSize = if (compact) 12.sp else 14.sp,
+            lineHeight = if (compact) 16.sp else 20.sp,
+        )
+    }
+}
+
+@Composable
+private fun TimelineTag(text: String, compact: Boolean, modifier: Modifier = Modifier) {
+    val palette = LocalAppPalette.current
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(palette.surfaceHigh)
+            .border(1.dp, palette.borderSubtle, RoundedCornerShape(999.dp))
+            .padding(
+                horizontal = if (compact) 6.dp else 8.dp,
+                vertical = if (compact) 2.dp else 3.dp,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            color = palette.fgMuted,
+            fontSize = if (compact) 10.sp else 11.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
     }
 }

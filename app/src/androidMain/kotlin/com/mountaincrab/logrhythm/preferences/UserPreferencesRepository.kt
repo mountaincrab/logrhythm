@@ -14,6 +14,16 @@ import kotlinx.coroutines.flow.map
 
 private val Context.dataStore by preferencesDataStore(name = "logrhythm_prefs")
 
+enum class HomeTimelineDensity {
+    STANDARD,
+    COMPACT;
+
+    companion object {
+        fun fromName(name: String?): HomeTimelineDensity =
+            entries.firstOrNull { it.name == name } ?: STANDARD
+    }
+}
+
 class UserPreferencesRepository(private val context: Context) {
 
     private val keyAppTheme = stringPreferencesKey("app_theme")
@@ -22,6 +32,7 @@ class UserPreferencesRepository(private val context: Context) {
     private val keyLastSyncTimestamp = longPreferencesKey("last_sync_timestamp")
     private val keyTagProfileIdRepaired = booleanPreferencesKey("tag_profile_id_repaired")
     private val keyDisabledHomeEntryTypes = stringSetPreferencesKey("disabled_home_entry_types")
+    private val keyHomeTimelineDensity = stringPreferencesKey("home_timeline_density")
 
     /** Legacy theme key, read once during the profile theme migration then unused. */
     val appTheme: Flow<String?> = context.dataStore.data.map { it[keyAppTheme] }
@@ -47,6 +58,14 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun clearHomeEntryFilters() {
         context.dataStore.edit { it.remove(keyDisabledHomeEntryTypes) }
+    }
+
+    /** Home timeline spacing on this device. It is deliberately not part of profile sync. */
+    val homeTimelineDensity: Flow<HomeTimelineDensity> =
+        context.dataStore.data.map { HomeTimelineDensity.fromName(it[keyHomeTimelineDensity]) }
+
+    suspend fun setHomeTimelineDensity(value: HomeTimelineDensity) {
+        context.dataStore.edit { it[keyHomeTimelineDensity] = value.name }
     }
 
     suspend fun isProfileThemeMigrated(): Boolean =

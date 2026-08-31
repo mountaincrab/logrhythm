@@ -145,6 +145,15 @@ object EntryIconSizes {
     /** The bracketed form icon qualifying a medication's name: subordinate to it, still legible. */
     val TimelineFormIcon = 22.dp
 
+    /** Compact Home timeline sizes keep the same relative visual weight in a denser row. */
+    val CompactTimelineEmoji = 17.sp
+    val CompactTimelineIcon = 22.dp
+    val CompactTimelineFormIcon = 18.dp
+
+    fun timelineEmoji(compact: Boolean) = if (compact) CompactTimelineEmoji else TimelineEmoji
+    fun timelineIcon(compact: Boolean) = if (compact) CompactTimelineIcon else TimelineIcon
+    fun timelineFormIcon(compact: Boolean) = if (compact) CompactTimelineFormIcon else TimelineFormIcon
+
     /** The emoji on Home's log buttons. */
     val ButtonEmoji = 22.sp
 

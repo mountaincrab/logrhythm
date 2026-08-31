@@ -14,15 +14,20 @@ import androidx.compose.ui.unit.sp
 import com.mountaincrab.logrhythm.ui.theme.RatingColors
 
 @Composable
-fun RatingPill(rating: Int, modifier: Modifier = Modifier) {
+fun RatingPill(rating: Int, modifier: Modifier = Modifier, compact: Boolean = false) {
     val c = RatingColors[rating.coerceIn(1, 5)] ?: RatingColors.getValue(1)
     Box(
         modifier = modifier
-            .size(24.dp)
+            .size(if (compact) 20.dp else 24.dp)
             .clip(CircleShape)
             .background(c.bg),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = "$rating", color = c.fg, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+        Text(
+            text = "$rating",
+            color = c.fg,
+            fontSize = if (compact) 10.sp else 11.sp,
+            fontWeight = FontWeight.ExtraBold,
+        )
     }
 }
