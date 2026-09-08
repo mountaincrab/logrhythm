@@ -1,6 +1,5 @@
 package com.mountaincrab.logrhythm.data.repository
 
-import com.mountaincrab.logrhythm.data.local.dao.FoodEntryDao
 import com.mountaincrab.logrhythm.data.local.dao.MedicationDao
 import com.mountaincrab.logrhythm.data.local.dao.MedicationEntryDao
 import com.mountaincrab.logrhythm.data.local.dao.NoteEntryDao
@@ -8,7 +7,7 @@ import com.mountaincrab.logrhythm.data.local.dao.NoteTagDao
 import com.mountaincrab.logrhythm.data.local.dao.PoopEntryDao
 import com.mountaincrab.logrhythm.data.local.dao.PoopTagDao
 import com.mountaincrab.logrhythm.data.local.dao.TimelineDao
-import com.mountaincrab.logrhythm.data.local.entity.FoodEntryEntity
+import com.mountaincrab.logrhythm.data.local.entity.FoodEntryWithLines
 import com.mountaincrab.logrhythm.data.local.entity.MedicationEntity
 import com.mountaincrab.logrhythm.data.local.entity.MedicationEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.NoteEntryEntity
@@ -29,7 +28,7 @@ import kotlinx.coroutines.flow.flatMapLatest
  */
 sealed class TimelineEntry(open val id: String, open val occurredAt: Long) {
     data class Poop(val entity: PoopEntryEntity, val tags: List<PoopTagEntity> = emptyList()) : TimelineEntry(entity.id, entity.occurredAt)
-    data class Food(val entity: FoodEntryEntity) : TimelineEntry(entity.id, entity.occurredAt)
+    data class Food(val food: FoodEntryWithLines) : TimelineEntry(food.entry.id, food.entry.occurredAt)
     data class Note(val entity: NoteEntryEntity, val tags: List<NoteTagEntity> = emptyList()) : TimelineEntry(entity.id, entity.occurredAt)
     /**
      * [medication] is the catalog row the dose points at — where its name and strength come
@@ -45,7 +44,7 @@ sealed class TimelineEntry(open val id: String, open val occurredAt: Long) {
 @OptIn(ExperimentalCoroutinesApi::class)
 class EntryRepository(
     private val poopDao: PoopEntryDao,
-    private val foodDao: FoodEntryDao,
+    private val foodRepository: FoodRepository,
     private val noteDao: NoteEntryDao,
     private val medicationEntryDao: MedicationEntryDao,
     private val medicationDao: MedicationDao,
@@ -101,7 +100,7 @@ class EntryRepository(
         ) { tagMaps, medications -> tagMaps to medications.associateBy { it.id } }
         return combine(
             poopDao.observeSince(pid, sinceMillis),
-            foodDao.observeSince(pid, sinceMillis),
+            foodRepository.observeEntriesSince(sinceMillis),
             noteDao.observeSince(pid, sinceMillis),
             medicationEntryDao.observeSince(pid, sinceMillis),
             lookupsFlow,
@@ -147,14 +146,11 @@ class EntryRepository(
         activeProfileId.flatMapLatest { poopDao.observeSince(it, sinceMillis) }
 
     suspend fun getPoop(id: String): PoopEntryEntity? = poopDao.getById(id)
-    suspend fun getFood(id: String): FoodEntryEntity? = foodDao.getById(id)
+    suspend fun getFood(id: String): FoodEntryWithLines? = foodRepository.getEntry(id)
     suspend fun getNote(id: String): NoteEntryEntity? = noteDao.getById(id)
 
-    suspend fun foodsInRange(startMillis: Long, endMillis: Long): List<FoodEntryEntity> =
-        foodDao.getInRange(profileId(), startMillis, endMillis)
-
-    suspend fun recentFoodItems(limit: Int = 30): List<String> =
-        foodDao.recentItems(profileId(), limit)
+    suspend fun foodsInRange(startMillis: Long, endMillis: Long): List<FoodEntryWithLines> =
+        foodRepository.entriesInRange(startMillis, endMillis)
 
     fun observeAllPoopTags(): Flow<List<PoopTagEntity>> =
         activeProfileId.flatMapLatest { poopTagDao.observeAll(it) }
@@ -230,37 +226,10 @@ class EntryRepository(
         syncScheduler.enqueue()
     }
 
-    suspend fun saveFood(
-        id: String? = null,
-        occurredAt: Long,
-        items: String,
-        mealTag: MealTag?,
-    ) {
-        val now = currentTimeMillis()
-        val existing = id?.let { foodDao.getById(it) }
-        val entry = existing?.copy(
-            occurredAt = occurredAt,
-            items = items,
-            mealTag = mealTag,
-            updatedAt = now,
-            syncStatus = com.mountaincrab.logrhythm.data.model.SyncStatus.PENDING,
-        ) ?: FoodEntryEntity(
-            userId = getUserId(),
-            profileId = profileId(),
-            occurredAt = occurredAt,
-            items = items,
-            mealTag = mealTag,
-        )
-        foodDao.upsert(entry)
-        syncScheduler.enqueue()
-    }
-
     suspend fun saveNote(
         id: String? = null,
         occurredAt: Long,
         content: String,
-        caffeine: Boolean = false,
-        alcohol: Boolean = false,
         noteTagIds: Set<String> = emptySet(),
     ) {
         val now = currentTimeMillis()
@@ -268,8 +237,6 @@ class EntryRepository(
         val entry = existing?.copy(
             occurredAt = occurredAt,
             content = content,
-            caffeine = caffeine,
-            alcohol = alcohol,
             updatedAt = now,
             syncStatus = com.mountaincrab.logrhythm.data.model.SyncStatus.PENDING,
         ) ?: NoteEntryEntity(
@@ -277,8 +244,6 @@ class EntryRepository(
             profileId = profileId(),
             occurredAt = occurredAt,
             content = content,
-            caffeine = caffeine,
-            alcohol = alcohol,
         )
         noteDao.upsert(entry)
         noteTagDao.replaceTagsForEntry(entry.id, noteTagIds.toList())
@@ -286,13 +251,13 @@ class EntryRepository(
     }
 
     suspend fun deletePoop(id: String) { poopDao.softDelete(id); syncScheduler.enqueue() }
-    suspend fun deleteFood(id: String) { foodDao.softDelete(id); syncScheduler.enqueue() }
+    suspend fun deleteFood(id: String) = foodRepository.deleteEntry(id)
     suspend fun deleteNote(id: String) { noteDao.softDelete(id); syncScheduler.enqueue() }
 
     /** Cascade soft-delete of all entries and tags belonging to a profile. */
     suspend fun deleteProfileData(profileId: String) {
         poopDao.softDeleteByProfile(profileId)
-        foodDao.softDeleteByProfile(profileId)
+        foodRepository.deleteProfileData(profileId)
         noteDao.softDeleteByProfile(profileId)
         poopTagDao.softDeleteByProfile(profileId)
         noteTagDao.softDeleteByProfile(profileId)

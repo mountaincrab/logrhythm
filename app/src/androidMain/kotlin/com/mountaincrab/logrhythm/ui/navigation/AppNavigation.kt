@@ -18,6 +18,7 @@ import com.mountaincrab.logrhythm.ui.addentry.AddPoopScreen
 import com.mountaincrab.logrhythm.ui.auth.SignInScreen
 import com.mountaincrab.logrhythm.ui.detail.EntryDetailScreen
 import com.mountaincrab.logrhythm.ui.history.HistoryScreen
+import com.mountaincrab.logrhythm.ui.foodlibrary.FoodLibraryScreen
 import com.mountaincrab.logrhythm.ui.home.HomeScreen
 import com.mountaincrab.logrhythm.ui.meds.MedsScreen
 import com.mountaincrab.logrhythm.ui.profiles.ProfilesScreen
@@ -31,6 +32,7 @@ sealed class Screen(val route: String) {
     data object Meds : Screen("meds")
     data object Settings : Screen("settings")
     data object Profiles : Screen("profiles")
+    data object FoodLibrary : Screen("foodLibrary")
 
     /** kind: "poop" | "food" | "note" | "medicine", optional editId. */
     data object AddPoop : Screen("addPoop?editId={editId}") {
@@ -143,10 +145,14 @@ fun AppNavigation(navController: NavHostController) {
                     }
                 },
                 onOpenProfiles = { navController.navigate(Screen.Profiles.route) },
+                onOpenFoodLibrary = { navController.navigate(Screen.FoodLibrary.route) },
             )
         }
         composable(Screen.Profiles.route) {
             ProfilesScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Screen.FoodLibrary.route) {
+            FoodLibraryScreen(onBack = { navController.popBackStack() })
         }
         composable(
             route = Screen.AddPoop.route,
@@ -164,7 +170,11 @@ fun AppNavigation(navController: NavHostController) {
             }),
         ) { backStackEntry ->
             val editId = backStackEntry.arguments?.getString("editId")?.takeIf { it.isNotBlank() }
-            AddFoodScreen(editId = editId, onDismiss = { navController.popBackStack() })
+            AddFoodScreen(
+                editId = editId,
+                onDismiss = { navController.popBackStack() },
+                onOpenFoodLibrary = { navController.navigate(Screen.FoodLibrary.route) },
+            )
         }
         composable(
             route = Screen.AddNote.route,

@@ -75,7 +75,9 @@ export function usePagedTimeline(userId: string, profileId: string) {
         limit(count),
       )
       return onSnapshot(q, (snap) => {
-        set({ items: snap.docs.map((d) => mapper(d.id, d.data())), full: snap.size === count })
+        const items = snap.docs.map((d) => mapper(d.id, d.data()))
+          .filter((item) => !(item as { isDeleted?: boolean }).isDeleted)
+        set({ items, full: snap.size === count })
         markDelivered(key)
       })
     }

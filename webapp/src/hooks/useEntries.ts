@@ -6,7 +6,7 @@ import {
 import { db } from '../firebase'
 import {
   PoopEntry, FoodEntry, NoteEntry, MealTag, TimelineEntry,
-  MedicationEntry,
+  MedicationEntry, FoodEntryLine,
 } from '../types'
 
 export function mapPoop(id: string, d: Record<string, unknown>): PoopEntry {
@@ -24,14 +24,27 @@ export function mapPoop(id: string, d: Record<string, unknown>): PoopEntry {
 }
 
 export function mapFood(id: string, d: Record<string, unknown>): FoodEntry {
+  const structured = Number(d.schemaVersion ?? 0) >= 2
+  const lines = Array.isArray(d.lines)
+    ? (d.lines as Record<string, unknown>[]).map((line, position): FoodEntryLine => ({
+        id: (line.id as string) ?? `${id}_${position}`,
+        position,
+        foodItemId: (line.foodItemId as string) ?? null,
+        quantity: typeof line.quantity === 'number' ? line.quantity : null,
+        customText: (line.customText as string) ?? null,
+        componentAmounts: mapNumberRecord(line.componentAmounts),
+      }))
+    : []
   return {
     id,
     profileId: (d.profileId as string) ?? 'default',
     occurredAt: (d.occurredAt as number) ?? 0,
-    items: (d.items as string) ?? '',
+    schemaVersion: 2,
+    lines,
     mealTag: (d.mealTag as MealTag) ?? null,
     createdAt: (d.createdAt as number) ?? 0,
-    isDeleted: (d.isDeleted as boolean) ?? false,
+    // Legacy free-text docs are intentionally not migrated on either client.
+    isDeleted: !structured || ((d.isDeleted as boolean) ?? false),
   }
 }
 
@@ -41,8 +54,6 @@ export function mapNote(id: string, d: Record<string, unknown>): NoteEntry {
     profileId: (d.profileId as string) ?? 'default',
     occurredAt: (d.occurredAt as number) ?? 0,
     content: (d.content as string) ?? '',
-    caffeine: (d.caffeine as boolean) ?? false,
-    alcohol: (d.alcohol as boolean) ?? false,
     tagIds: Array.isArray(d.tagIds) ? (d.tagIds as string[]) : [],
     createdAt: (d.createdAt as number) ?? 0,
     isDeleted: (d.isDeleted as boolean) ?? false,
@@ -98,14 +109,12 @@ export interface PoopInput {
 }
 export interface FoodInput {
   occurredAt: number
-  items: string
+  lines: FoodEntryLine[]
   mealTag: MealTag | null
 }
 export interface NoteInput {
   occurredAt: number
   content: string
-  caffeine: boolean
-  alcohol: boolean
 }
 /** A dose, whether logged by hand or edited after a schedule added it. */
 export interface MedicineInput {
@@ -165,7 +174,8 @@ export function useEntries(userId: string, profileId: string) {
     await setDoc(doc(col('food_entries'), id), {
       userId, profileId,
       occurredAt: input.occurredAt,
-      items: input.items,
+      schemaVersion: 2,
+      lines: serialiseFoodLines(input.lines),
       mealTag: input.mealTag,
       createdAt: Date.now(),
       updatedAt: serverTimestamp(),
@@ -175,7 +185,8 @@ export function useEntries(userId: string, profileId: string) {
   const updateFood = async (id: string, input: FoodInput) => {
     await updateDoc(doc(col('food_entries'), id), {
       occurredAt: input.occurredAt,
-      items: input.items,
+      schemaVersion: 2,
+      lines: serialiseFoodLines(input.lines),
       mealTag: input.mealTag,
       updatedAt: serverTimestamp(),
     })
@@ -187,8 +198,6 @@ export function useEntries(userId: string, profileId: string) {
       userId, profileId,
       occurredAt: input.occurredAt,
       content: input.content,
-      caffeine: input.caffeine,
-      alcohol: input.alcohol,
       tagIds: [],
       createdAt: Date.now(),
       updatedAt: serverTimestamp(),
@@ -199,8 +208,6 @@ export function useEntries(userId: string, profileId: string) {
     await updateDoc(doc(col('note_entries'), id), {
       occurredAt: input.occurredAt,
       content: input.content,
-      caffeine: input.caffeine,
-      alcohol: input.alcohol,
       updatedAt: serverTimestamp(),
     })
   }
@@ -245,4 +252,16 @@ export function useEntries(userId: string, profileId: string) {
     addNote, updateNote, deleteNote: softDelete('note_entries'),
     addMedicine, updateMedicine, deleteMedicine: softDelete('medication_entries'),
   }
+}
+
+function mapNumberRecord(value: unknown): Record<string, number> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+    .filter((entry): entry is [string, number] => typeof entry[1] === 'number' && Number.isFinite(entry[1])))
+}
+
+function serialiseFoodLines(lines: FoodEntryLine[]) {
+  return lines.map((line, position) => line.foodItemId
+    ? { id: line.id, position, foodItemId: line.foodItemId, quantity: line.quantity }
+    : { id: line.id, position, customText: line.customText, componentAmounts: line.componentAmounts })
 }

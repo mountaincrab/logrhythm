@@ -10,6 +10,8 @@ import { mealTagLabel } from '../lib/mealTags'
 import { formatTime, formatDayFull } from '../lib/dates'
 import { formatDoseAmount, medicationDose } from '../lib/medications'
 import { useMedicationsContext } from '../contexts/MedicationsContext'
+import { useFoodCatalogContext } from '../contexts/FoodCatalogContext'
+import { foodEntryComponentTotals, foodEntryLabel, formatFoodNumber } from '../lib/food'
 import AddPoopSheet from '../components/sheets/AddPoopSheet'
 import AddFoodSheet from '../components/sheets/AddFoodSheet'
 import AddNoteSheet from '../components/sheets/AddNoteSheet'
@@ -65,6 +67,7 @@ export default function EntryDetailPage() {
   const navigate = useNavigate()
   const ctx = useEntriesContext()
   const { medicationsById } = useMedicationsContext()
+  const { foodItemsById, componentsById } = useFoodCatalogContext()
   const [editing, setEditing] = useState(false)
 
   const poop = kind === 'poop' ? ctx.poops.find((p) => p.id === id) : undefined
@@ -145,7 +148,7 @@ export default function EntryDetailPage() {
               foodBefore.map((f) => (
                 <div key={f.id} className="flex items-center gap-2.5 py-2 border-t border-subtle first:border-t-0">
                   <div className="w-[52px] text-[11px] text-fg-muted font-mono font-bold tabular-nums">{formatTime(f.occurredAt)}</div>
-                  <div className="flex-1 text-[13px]">{f.items}</div>
+                  <div className="flex-1 text-[13px]">{foodEntryLabel(f, foodItemsById)}</div>
                 </div>
               ))
             )}
@@ -167,16 +170,37 @@ export default function EntryDetailPage() {
 
   if (food) {
     const tag = mealTagLabel(food.mealTag)
+    const componentTotals = foodEntryComponentTotals(food, foodItemsById)
     return (
       <>
         <DetailFrame eyebrow="Food" headerLine={headerLine} onEdit={() => setEditing(true)}>
-          <Card label="What you ate"><div className="text-sm leading-relaxed text-fg">{food.items}</div></Card>
+          <Card label="What you ate">
+            <div className="divide-y divide-[var(--border-subtle)]">
+              {[...food.lines].sort((a, b) => a.position - b.position).map((line) => {
+                const item = line.foodItemId ? foodItemsById.get(line.foodItemId) : undefined
+                return <div key={line.id} className="py-2 first:pt-0 last:pb-0">
+                  <div className="text-sm font-semibold">{item?.name ?? line.customText ?? 'Unavailable food item'}</div>
+                  {item && <div className="text-xs text-fg-muted">{formatFoodNumber(line.quantity ?? 1)} × {item.amount} {item.unit}</div>}
+                </div>
+              })}
+            </div>
+          </Card>
+          {Object.keys(componentTotals).length > 0 && <Card label="Components">
+            <div className="flex flex-wrap gap-1.5">
+              {Object.entries(componentTotals).map(([id, amount]) => {
+                const component = componentsById.get(id)
+                return component && <span key={id} className="px-2.5 py-1 rounded-full bg-accent-soft text-accent-text text-xs font-semibold">
+                  {component.name} · {formatFoodNumber(amount)} {component.unit}
+                </span>
+              })}
+            </div>
+          </Card>}
           {tag && <Card label="Tag"><div className="text-base font-semibold">{tag}</div></Card>}
           <DeleteButton onDelete={del} />
         </DetailFrame>
         {editing && (
           <AddFoodSheet
-            initial={{ occurredAt: food.occurredAt, items: food.items, mealTag: food.mealTag }}
+            initial={{ occurredAt: food.occurredAt, lines: food.lines, mealTag: food.mealTag }}
             onClose={() => setEditing(false)}
             onSave={(input) => ctx.updateFood(food.id, input)}
           />
@@ -229,25 +253,15 @@ export default function EntryDetailPage() {
 
   // note
   const n = note as NoteEntry
-  const flags = [n.caffeine && 'Caffeine', n.alcohol && 'Alcohol'].filter(Boolean) as string[]
   return (
     <>
       <DetailFrame eyebrow="Note" headerLine={headerLine} onEdit={() => setEditing(true)}>
         <Card label="Note"><div className="text-sm leading-relaxed text-fg whitespace-pre-wrap">{n.content}</div></Card>
-        {flags.length > 0 && (
-          <Card label="Flags">
-            <div className="flex flex-wrap gap-1.5 mt-0.5">
-              {flags.map((f) => (
-                <span key={f} className="px-2.5 py-1 rounded-full bg-surface-high text-fg-muted text-[11px] font-semibold">{f}</span>
-              ))}
-            </div>
-          </Card>
-        )}
         <DeleteButton onDelete={del} />
       </DetailFrame>
       {editing && (
         <AddNoteSheet
-          initial={{ occurredAt: n.occurredAt, content: n.content, caffeine: n.caffeine, alcohol: n.alcohol }}
+          initial={{ occurredAt: n.occurredAt, content: n.content }}
           onClose={() => setEditing(false)}
           onSave={(input) => ctx.updateNote(n.id, input)}
         />

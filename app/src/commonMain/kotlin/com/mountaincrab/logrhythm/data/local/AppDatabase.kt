@@ -5,6 +5,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
 import com.mountaincrab.logrhythm.data.local.dao.FoodEntryDao
+import com.mountaincrab.logrhythm.data.local.dao.FoodItemDao
 import com.mountaincrab.logrhythm.data.local.dao.MedicationDao
 import com.mountaincrab.logrhythm.data.local.dao.MedicationEntryDao
 import com.mountaincrab.logrhythm.data.local.dao.MedicationScheduleDao
@@ -14,7 +15,12 @@ import com.mountaincrab.logrhythm.data.local.dao.PoopEntryDao
 import com.mountaincrab.logrhythm.data.local.dao.PoopTagDao
 import com.mountaincrab.logrhythm.data.local.dao.ProfileDao
 import com.mountaincrab.logrhythm.data.local.dao.TimelineDao
+import com.mountaincrab.logrhythm.data.local.dao.TrackedComponentDao
 import com.mountaincrab.logrhythm.data.local.entity.FoodEntryEntity
+import com.mountaincrab.logrhythm.data.local.entity.FoodEntryLineComponentEntity
+import com.mountaincrab.logrhythm.data.local.entity.FoodEntryLineEntity
+import com.mountaincrab.logrhythm.data.local.entity.FoodItemComponentEntity
+import com.mountaincrab.logrhythm.data.local.entity.FoodItemEntity
 import com.mountaincrab.logrhythm.data.local.entity.MedicationEntity
 import com.mountaincrab.logrhythm.data.local.entity.MedicationEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.MedicationScheduleEntity
@@ -25,6 +31,7 @@ import com.mountaincrab.logrhythm.data.local.entity.PoopEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryTagCrossRef
 import com.mountaincrab.logrhythm.data.local.entity.PoopTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.ProfileEntity
+import com.mountaincrab.logrhythm.data.local.entity.TrackedComponentEntity
 import com.mountaincrab.logrhythm.data.model.MealTag
 import com.mountaincrab.logrhythm.data.model.MedicationForm
 import com.mountaincrab.logrhythm.data.model.RepeatRule
@@ -43,14 +50,21 @@ import com.mountaincrab.logrhythm.data.model.SyncStatus
         MedicationEntity::class,
         MedicationScheduleEntity::class,
         MedicationEntryEntity::class,
+        TrackedComponentEntity::class,
+        FoodItemEntity::class,
+        FoodItemComponentEntity::class,
+        FoodEntryLineEntity::class,
+        FoodEntryLineComponentEntity::class,
     ],
-    version = 13,
+    version = 14,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun poopEntryDao(): PoopEntryDao
     abstract fun foodEntryDao(): FoodEntryDao
+    abstract fun foodItemDao(): FoodItemDao
+    abstract fun trackedComponentDao(): TrackedComponentDao
     abstract fun noteEntryDao(): NoteEntryDao
     abstract fun poopTagDao(): PoopTagDao
     abstract fun noteTagDao(): NoteTagDao
@@ -61,7 +75,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun medicationEntryDao(): MedicationEntryDao
 
     companion object {
-        const val CURRENT_VERSION = 11
+        const val CURRENT_VERSION = 14
     }
 }
 

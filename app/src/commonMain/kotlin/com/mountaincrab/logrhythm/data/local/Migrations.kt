@@ -478,7 +478,124 @@ private val MIGRATION_12_13 = object : Migration(12, 13) {
     }
 }
 
+/**
+ * Replaces free-text food rows with a reusable food catalogue and ordered entry lines.
+ * Caffeine and alcohol become ordinary tracked components; their old note booleans are
+ * removed. The feature deliberately does not infer structured rows from legacy free text.
+ */
+private val MIGRATION_13_14 = object : Migration(13, 14) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("""
+            CREATE TABLE tracked_components (
+                id TEXT NOT NULL PRIMARY KEY,
+                userId TEXT NOT NULL,
+                profileId TEXT NOT NULL,
+                name TEXT NOT NULL,
+                unit TEXT NOT NULL,
+                sortOrder INTEGER NOT NULL,
+                createdAt INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL,
+                syncStatus TEXT NOT NULL,
+                isArchived INTEGER NOT NULL
+            )
+        """.trimIndent())
+        connection.execSQL("CREATE INDEX index_tracked_components_profileId_isArchived_sortOrder ON tracked_components (profileId, isArchived, sortOrder)")
+
+        connection.execSQL("""
+            CREATE TABLE food_items (
+                id TEXT NOT NULL PRIMARY KEY,
+                userId TEXT NOT NULL,
+                profileId TEXT NOT NULL,
+                name TEXT NOT NULL,
+                amount TEXT NOT NULL,
+                unit TEXT NOT NULL,
+                sortOrder INTEGER NOT NULL,
+                createdAt INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL,
+                syncStatus TEXT NOT NULL,
+                isArchived INTEGER NOT NULL
+            )
+        """.trimIndent())
+        connection.execSQL("CREATE INDEX index_food_items_profileId_isArchived_sortOrder ON food_items (profileId, isArchived, sortOrder)")
+
+        connection.execSQL("""
+            CREATE TABLE food_item_components (
+                foodItemId TEXT NOT NULL,
+                componentId TEXT NOT NULL,
+                amount REAL NOT NULL,
+                PRIMARY KEY (foodItemId, componentId),
+                FOREIGN KEY (foodItemId) REFERENCES food_items (id) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+        """.trimIndent())
+        connection.execSQL("CREATE INDEX index_food_item_components_componentId ON food_item_components (componentId)")
+
+        // Old free-text food rows are intentionally not converted into empty structured rows.
+        connection.execSQL("DROP TABLE food_entries")
+        connection.execSQL("""
+            CREATE TABLE food_entries (
+                id TEXT NOT NULL PRIMARY KEY,
+                userId TEXT NOT NULL,
+                profileId TEXT NOT NULL DEFAULT 'default',
+                occurredAt INTEGER NOT NULL,
+                mealTag TEXT,
+                createdAt INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL,
+                syncStatus TEXT NOT NULL,
+                isDeleted INTEGER NOT NULL
+            )
+        """.trimIndent())
+        connection.execSQL("CREATE INDEX index_food_entries_profileId_isDeleted_occurredAt ON food_entries (profileId, isDeleted, occurredAt)")
+
+        connection.execSQL("""
+            CREATE TABLE food_entry_lines (
+                id TEXT NOT NULL PRIMARY KEY,
+                entryId TEXT NOT NULL,
+                position INTEGER NOT NULL,
+                foodItemId TEXT,
+                quantity REAL,
+                customText TEXT,
+                FOREIGN KEY (entryId) REFERENCES food_entries (id) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+        """.trimIndent())
+        connection.execSQL("CREATE INDEX index_food_entry_lines_entryId_position ON food_entry_lines (entryId, position)")
+        connection.execSQL("CREATE INDEX index_food_entry_lines_foodItemId ON food_entry_lines (foodItemId)")
+
+        connection.execSQL("""
+            CREATE TABLE food_entry_line_components (
+                lineId TEXT NOT NULL,
+                componentId TEXT NOT NULL,
+                amount REAL NOT NULL,
+                PRIMARY KEY (lineId, componentId),
+                FOREIGN KEY (lineId) REFERENCES food_entry_lines (id) ON UPDATE NO ACTION ON DELETE CASCADE
+            )
+        """.trimIndent())
+        connection.execSQL("CREATE INDEX index_food_entry_line_components_componentId ON food_entry_line_components (componentId)")
+
+        connection.execSQL("""
+            CREATE TABLE note_entries_new (
+                id TEXT NOT NULL PRIMARY KEY,
+                userId TEXT NOT NULL,
+                profileId TEXT NOT NULL DEFAULT 'default',
+                occurredAt INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                createdAt INTEGER NOT NULL,
+                updatedAt INTEGER NOT NULL,
+                syncStatus TEXT NOT NULL,
+                isDeleted INTEGER NOT NULL
+            )
+        """.trimIndent())
+        connection.execSQL("""
+            INSERT INTO note_entries_new
+                (id, userId, profileId, occurredAt, content, createdAt, updatedAt, syncStatus, isDeleted)
+            SELECT id, userId, profileId, occurredAt, content, createdAt, updatedAt, 'PENDING', isDeleted
+            FROM note_entries
+        """.trimIndent())
+        connection.execSQL("DROP TABLE note_entries")
+        connection.execSQL("ALTER TABLE note_entries_new RENAME TO note_entries")
+    }
+}
+
 val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_3_4, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
-    MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13,
+    MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14,
 )

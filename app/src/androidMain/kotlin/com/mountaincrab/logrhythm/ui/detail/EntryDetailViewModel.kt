@@ -2,7 +2,7 @@ package com.mountaincrab.logrhythm.ui.detail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.mountaincrab.logrhythm.data.local.entity.FoodEntryEntity
+import com.mountaincrab.logrhythm.data.local.entity.FoodEntryWithLines
 import com.mountaincrab.logrhythm.data.local.entity.MedicationEntity
 import com.mountaincrab.logrhythm.data.local.entity.MedicationEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.NoteEntryEntity
@@ -20,13 +20,13 @@ import kotlinx.coroutines.launch
 data class EntryDetailUiState(
     val poop: PoopEntryEntity? = null,
     val poopTags: List<PoopTagEntity> = emptyList(),
-    val food: FoodEntryEntity? = null,
+    val food: FoodEntryWithLines? = null,
     val note: NoteEntryEntity? = null,
     val noteTags: List<NoteTagEntity> = emptyList(),
     val medication: MedicationEntryEntity? = null,
     /** The catalog row [medication] points at — where its name and strength are read from. */
     val medicationDefinition: MedicationEntity? = null,
-    val foodWindow: List<FoodEntryEntity> = emptyList(),
+    val foodWindow: List<FoodEntryWithLines> = emptyList(),
     val deleted: Boolean = false,
 )
 

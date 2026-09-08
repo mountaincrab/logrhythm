@@ -5,12 +5,15 @@ import androidx.lifecycle.viewModelScope
 import com.mountaincrab.logrhythm.data.local.entity.MedicationEntity
 import com.mountaincrab.logrhythm.data.local.entity.MedicationEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryEntity
+import com.mountaincrab.logrhythm.data.local.entity.FoodEntryWithLines
+import com.mountaincrab.logrhythm.data.local.entity.TrackedComponentEntity
 import com.mountaincrab.logrhythm.data.model.MedicationForm
 import com.mountaincrab.logrhythm.data.model.doseUnits
 import com.mountaincrab.logrhythm.data.model.formatDose
 import com.mountaincrab.logrhythm.data.model.formatMedicationValue
 import com.mountaincrab.logrhythm.data.model.parseAmount
 import com.mountaincrab.logrhythm.data.repository.EntryRepository
+import com.mountaincrab.logrhythm.data.repository.FoodRepository
 import com.mountaincrab.logrhythm.ui.util.toLocalDate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -68,6 +71,17 @@ data class MedicationSeries(
         formatMedicationValue(value, decimals) + unit
 }
 
+data class ComponentSeries(
+    val componentId: String,
+    val name: String,
+    val unit: String,
+    val colorIndex: Int,
+    val dailyTotals: List<Double>,
+    val total: Double,
+    val avgPerDay: Double,
+    val peak: Double,
+)
+
 data class HistoryUiState(
     val tab: HistoryTab = HistoryTab.CALENDAR,
     val month: YearMonth = YearMonth.now(),
@@ -84,17 +98,29 @@ data class HistoryUiState(
     val medicationSeries: List<MedicationSeries> = emptyList(),
     /** Whether any medication has ever been defined — an empty catalog gets a different empty line. */
     val hasMedications: Boolean = false,
+    val componentSeries: List<ComponentSeries> = emptyList(),
+    val hasComponents: Boolean = false,
 )
 
-class HistoryViewModel(repository: EntryRepository) : ViewModel() {
+class HistoryViewModel(repository: EntryRepository, foodRepository: FoodRepository) : ViewModel() {
 
     private val tab = MutableStateFlow(HistoryTab.CALENDAR)
     private val month = MutableStateFlow(YearMonth.now())
     private val range = MutableStateFlow(TrendsRange.DAYS_30)
 
+    private data class Controls(val tab: HistoryTab, val month: YearMonth, val range: TrendsRange)
+    private val controls = combine(tab, month, range, ::Controls)
+    private val foodData = combine(
+        foodRepository.observeEntries(),
+        foodRepository.observeComponentsForLookup(),
+    ) { entries, components -> entries to components }
+
     val uiState: StateFlow<HistoryUiState> = combine(
-        repository.observePoops(), repository.observeDosesWithCatalog(), tab, month, range,
-    ) { poops, (doses, catalog), t, m, r ->
+        repository.observePoops(), repository.observeDosesWithCatalog(), foodData, controls,
+    ) { poops, (doses, catalog), (foods, components), control ->
+        val t = control.tab
+        val m = control.month
+        val r = control.range
         val today = LocalDate.now()
         val days = buildCalendar(m, poops, today)
         val daysWithEntries = days.count { it.worstRating != null }
@@ -105,6 +131,7 @@ class HistoryViewModel(repository: EntryRepository) : ViewModel() {
             listOfNotNull(
                 poops.minOfOrNull { it.occurredAt.toLocalDate() },
                 doses.minOfOrNull { it.occurredAt.toLocalDate() },
+                foods.minOfOrNull { it.entry.occurredAt.toLocalDate() },
             ).minOrNull()
         } else {
             today.minusDays((r.days - 1).toLong())
@@ -112,6 +139,7 @@ class HistoryViewModel(repository: EntryRepository) : ViewModel() {
         val (ratingPts, ratingAvg) = buildRatingSeries(poops, rangeStart, today)
         val (freqBars, freqAvg) = buildFrequencySeries(poops, rangeStart, today)
         val medSeries = buildMedicationSeries(doses, catalog, rangeStart, today)
+        val componentSeries = buildComponentSeries(foods, components, rangeStart, today)
 
         HistoryUiState(
             tab = t,
@@ -127,6 +155,8 @@ class HistoryViewModel(repository: EntryRepository) : ViewModel() {
             frequencyAvg = freqAvg,
             medicationSeries = medSeries,
             hasMedications = catalog.isNotEmpty(),
+            componentSeries = componentSeries,
+            hasComponents = components.isNotEmpty(),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HistoryUiState())
 
@@ -236,6 +266,44 @@ class HistoryViewModel(repository: EntryRepository) : ViewModel() {
                 // A non-numeric strength has nothing to multiply by, so the row counts units taken.
                 unit = if (unitAmount != null) med.doseUnit.trim() else "×",
                 colorIndex = index,
+                dailyTotals = totals.toList(),
+                total = total,
+                avgPerDay = total / days.size,
+                peak = totals.maxOrNull() ?: 0.0,
+            )
+        }
+    }
+
+    private fun buildComponentSeries(
+        entries: List<FoodEntryWithLines>,
+        components: List<TrackedComponentEntity>,
+        rangeStart: LocalDate?,
+        today: LocalDate,
+    ): List<ComponentSeries> {
+        if (components.isEmpty()) return emptyList()
+        val start = rangeStart ?: today
+        val days = generateSequence(start) { it.plusDays(1) }.takeWhile { !it.isAfter(today) }.toList()
+        if (days.isEmpty()) return emptyList()
+        val dayIndex = days.withIndex().associate { (index, day) -> day to index }
+        val totalsByComponent = components.associate { it.id to DoubleArray(days.size) }
+        entries.filter { it.entry.occurredAt.toLocalDate() in start..today }.forEach { food ->
+            val index = dayIndex[food.entry.occurredAt.toLocalDate()] ?: return@forEach
+            food.lines.forEach { resolved ->
+                val multiplier = if (resolved.line.foodItemId != null) resolved.line.quantity ?: 0.0 else 1.0
+                resolved.componentAmounts.forEach { (componentId, amount) ->
+                    totalsByComponent[componentId]?.let { it[index] += amount * multiplier }
+                }
+            }
+        }
+        return components.mapIndexedNotNull { colorIndex, component ->
+            val totals = totalsByComponent[component.id] ?: return@mapIndexedNotNull null
+            val total = totals.sum()
+            if (total <= 0.0) return@mapIndexedNotNull null
+            ComponentSeries(
+                componentId = component.id,
+                name = component.name,
+                unit = component.unit,
+                colorIndex = colorIndex,
                 dailyTotals = totals.toList(),
                 total = total,
                 avgPerDay = total / days.size,

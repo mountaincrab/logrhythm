@@ -8,6 +8,7 @@ import com.mountaincrab.logrhythm.data.local.ALL_MIGRATIONS
 import com.mountaincrab.logrhythm.data.local.AppDatabase
 import com.mountaincrab.logrhythm.data.remote.FirestoreRepository
 import com.mountaincrab.logrhythm.data.repository.EntryRepository
+import com.mountaincrab.logrhythm.data.repository.FoodRepository
 import com.mountaincrab.logrhythm.data.repository.MedicationRepository
 import com.mountaincrab.logrhythm.data.repository.ProfileRepository
 import com.mountaincrab.logrhythm.preferences.UserPreferencesRepository
@@ -19,6 +20,7 @@ import com.mountaincrab.logrhythm.ui.addentry.AddPoopViewModel
 import com.mountaincrab.logrhythm.ui.auth.SignInViewModel
 import com.mountaincrab.logrhythm.ui.detail.EntryDetailViewModel
 import com.mountaincrab.logrhythm.ui.history.HistoryViewModel
+import com.mountaincrab.logrhythm.ui.foodlibrary.FoodLibraryViewModel
 import com.mountaincrab.logrhythm.ui.home.HomeViewModel
 import com.mountaincrab.logrhythm.ui.meds.MedsViewModel
 import com.mountaincrab.logrhythm.ui.profiles.ProfilesViewModel
@@ -51,6 +53,8 @@ val appModule = module {
 
     single { get<AppDatabase>().poopEntryDao() }
     single { get<AppDatabase>().foodEntryDao() }
+    single { get<AppDatabase>().foodItemDao() }
+    single { get<AppDatabase>().trackedComponentDao() }
     single { get<AppDatabase>().noteEntryDao() }
     single { get<AppDatabase>().poopTagDao() }
     single { get<AppDatabase>().noteTagDao() }
@@ -74,9 +78,20 @@ val appModule = module {
     }
 
     single {
+        FoodRepository(
+            entryDao = get(),
+            itemDao = get(),
+            componentDao = get(),
+            syncScheduler = get(),
+            activeProfileId = get<ProfileRepository>().activeProfileId,
+            getUserId = { get<AuthRepository>().currentUserId ?: "local" },
+        )
+    }
+
+    single {
         EntryRepository(
             poopDao = get(),
-            foodDao = get(),
+            foodRepository = get(),
             noteDao = get(),
             medicationEntryDao = get(),
             medicationDao = get(),
@@ -101,7 +116,8 @@ val appModule = module {
             workManager = get(),
         )
     }
-    viewModel { HistoryViewModel(repository = get()) }
+    viewModel { HistoryViewModel(repository = get(), foodRepository = get()) }
+    viewModel { FoodLibraryViewModel(repository = get()) }
     viewModel { MedsViewModel(repository = get()) }
     viewModel {
         SettingsViewModel(

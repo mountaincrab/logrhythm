@@ -33,10 +33,45 @@ export interface FoodEntry {
   id: string
   profileId: string
   occurredAt: number
-  items: string
+  schemaVersion: 2
+  lines: FoodEntryLine[]
   mealTag: MealTag | null
   createdAt: number
   isDeleted: boolean
+}
+
+export interface FoodEntryLine {
+  id: string
+  position: number
+  foodItemId: string | null
+  quantity: number | null
+  customText: string | null
+  /** Direct totals for custom lines only, keyed by tracked-component id. */
+  componentAmounts: Record<string, number>
+}
+
+export interface TrackedComponent {
+  id: string
+  profileId: string
+  name: string
+  unit: string
+  sortOrder: number
+  createdAt: number
+  isArchived: boolean
+}
+
+export interface FoodItem {
+  id: string
+  profileId: string
+  name: string
+  /** The serving size represented by one quantity, stored as lossless text. */
+  amount: string
+  unit: string
+  /** Amount in one item, keyed by tracked-component id. */
+  componentAmounts: Record<string, number>
+  sortOrder: number
+  createdAt: number
+  isArchived: boolean
 }
 
 export interface NoteEntry {
@@ -44,8 +79,6 @@ export interface NoteEntry {
   profileId: string
   occurredAt: number
   content: string
-  caffeine: boolean
-  alcohol: boolean
   tagIds: string[]
   createdAt: number
   isDeleted: boolean

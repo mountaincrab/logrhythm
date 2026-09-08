@@ -28,5 +28,16 @@
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "food_items",
+      "fieldPath": "componentAmounts",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "food_entries",
+      "fieldPath": "lines",
+      "indexes": []
+    }
+  ]
 }
