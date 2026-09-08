@@ -1,11 +1,14 @@
 import { useState } from 'react'
 import { Check, Pencil, Trash2, Plus, LogOut } from 'lucide-react'
+import { Apple } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import { useAuth } from '../contexts/AuthContext'
 import { useProfileContext } from '../contexts/ProfileContext'
 import { THEMES } from '../lib/theme'
 
 export default function SettingsPage() {
+  const navigate = useNavigate()
   const { user, signOut } = useAuth()
   const { profiles, activeProfile, activeProfileId, setActiveProfile, createProfile, renameProfile, deleteProfile, setTheme } =
     useProfileContext()
@@ -39,6 +42,15 @@ export default function SettingsPage() {
   return (
     <AppShell title="Settings">
       <div className="max-w-2xl">
+        <section className="mb-9">
+          <div className="ds-eyebrow mb-2">Food</div>
+          <button onClick={() => navigate('/food-library')} className="w-full bg-surface-raised border border-DEFAULT rounded-xl px-4 py-3.5 flex items-center gap-3 text-left hover:bg-surface-high transition-colors">
+            <span className="w-9 h-9 rounded-xl bg-accent-soft text-accent-text flex items-center justify-center"><Apple size={18} /></span>
+            <span className="flex-1"><span className="block text-sm font-semibold">Food library</span><span className="block text-xs text-fg-muted">Manage saved items and tracked components</span></span>
+            <span className="text-fg-faint">›</span>
+          </button>
+        </section>
+
         {/* Appearance */}
         <section className="mb-9">
           <div className="ds-eyebrow mb-2">Appearance</div>

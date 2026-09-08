@@ -38,6 +38,7 @@ import com.mountaincrab.logrhythm.ui.navigation.Screen
 import com.mountaincrab.logrhythm.ui.theme.LocalAppPalette
 import com.mountaincrab.logrhythm.ui.theme.RatingColors
 import com.mountaincrab.logrhythm.ui.theme.medicationSeriesColor
+import com.mountaincrab.logrhythm.data.local.entity.formatFoodNumber
 import org.koin.compose.viewmodel.koinViewModel
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -368,6 +369,10 @@ private fun TrendsView(state: HistoryUiState, viewModel: HistoryViewModel) {
 
     Spacer(modifier = Modifier.height(12.dp))
 
+    ComponentTotalsCard(state)
+
+    Spacer(modifier = Modifier.height(12.dp))
+
     // Medication totals — one row per medication, each in its own unit
     MedicationTotalsCard(state)
 
@@ -390,6 +395,45 @@ private fun TrendsView(state: HistoryUiState, viewModel: HistoryViewModel) {
             text = "Foods eaten in the 24h before a rating ≥ 3, ranked by how much they nudged the rating up or down. Needs more data — keep logging.",
             color = palette.fgMuted, fontSize = 12.sp, lineHeight = 17.sp,
         )
+    }
+}
+
+/** One independently-scaled row per tracked component; unlike units never share an axis. */
+@Composable
+private fun ComponentTotalsCard(state: HistoryUiState) {
+    val palette = LocalAppPalette.current
+    Column(
+        modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp)).background(palette.surfaceRaised)
+            .border(1.dp, palette.border, RoundedCornerShape(16.dp)).padding(16.dp),
+    ) {
+        Text("FOOD COMPONENTS", color = palette.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.1.sp)
+        if (state.componentSeries.isEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                if (state.hasComponents) "No component amounts logged in this range."
+                else "Components will appear here after you add them in the Food library.",
+                color = palette.fgMuted, fontSize = 12.sp, lineHeight = 17.sp,
+            )
+            return@Column
+        }
+        state.componentSeries.forEachIndexed { index, series ->
+            if (index > 0) Box(Modifier.padding(top = 12.dp).fillMaxWidth().height(1.dp).background(palette.border))
+            val color = medicationSeriesColor(series.colorIndex)
+            Column(Modifier.padding(top = if (index == 0) 10.dp else 12.dp)) {
+                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(series.name, modifier = Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("${formatFoodNumber(series.total)} ${series.unit}", color = color, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(8.dp))
+                MedicationSparkline(series.dailyTotals, series.peak, color)
+                Row(Modifier.fillMaxWidth().padding(top = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("${formatFoodNumber(series.avgPerDay)} ${series.unit} / day avg", color = palette.fgFaint, fontSize = 9.5.sp)
+                    Text("peak ${formatFoodNumber(series.peak)} ${series.unit}", color = palette.fgFaint, fontSize = 9.5.sp)
+                }
+            }
+        }
+        XAxisLabels(state.rangeStart, state.rangeEnd)
     }
 }
 

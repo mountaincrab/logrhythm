@@ -27,6 +27,8 @@ interface ProfileDao {
         "SELECT (SELECT COUNT(*) FROM poop_entries WHERE profileId = :profileId AND isDeleted = 0)" +
             " + (SELECT COUNT(*) FROM food_entries WHERE profileId = :profileId AND isDeleted = 0)" +
             " + (SELECT COUNT(*) FROM note_entries WHERE profileId = :profileId AND isDeleted = 0)" +
+            " + (SELECT COUNT(*) FROM tracked_components WHERE profileId = :profileId AND isArchived = 0)" +
+            " + (SELECT COUNT(*) FROM food_items WHERE profileId = :profileId AND isArchived = 0)" +
             " + (SELECT COUNT(*) FROM poop_tags WHERE profileId = :profileId AND isDeleted = 0)" +
             " + (SELECT COUNT(*) FROM note_tags WHERE profileId = :profileId AND isDeleted = 0)"
     )

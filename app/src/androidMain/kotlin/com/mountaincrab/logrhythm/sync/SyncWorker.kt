@@ -52,6 +52,16 @@ class SyncWorker(
                 db.noteTagDao().markSynced(tag.id, System.currentTimeMillis())
             }
 
+            // Food catalogue definitions precede the entries that reference them.
+            db.trackedComponentDao().getPending().forEach { component ->
+                firestoreRepo.pushTrackedComponent(uid, component)
+                db.trackedComponentDao().markSynced(component.id, uid)
+            }
+            db.foodItemDao().getPending().forEach { item ->
+                firestoreRepo.pushFoodItem(uid, item, db.foodItemDao().getComponents(item.id))
+                db.foodItemDao().markSynced(item.id, uid)
+            }
+
             // Push entries with their current tag associations embedded.
             db.poopEntryDao().getPending().forEach { entry ->
                 val tagIds = db.poopTagDao().getTagsForEntry(entry.id).map { it.id }
@@ -59,7 +69,12 @@ class SyncWorker(
                 db.poopEntryDao().markSynced(entry.id, uid)
             }
             db.foodEntryDao().getPending().forEach { entry ->
-                firestoreRepo.pushFood(uid, entry)
+                firestoreRepo.pushFood(
+                    uid,
+                    entry,
+                    db.foodEntryDao().getLines(entry.id),
+                    db.foodEntryDao().getLineComponents(entry.id),
+                )
                 db.foodEntryDao().markSynced(entry.id, uid)
             }
             db.noteEntryDao().getPending().forEach { entry ->
@@ -122,11 +137,18 @@ class SyncWorker(
         firestoreRepo.pullPoopTags(uid, since).forEach { db.poopTagDao().upsert(it) }
         firestoreRepo.pullNoteTags(uid, since).forEach { db.noteTagDao().upsert(it) }
 
+        firestoreRepo.pullTrackedComponents(uid, since).forEach { db.trackedComponentDao().upsert(it) }
+        firestoreRepo.pullFoodItems(uid, since).forEach { remote ->
+            db.foodItemDao().upsertWithComponents(remote.item, remote.components)
+        }
+
         firestoreRepo.pullPoop(uid, since).forEach { (entity, tagIds) ->
             db.poopEntryDao().upsert(entity)
             db.poopTagDao().replaceTagsForEntry(entity.id, tagIds)
         }
-        firestoreRepo.pullFood(uid, since).forEach { db.foodEntryDao().upsert(it) }
+        firestoreRepo.pullFood(uid, since).forEach { remote ->
+            db.foodEntryDao().upsertWithLines(remote.entry, remote.lines, remote.lineComponents)
+        }
         firestoreRepo.pullNote(uid, since).forEach { (entity, tagIds) ->
             db.noteEntryDao().upsert(entity)
             db.noteTagDao().replaceTagsForEntry(entity.id, tagIds)

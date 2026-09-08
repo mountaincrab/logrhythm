@@ -15,7 +15,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
@@ -98,29 +97,6 @@ fun AddNoteScreen(
                 )
             }
 
-            Column(modifier = Modifier.padding(bottom = 18.dp)) {
-                FieldLabel("Lifestyle")
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    LifestyleCard(
-                        title = "Caffeine",
-                        subtitle = if (state.caffeine) "Yes today" else "Not today",
-                        on = state.caffeine,
-                        onClick = viewModel::onCaffeineToggle,
-                        modifier = Modifier.weight(1f),
-                    )
-                    LifestyleCard(
-                        title = "Alcohol",
-                        subtitle = if (state.alcohol) "Yes today" else "Not today",
-                        on = state.alcohol,
-                        onClick = viewModel::onAlcoholToggle,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-
             Spacer(modifier = Modifier.height(24.dp))
         }
 
@@ -128,7 +104,7 @@ fun AddNoteScreen(
             onCancel = onDismiss,
             onSave = viewModel::save,
             saveLabel = "Save",
-            saveEnabled = !state.saving && (state.content.isNotBlank() || state.caffeine || state.alcohol || state.selectedNoteTagIds.isNotEmpty()),
+            saveEnabled = !state.saving && (state.content.isNotBlank() || state.selectedNoteTagIds.isNotEmpty()),
         )
     }
 }
@@ -211,39 +187,6 @@ private fun NoteTagsRow(
                 color = palette.fgMuted,
                 fontSize = 12.sp,
             )
-        }
-    }
-}
-
-@Composable
-private fun LifestyleCard(
-    title: String,
-    subtitle: String,
-    on: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val palette = LocalAppPalette.current
-    Row(
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (on) palette.accentSoft else palette.surfaceRaised)
-            .border(
-                1.dp,
-                if (on) MaterialTheme.colorScheme.primary else palette.border,
-                RoundedCornerShape(12.dp),
-            )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Text(subtitle,
-                color = if (on) palette.accentText else palette.fgMuted,
-                fontSize = 11.sp)
         }
     }
 }

@@ -17,8 +17,6 @@ import kotlinx.coroutines.launch
 data class AddNoteUiState(
     val occurredAt: Long = currentTimeMillis(),
     val content: String = "",
-    val caffeine: Boolean = false,
-    val alcohol: Boolean = false,
     val selectedNoteTagIds: Set<String> = emptySet(),
     val saving: Boolean = false,
     val saved: Boolean = false,
@@ -51,8 +49,6 @@ class AddNoteViewModel(
                         it.copy(
                             occurredAt = e.occurredAt,
                             content = e.content,
-                            caffeine = e.caffeine,
-                            alcohol = e.alcohol,
                             selectedNoteTagIds = existingTags.map { t -> t.id }.toSet(),
                         )
                     }
@@ -63,9 +59,6 @@ class AddNoteViewModel(
 
     fun onOccurredAtChange(value: Long) = _state.update { it.copy(occurredAt = value) }
     fun onContentChange(value: String) = _state.update { it.copy(content = value) }
-    fun onCaffeineToggle() = _state.update { it.copy(caffeine = !it.caffeine) }
-    fun onAlcoholToggle() = _state.update { it.copy(alcohol = !it.alcohol) }
-
     fun onNoteTagToggle(tagId: String) = _state.update {
         val new = if (tagId in it.selectedNoteTagIds) it.selectedNoteTagIds - tagId else it.selectedNoteTagIds + tagId
         it.copy(selectedNoteTagIds = new)
@@ -81,15 +74,13 @@ class AddNoteViewModel(
     fun save() {
         val s = _state.value
         if (s.saving) return
-        if (s.content.isBlank() && !s.caffeine && !s.alcohol && s.selectedNoteTagIds.isEmpty()) return
+        if (s.content.isBlank() && s.selectedNoteTagIds.isEmpty()) return
         _state.update { it.copy(saving = true) }
         viewModelScope.launch {
             repository.saveNote(
                 id = existingId,
                 occurredAt = s.occurredAt,
                 content = s.content.trim(),
-                caffeine = s.caffeine,
-                alcohol = s.alcohol,
                 noteTagIds = s.selectedNoteTagIds,
             )
             _state.update { it.copy(saving = false, saved = true) }

@@ -82,8 +82,8 @@ app/src/
   commonMain/kotlin/com/mountaincrab/logrhythm/
     data/
       local/AppDatabase.kt, Migrations.kt
-      local/dao/{Poop,Food,Note}EntryDao.kt, {Poop,Note}TagDao.kt, ProfileDao.kt, Medication{,Schedule,Entry}Dao.kt
-      local/entity/{Poop,Food,Note}EntryEntity.kt, {Poop,Note}TagEntity.kt, {PoopEntry,NoteEntry}TagCrossRef.kt, ProfileEntity.kt, Medication{,Schedule,Entry}Entity.kt
+      local/dao/{Poop,Food,Note}EntryDao.kt, FoodItemDao.kt, TrackedComponentDao.kt, {Poop,Note}TagDao.kt, ProfileDao.kt, Medication{,Schedule,Entry}Dao.kt
+      local/entity/{Poop,Food,Note}EntryEntity.kt, FoodEntryLineEntity.kt, FoodItemEntity.kt, TrackedComponentEntity.kt, {Poop,Note}TagEntity.kt, {PoopEntry,NoteEntry}TagCrossRef.kt, ProfileEntity.kt, Medication{,Schedule,Entry}Entity.kt
       model/{Bristol,EntryKind,MealTag,Medication,StoolSystem,SyncStatus}.kt
     util/Platform.kt           ← expect: currentTimeMillis(), randomUUID()
   androidMain/kotlin/com/mountaincrab/logrhythm/
@@ -92,7 +92,7 @@ app/src/
     di/AppModule.kt
     auth/AuthRepository.kt                  ← Firebase Auth wrapper
     data/remote/FirestoreRepository.kt      ← push/pull mappers (Firestore doc shapes)
-    data/repository/{EntryRepository,ProfileRepository,MedicationRepository}.kt
+    data/repository/{EntryRepository,FoodRepository,ProfileRepository,MedicationRepository}.kt
     sync/{SyncWorker,SyncScheduler}.kt      ← WorkManager push/pull on PENDING rows
     preferences/UserPreferencesRepository.kt
     ui/
@@ -104,6 +104,7 @@ app/src/
       home/{HomeViewModel,HomeScreen}.kt
       addentry/{AddPoop,AddFood,AddNote,AddMedicine}{ViewModel,Screen}.kt
       meds/{MedsViewModel,MedsScreen,MedicationComponents}.kt
+      foodlibrary/{FoodLibraryViewModel,FoodLibraryScreen}.kt
       history/{HistoryViewModel,HistoryScreen}.kt
       detail/{EntryDetailViewModel,EntryDetailScreen}.kt
       settings/{SettingsViewModel,SettingsScreen}.kt
@@ -119,8 +120,13 @@ Room tables (local, Android):
 ```
 profiles                ← id, name, theme (AppTheme name), createdAt, updatedAt, syncStatus, isDeleted
 poop_entries            ← id, userId, profileId, occurredAt, bristolTypes (Set<Int> bitmask), blood (Int 1–5), notes?, createdAt, updatedAt, syncStatus, isDeleted
-food_entries            ← id, userId, profileId, occurredAt, items (String), mealTag (MealTag?), createdAt, updatedAt, syncStatus, isDeleted
-note_entries            ← id, userId, profileId, occurredAt, content (String), caffeine (Boolean), alcohol (Boolean), createdAt, updatedAt, syncStatus, isDeleted
+food_entries            ← event header: id, userId, profileId, occurredAt, mealTag?, createdAt, updatedAt, syncStatus, isDeleted
+food_entry_lines        ← id, entryId, position, foodItemId? + quantity? OR customText?
+food_entry_line_components ← lineId, componentId, amount (direct total for a custom line)
+food_items              ← id, userId, profileId, name, amount + unit (one serving), sortOrder, timestamps, syncStatus, isArchived
+food_item_components    ← foodItemId, componentId, amount (in one item)
+tracked_components      ← id, userId, profileId, name, canonical unit, sortOrder, timestamps, syncStatus, isArchived
+note_entries            ← id, userId, profileId, occurredAt, content (String), createdAt, updatedAt, syncStatus, isDeleted
 poop_tags               ← id, profileId, name, isDeleted, sortOrder, createdAt, updatedAt, syncStatus
 note_tags               ← id, profileId, name, isDeleted, sortOrder, createdAt, updatedAt, syncStatus
 poop_entry_tag_refs     ← entryId, tagId  (composite PK — many-to-many join)
@@ -131,13 +137,27 @@ medication_entries      ← id, userId, profileId, medicationId, quantity, occur
 ```
 
 Firestore mirror (the cross-device contract — see `FirestoreRepository.kt`): everything lives under
-`users/{uid}/{profiles, poop_entries, food_entries, note_entries, poop_tags, note_tags, medications,
-medication_schedules, medication_entries}`. Differences from the Room shape: `bristolTypes` is stored as a
+`users/{uid}/{profiles, poop_entries, food_entries, food_items, tracked_components, note_entries, poop_tags,
+note_tags, medications, medication_schedules, medication_entries}`. Differences from the Room shape: owned
+food item component amounts are embedded as `food_items.componentAmounts`, and owned food lines/custom
+component totals are embedded as `food_entries.lines` with `schemaVersion = 2`; `bristolTypes` is stored as a
 **sorted array of ints** (not a bitmask); poop/note docs carry a `tagIds` array instead of join rows; a
 schedule's `daysMask` bitmask is stored as a sorted `daysOfWeek` **ISO day array** (Mon = 1 … Sun = 7);
 `updatedAt` is a Firestore `serverTimestamp()`; `medications` and `medication_schedules` carry `isArchived`
 where every other collection carries `isDeleted`. Both surfaces must keep these field names/shapes in sync —
 the webapp writes the same documents the Android `SyncWorker` pulls.
+
+## Food catalogue and tracked components
+
+Food item definitions are live references, like medications, rather than snapshots. `FoodItem` has no
+food/drink type: its name, serving `amount` + `unit`, and component associations are all that is stored.
+Each catalogue entry line stores a `foodItemId` and numeric quantity; changing an item's name or component
+amount therefore updates historical rendering and trends without rewriting old entries. A custom line stores
+free text and may embed direct component totals instead. Caffeine (`mg`) and Alcohol (`UK units`) are
+idempotently seeded default tracked components, not special columns or note flags. Used component units are
+locked because changing a unit without a conversion would reinterpret history. Catalogue rows archive rather
+than delete so historical references keep resolving. The full rationale and schema are in
+`docs/design/food-components/implementation-plan.md`.
 
 ## Medication
 
@@ -250,11 +270,11 @@ Layout:
 webapp/src/
   firebase.ts                 ← initializes app/auth/db from VITE_FIREBASE_* env vars
   types.ts                    ← TS mirror of the Firestore document shapes
-  lib/{bristol,ratings,mealTags,medications,dates,theme}.ts
-  contexts/{AuthContext,ProfileContext,EntriesContext,MedicationsContext}.tsx
-  hooks/{useProfiles,useEntries,useMedications}.ts   ← onSnapshot listeners + CRUD (soft-delete via isDeleted)
+  lib/{bristol,ratings,mealTags,medications,food,dates,theme}.ts
+  contexts/{AuthContext,ProfileContext,EntriesContext,MedicationsContext,FoodCatalogContext}.tsx
+  hooks/{useProfiles,useEntries,useMedications,useFoodCatalog}.ts   ← onSnapshot listeners + CRUD
   components/{AppShell,Sidebar,MobileNav,ProfileSwitcher,TimelineEntryRow,Sheet,WhenField,MedicationFields,MedicationIcons}.tsx, sheets/Add{Poop,Food,Note,Medicine}Sheet.tsx
-  pages/{Login,Home,History,EntryDetail,Meds,Settings}Page.tsx
+  pages/{Login,Home,History,EntryDetail,Meds,FoodLibrary,Settings}Page.tsx
 ```
 
 `AppShell` is responsive and switches chrome at Tailwind's `md` (768px) breakpoint — no JS media queries,

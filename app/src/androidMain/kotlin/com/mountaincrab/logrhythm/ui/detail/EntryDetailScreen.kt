@@ -68,7 +68,7 @@ fun EntryDetailScreen(
         Header(
             title = when (kind) {
                 "poop" -> state.poop?.occurredAt?.formatFullDayWithTime()
-                "food" -> state.food?.occurredAt?.formatFullDayWithTime()
+                "food" -> state.food?.entry?.occurredAt?.formatFullDayWithTime()
                 "medicine" -> state.medication?.occurredAt?.formatFullDayWithTime()
                 else -> state.note?.occurredAt?.formatFullDayWithTime()
             } ?: "Entry",
@@ -86,13 +86,19 @@ fun EntryDetailScreen(
         ) {
             when (kind) {
                 "poop" -> state.poop?.let { PoopDetail(it, state.poopTags, state.foodWindow.map { f ->
-                    FoodRow(time = f.occurredAt.formatTime(), items = f.items)
+                    FoodRow(time = f.entry.occurredAt.formatTime(), items = f.displayText)
                 }) }
                 "food" -> state.food?.let { f ->
-                    DetailNotesCard("Time", f.occurredAt.formatTime())
-                    DetailNotesCard("Date", f.occurredAt.formatFullDay())
-                    DetailNotesCard("What you ate", f.items)
-                    f.mealTag?.let { DetailNotesCard("Tag", it.label) }
+                    DetailNotesCard("Time", f.entry.occurredAt.formatTime())
+                    DetailNotesCard("Date", f.entry.occurredAt.formatFullDay())
+                    f.lines.forEachIndexed { index, line ->
+                        val value = line.foodItem?.let { item ->
+                            val quantity = line.line.quantity ?: 1.0
+                            "${com.mountaincrab.logrhythm.data.local.entity.formatFoodNumber(quantity)} × ${item.name} · ${item.amount} ${item.unit} each"
+                        } ?: line.line.customText ?: "Unavailable food item"
+                        DetailNotesCard(if (f.lines.size == 1) "What you ate" else "Item ${index + 1}", value)
+                    }
+                    f.entry.mealTag?.let { DetailNotesCard("Tag", it.label) }
                 }
                 "medicine" -> state.medication?.let { m ->
                     DetailNotesCard("Time", m.occurredAt.formatTime())
@@ -114,43 +120,6 @@ fun EntryDetailScreen(
                     DetailNotesCard("Date", n.occurredAt.formatFullDay())
                     if (n.content.isNotBlank()) DetailNotesCard("Note", n.content)
                     NoteTagsCard(state.noteTags)
-                    val lifestyleFlags = listOfNotNull(
-                        if (n.caffeine) "Caffeine" else null,
-                        if (n.alcohol) "Alcohol" else null,
-                    )
-                    if (lifestyleFlags.isNotEmpty()) {
-                        Column(
-                            modifier = Modifier
-                                .padding(horizontal = 16.dp)
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(palette.surfaceRaised)
-                                .border(1.dp, palette.border, RoundedCornerShape(14.dp))
-                                .padding(horizontal = 16.dp, vertical = 14.dp),
-                        ) {
-                            Text("LIFESTYLE", color = palette.fgMuted,
-                                fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.1.sp)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-                            androidx.compose.foundation.layout.FlowRow(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp),
-                            ) {
-                                lifestyleFlags.forEach { label ->
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(999.dp))
-                                            .background(palette.surfaceHigh)
-                                            .padding(horizontal = 10.dp, vertical = 5.dp),
-                                    ) {
-                                        Text(label, color = palette.fgMuted, fontSize = 11.sp,
-                                            fontWeight = FontWeight.SemiBold)
-                                    }
-                                }
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(12.dp))
-                    }
                 }
             }
         }

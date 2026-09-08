@@ -213,6 +213,53 @@ class MigrationTest {
     }
 
     /**
+     * Tests that v13→v14 installs the generic component/catalogue model, removes the
+     * caffeine/alcohol note flags, and deliberately does not guess structured lines from
+     * legacy free-text food entries.
+     */
+    @Test
+    fun migrate13To14_foodCatalogueAndComponentsReplaceLegacyFields() {
+        helper.createDatabase(DB_NAME, 13).apply {
+            execSQL(
+                "INSERT INTO food_entries " +
+                    "(id, userId, profileId, occurredAt, items, mealTag, createdAt, updatedAt, syncStatus, isDeleted) " +
+                    "VALUES ('f1', 'u1', 'default', 3000, 'coffee and toast', 'BREAKFAST', 1000, 2000, 'SYNCED', 0)",
+            )
+            execSQL(
+                "INSERT INTO note_entries " +
+                    "(id, userId, profileId, occurredAt, content, caffeine, alcohol, createdAt, updatedAt, syncStatus, isDeleted) " +
+                    "VALUES ('n1', 'u1', 'default', 4000, 'Felt jittery', 1, 0, 1000, 2000, 'SYNCED', 0)",
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(DB_NAME, 14, true, *ALL_MIGRATIONS)
+
+        db.query("SELECT COUNT(*) FROM food_entries").use { c ->
+            c.moveToFirst()
+            assertEquals(0, c.getInt(0))
+        }
+        db.query("SELECT content, syncStatus FROM note_entries WHERE id = 'n1'").use { c ->
+            assertEquals(1, c.count)
+            c.moveToFirst()
+            assertEquals("Felt jittery", c.getString(0))
+            assertEquals("PENDING", c.getString(1))
+        }
+        for (table in listOf(
+            "tracked_components",
+            "food_items",
+            "food_item_components",
+            "food_entry_lines",
+            "food_entry_line_components",
+        )) {
+            db.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = '$table'").use { c ->
+                assertEquals("Expected $table to exist", 1, c.count)
+            }
+        }
+        db.close()
+    }
+
+    /**
      * Verifies every migration overrides migrate(SQLiteConnection).
      *
      * MigrationTestHelper uses SupportSQLiteOpenHelper internally and calls

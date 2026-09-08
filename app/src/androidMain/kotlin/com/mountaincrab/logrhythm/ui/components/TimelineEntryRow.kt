@@ -148,7 +148,7 @@ private fun FoodBody(entry: TimelineEntry.Food, compact: Boolean) {
         verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 6.dp),
     ) {
         Text(
-            text = entry.entity.occurredAt.formatTime(),
+            text = entry.food.entry.occurredAt.formatTime(),
             color = MaterialTheme.colorScheme.onSurface,
             fontSize = if (compact) 12.sp else 13.sp,
             fontWeight = FontWeight.Bold,
@@ -161,7 +161,7 @@ private fun FoodBody(entry: TimelineEntry.Food, compact: Boolean) {
         )
     }
     Text(
-        text = entry.entity.items,
+        text = entry.food.displayText,
         color = palette.fgMuted,
         fontSize = if (compact) 12.sp else 14.sp,
         lineHeight = if (compact) 16.sp else 20.sp,
@@ -254,20 +254,6 @@ private fun NoteBody(entry: TimelineEntry.Note, compact: Boolean) {
             fontSize = EntryIconSizes.timelineEmoji(compact),
             modifier = Modifier.align(Alignment.CenterVertically),
         )
-        if (entry.entity.caffeine) {
-            TimelineTag(
-                text = "☕",
-                compact = compact,
-                modifier = Modifier.align(Alignment.CenterVertically),
-            )
-        }
-        if (entry.entity.alcohol) {
-            TimelineTag(
-                text = "🍺",
-                compact = compact,
-                modifier = Modifier.align(Alignment.CenterVertically),
-            )
-        }
         entry.tags.forEach { tag ->
             TimelineTag(
                 text = tag.name,

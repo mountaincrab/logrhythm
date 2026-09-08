@@ -9,6 +9,8 @@ import HistoryPage from './pages/HistoryPage'
 import EntryDetailPage from './pages/EntryDetailPage'
 import MedsPage from './pages/MedsPage'
 import SettingsPage from './pages/SettingsPage'
+import FoodLibraryPage from './pages/FoodLibraryPage'
+import { FoodCatalogProvider } from './contexts/FoodCatalogContext'
 
 function ProtectedLayout() {
   const { user, loading } = useAuth()
@@ -17,9 +19,11 @@ function ProtectedLayout() {
   return (
     <ProfileProvider>
       <EntriesProvider>
-        <MedicationsProvider>
-          <Outlet />
-        </MedicationsProvider>
+        <FoodCatalogProvider>
+          <MedicationsProvider>
+            <Outlet />
+          </MedicationsProvider>
+        </FoodCatalogProvider>
       </EntriesProvider>
     </ProfileProvider>
   )
@@ -38,6 +42,7 @@ function AppRoutes() {
         <Route path="/meds" element={<MedsPage />} />
         <Route path="/entry/:kind/:id" element={<EntryDetailPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/food-library" element={<FoodLibraryPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

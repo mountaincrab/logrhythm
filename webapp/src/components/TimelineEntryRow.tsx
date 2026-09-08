@@ -6,6 +6,8 @@ import { formatTime } from '../lib/dates'
 import { formatDoseAmount, medicationDose } from '../lib/medications'
 import { ENTRY_ICON_SIZES, MedicationFormIcon, MedicineIcon } from './MedicationIcons'
 import { useMedicationsContext } from '../contexts/MedicationsContext'
+import { useFoodCatalogContext } from '../contexts/FoodCatalogContext'
+import { foodEntryLabel } from '../lib/food'
 
 function RatingPill({ n }: { n: number }) {
   const c = ratingColor(n)
@@ -35,6 +37,7 @@ function describePoop(types: number[]): string {
 
 export default function TimelineEntryRow({ item, onClick }: { item: TimelineEntry; onClick: () => void }) {
   const { medicationsById } = useMedicationsContext()
+  const { foodItemsById } = useFoodCatalogContext()
   let dotColor = 'var(--surface-high)'
   let kindLabel = ''
   let kindColor = 'var(--fg-faint)'
@@ -58,7 +61,7 @@ export default function TimelineEntryRow({ item, onClick }: { item: TimelineEntr
     const tag = mealTagLabel(item.entry.mealTag)
     body = (
       <span>
-        {item.entry.items}
+        {foodEntryLabel(item.entry, foodItemsById)}
         {tag && <span className="text-fg-muted"> · {tag}</span>}
       </span>
     )
@@ -95,18 +98,6 @@ export default function TimelineEntryRow({ item, onClick }: { item: TimelineEntr
     kindLabel = 'Note'
     kindColor = 'var(--accent-text)'
     body = <span>{item.entry.content}</span>
-    const flags = [item.entry.caffeine && 'Caffeine', item.entry.alcohol && 'Alcohol'].filter(Boolean) as string[]
-    if (flags.length > 0) {
-      meta = (
-        <div className="flex gap-1.5">
-          {flags.map((f) => (
-            <span key={f} className="px-2 py-0.5 rounded-full bg-surface-high text-fg-muted text-[11px] font-semibold">
-              {f}
-            </span>
-          ))}
-        </div>
-      )
-    }
   }
 
   return (

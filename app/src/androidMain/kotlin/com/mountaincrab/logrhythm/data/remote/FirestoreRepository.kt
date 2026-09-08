@@ -7,6 +7,10 @@ import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import com.mountaincrab.logrhythm.data.local.entity.DEFAULT_PROFILE_ID
 import com.mountaincrab.logrhythm.data.local.entity.FoodEntryEntity
+import com.mountaincrab.logrhythm.data.local.entity.FoodEntryLineComponentEntity
+import com.mountaincrab.logrhythm.data.local.entity.FoodEntryLineEntity
+import com.mountaincrab.logrhythm.data.local.entity.FoodItemComponentEntity
+import com.mountaincrab.logrhythm.data.local.entity.FoodItemEntity
 import com.mountaincrab.logrhythm.data.local.entity.MedicationEntity
 import com.mountaincrab.logrhythm.data.local.entity.MedicationEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.MedicationScheduleEntity
@@ -15,6 +19,7 @@ import com.mountaincrab.logrhythm.data.local.entity.NoteTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopEntryEntity
 import com.mountaincrab.logrhythm.data.local.entity.PoopTagEntity
 import com.mountaincrab.logrhythm.data.local.entity.ProfileEntity
+import com.mountaincrab.logrhythm.data.local.entity.TrackedComponentEntity
 import com.mountaincrab.logrhythm.data.model.MealTag
 import com.mountaincrab.logrhythm.data.model.MedicationForm
 import com.mountaincrab.logrhythm.data.model.RepeatRule
@@ -22,6 +27,17 @@ import com.mountaincrab.logrhythm.data.model.SyncStatus
 import com.mountaincrab.logrhythm.data.model.daysFromMask
 import com.mountaincrab.logrhythm.data.model.maskFromDays
 import kotlinx.coroutines.tasks.await
+
+data class RemoteFoodItem(
+    val item: FoodItemEntity,
+    val components: List<FoodItemComponentEntity>,
+)
+
+data class RemoteFoodEntry(
+    val entry: FoodEntryEntity,
+    val lines: List<FoodEntryLineEntity>,
+    val lineComponents: List<FoodEntryLineComponentEntity>,
+)
 
 class FirestoreRepository {
     private val db get() = Firebase.firestore
@@ -77,13 +93,36 @@ class FirestoreRepository {
         ).await()
     }
 
-    suspend fun pushFood(uid: String, entity: FoodEntryEntity) {
+    suspend fun pushFood(
+        uid: String,
+        entity: FoodEntryEntity,
+        lines: List<FoodEntryLineEntity>,
+        lineComponents: List<FoodEntryLineComponentEntity>,
+    ) {
+        val customByLine = lineComponents.groupBy { it.lineId }
+        val remoteLines = lines.sortedBy { it.position }.map { line ->
+            if (line.foodItemId != null) {
+                mapOf(
+                    "id" to line.id,
+                    "foodItemId" to line.foodItemId,
+                    "quantity" to line.quantity,
+                )
+            } else {
+                mapOf(
+                    "id" to line.id,
+                    "customText" to line.customText,
+                    "componentAmounts" to customByLine[line.id].orEmpty().associate { it.componentId to it.amount },
+                )
+            }
+        }
         userCol(uid, "food_entries").document(entity.id).set(
             mapOf(
                 "userId" to uid,
                 "profileId" to entity.profileId,
                 "occurredAt" to entity.occurredAt,
-                "items" to entity.items,
+                "schemaVersion" to 2,
+                "lines" to remoteLines,
+                "items" to FieldValue.delete(),
                 "mealTag" to entity.mealTag?.name,
                 "createdAt" to entity.createdAt,
                 "updatedAt" to FieldValue.serverTimestamp(),
@@ -100,8 +139,8 @@ class FirestoreRepository {
                 "profileId" to entity.profileId,
                 "occurredAt" to entity.occurredAt,
                 "content" to entity.content,
-                "caffeine" to entity.caffeine,
-                "alcohol" to entity.alcohol,
+                "caffeine" to FieldValue.delete(),
+                "alcohol" to FieldValue.delete(),
                 "tagIds" to tagIds,
                 "createdAt" to entity.createdAt,
                 "updatedAt" to FieldValue.serverTimestamp(),
@@ -163,23 +202,44 @@ class FirestoreRepository {
                 } catch (_: Exception) { null }
             }
 
-    suspend fun pullFood(uid: String, since: Timestamp): List<FoodEntryEntity> =
+    suspend fun pullFood(uid: String, since: Timestamp): List<RemoteFoodEntry> =
         userCol(uid, "food_entries")
             .whereGreaterThan("updatedAt", since)
             .get().await().documents.mapNotNull { doc ->
                 try {
-                    FoodEntryEntity(
+                    // Legacy free-text documents are intentionally not migrated.
+                    if ((doc.getLong("schemaVersion") ?: 0L) < 2L) return@mapNotNull null
+                    val entry = FoodEntryEntity(
                         id = doc.id,
                         userId = uid,
                         profileId = doc.getString("profileId") ?: DEFAULT_PROFILE_ID,
                         occurredAt = doc.getLong("occurredAt") ?: return@mapNotNull null,
-                        items = doc.getString("items") ?: return@mapNotNull null,
                         mealTag = doc.getString("mealTag")?.let { runCatching { MealTag.valueOf(it) }.getOrNull() },
                         createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis(),
                         updatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time ?: System.currentTimeMillis(),
                         syncStatus = SyncStatus.SYNCED,
                         isDeleted = doc.getBoolean("isDeleted") ?: false,
                     )
+                    val components = mutableListOf<FoodEntryLineComponentEntity>()
+                    val lines = (doc.get("lines") as? List<*>)?.mapIndexedNotNull { position, raw ->
+                        val map = raw as? Map<*, *> ?: return@mapIndexedNotNull null
+                        val id = map["id"] as? String ?: return@mapIndexedNotNull null
+                        val foodItemId = map["foodItemId"] as? String
+                        val customText = map["customText"] as? String
+                        if (foodItemId != null) {
+                            val quantity = (map["quantity"] as? Number)?.toDouble() ?: return@mapIndexedNotNull null
+                            FoodEntryLineEntity(id, entry.id, position, foodItemId, quantity, null)
+                        } else if (!customText.isNullOrBlank()) {
+                            val amountMap = map["componentAmounts"] as? Map<*, *>
+                            amountMap.orEmpty().forEach { (componentId, amount) ->
+                                if (componentId is String && amount is Number) {
+                                    components += FoodEntryLineComponentEntity(id, componentId, amount.toDouble())
+                                }
+                            }
+                            FoodEntryLineEntity(id, entry.id, position, null, null, customText)
+                        } else null
+                    }.orEmpty()
+                    RemoteFoodEntry(entry, lines, components)
                 } catch (_: Exception) { null }
             }
 
@@ -194,8 +254,6 @@ class FirestoreRepository {
                         profileId = doc.getString("profileId") ?: DEFAULT_PROFILE_ID,
                         occurredAt = doc.getLong("occurredAt") ?: return@mapNotNull null,
                         content = doc.getString("content") ?: return@mapNotNull null,
-                        caffeine = doc.getBoolean("caffeine") ?: false,
-                        alcohol = doc.getBoolean("alcohol") ?: false,
                         createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis(),
                         updatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time ?: System.currentTimeMillis(),
                         syncStatus = SyncStatus.SYNCED,
@@ -223,6 +281,81 @@ class FirestoreRepository {
                     )
                 } catch (_: Exception) { null }
             }
+
+    suspend fun pushTrackedComponent(uid: String, component: TrackedComponentEntity) {
+        userCol(uid, "tracked_components").document(component.id).set(
+            mapOf(
+                "userId" to uid,
+                "profileId" to component.profileId,
+                "name" to component.name,
+                "unit" to component.unit,
+                "sortOrder" to component.sortOrder,
+                "createdAt" to component.createdAt,
+                "updatedAt" to FieldValue.serverTimestamp(),
+                "isArchived" to component.isArchived,
+            ),
+            SetOptions.merge(),
+        ).await()
+    }
+
+    suspend fun pullTrackedComponents(uid: String, since: Timestamp): List<TrackedComponentEntity> =
+        userCol(uid, "tracked_components").whereGreaterThan("updatedAt", since).get().await().documents.mapNotNull { doc ->
+            try {
+                TrackedComponentEntity(
+                    id = doc.id,
+                    userId = uid,
+                    profileId = doc.getString("profileId") ?: DEFAULT_PROFILE_ID,
+                    name = doc.getString("name") ?: return@mapNotNull null,
+                    unit = doc.getString("unit") ?: return@mapNotNull null,
+                    sortOrder = (doc.getLong("sortOrder") ?: 0L).toInt(),
+                    createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis(),
+                    updatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time ?: System.currentTimeMillis(),
+                    syncStatus = SyncStatus.SYNCED,
+                    isArchived = doc.getBoolean("isArchived") ?: false,
+                )
+            } catch (_: Exception) { null }
+        }
+
+    suspend fun pushFoodItem(uid: String, item: FoodItemEntity, components: List<FoodItemComponentEntity>) {
+        userCol(uid, "food_items").document(item.id).set(
+            mapOf(
+                "userId" to uid,
+                "profileId" to item.profileId,
+                "name" to item.name,
+                "amount" to item.amount,
+                "unit" to item.unit,
+                "sortOrder" to item.sortOrder,
+                "componentAmounts" to components.associate { it.componentId to it.amount },
+                "createdAt" to item.createdAt,
+                "updatedAt" to FieldValue.serverTimestamp(),
+                "isArchived" to item.isArchived,
+            ),
+            SetOptions.merge(),
+        ).await()
+    }
+
+    suspend fun pullFoodItems(uid: String, since: Timestamp): List<RemoteFoodItem> =
+        userCol(uid, "food_items").whereGreaterThan("updatedAt", since).get().await().documents.mapNotNull { doc ->
+            try {
+                val item = FoodItemEntity(
+                    id = doc.id,
+                    userId = uid,
+                    profileId = doc.getString("profileId") ?: DEFAULT_PROFILE_ID,
+                    name = doc.getString("name") ?: return@mapNotNull null,
+                    amount = doc.getString("amount") ?: return@mapNotNull null,
+                    unit = doc.getString("unit") ?: return@mapNotNull null,
+                    sortOrder = (doc.getLong("sortOrder") ?: 0L).toInt(),
+                    createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis(),
+                    updatedAt = doc.getTimestamp("updatedAt")?.toDate()?.time ?: System.currentTimeMillis(),
+                    syncStatus = SyncStatus.SYNCED,
+                    isArchived = doc.getBoolean("isArchived") ?: false,
+                )
+                val amounts = (doc.get("componentAmounts") as? Map<*, *>).orEmpty().mapNotNull { (id, value) ->
+                    if (id is String && value is Number) FoodItemComponentEntity(item.id, id, value.toDouble()) else null
+                }
+                RemoteFoodItem(item, amounts)
+            } catch (_: Exception) { null }
+        }
 
     suspend fun pushMedication(uid: String, med: MedicationEntity) {
         userCol(uid, "medications").document(med.id).set(

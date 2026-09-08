@@ -3,13 +3,15 @@ import { CalendarDays, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-reac
 import AppShell from '../components/AppShell'
 import { useEntriesContext } from '../contexts/EntriesContext'
 import { useMedicationsContext } from '../contexts/MedicationsContext'
-import { PoopEntry, FoodEntry, Medication, MedicationEntry, MedicationForm } from '../types'
+import { PoopEntry, FoodEntry, FoodItem, Medication, MedicationEntry, MedicationForm, TrackedComponent } from '../types'
 import { ENTRY_ICON_SIZES, MedicationFormIcon } from '../components/MedicationIcons'
 import { ratingColor, RATING_COLORS } from '../lib/ratings'
 import {
   doseUnits, formatDose, formatMedicationValue, medicationSeriesColor, parseAmount,
 } from '../lib/medications'
 import { dayKey } from '../lib/dates'
+import { useFoodCatalogContext } from '../contexts/FoodCatalogContext'
+import { foodEntryComponentTotals, formatFoodNumber } from '../lib/food'
 
 type Tab = 'calendar' | 'trends'
 
@@ -28,7 +30,8 @@ function buildPoopByDay(poops: PoopEntry[]): Map<number, DayStat> {
 }
 
 export default function HistoryPage() {
-  const { poops, foods, loading } = useEntriesContext()
+  const { poops, foods, medicationEntries, loading } = useEntriesContext()
+  const { foodItemsById } = useFoodCatalogContext()
   const [tab, setTab] = useState<Tab>('calendar')
 
   const poopByDay = useMemo(() => buildPoopByDay(poops), [poops])
@@ -55,7 +58,12 @@ export default function HistoryPage() {
         ))}
       </div>
 
-      {tab === 'calendar' ? <CalendarView poopByDay={poopByDay} /> : <TrendsView poops={poops} foods={foods} />}
+      {tab === 'calendar' ? <CalendarView poopByDay={poopByDay} /> : <TrendsView
+        poops={poops}
+        foods={foods}
+        medicationEntries={medicationEntries}
+        foodItemsById={foodItemsById}
+      />}
     </AppShell>
   )
 }
@@ -138,21 +146,39 @@ function CalendarView({ poopByDay }: { poopByDay: Map<number, DayStat> }) {
   )
 }
 
-const RANGES: { days: number; label: string }[] = [
+interface TrendsRange { days: number | null; label: string }
+
+const RANGES: TrendsRange[] = [
   { days: 7, label: '7d' },
   { days: 30, label: '30d' },
   { days: 90, label: '90d' },
+  { days: 180, label: '6mo' },
+  { days: 365, label: '1y' },
+  { days: null, label: 'All' },
 ]
 
-function TrendsView({ poops, foods }: { poops: PoopEntry[]; foods: FoodEntry[] }) {
-  const [days, setDays] = useState(30)
+function TrendsView({ poops, foods, medicationEntries, foodItemsById }: {
+  poops: PoopEntry[]
+  foods: FoodEntry[]
+  medicationEntries: MedicationEntry[]
+  foodItemsById: Map<string, FoodItem>
+}) {
+  const [range, setRange] = useState<TrendsRange>(RANGES[1])
+  const days = useMemo(() => {
+    if (range.days !== null) return range.days
+    const timestamps = [
+      ...poops.map((entry) => entry.occurredAt),
+      ...foods.map((entry) => entry.occurredAt),
+      ...medicationEntries.map((entry) => entry.occurredAt),
+    ]
+    const oldest = timestamps.reduce((minimum, value) => Math.min(minimum, value), Date.now())
+    return Math.max(1, rangeDayKeysBetween(oldest, Date.now()))
+  }, [foods, medicationEntries, poops, range.days])
 
   const series = useMemo(() => {
     const poopByDay = buildPoopByDay(poops)
-    const today = dayKey(Date.now())
     const out: { key: number; rating: number | null; count: number }[] = []
-    for (let i = days - 1; i >= 0; i--) {
-      const key = today - i * 86_400_000
+    for (const key of rangeDayKeys(days)) {
       const stat = poopByDay.get(key)
       out.push({ key, rating: stat ? stat.worst : null, count: stat ? stat.count : 0 })
     }
@@ -165,7 +191,7 @@ function TrendsView({ poops, foods }: { poops: PoopEntry[]; foods: FoodEntry[] }
   const avgFreq = totalPoops / days
   const maxCount = Math.max(1, ...series.map((s) => s.count))
 
-  const suspects = useMemo(() => computeSuspects(poops, foods, days), [poops, foods, days])
+  const suspects = useMemo(() => computeSuspects(poops, foods, foodItemsById, days), [poops, foods, foodItemsById, days])
 
   // Blood-rating sparkline geometry
   const w = 320, h = 110, pad = 6
@@ -184,12 +210,12 @@ function TrendsView({ poops, foods }: { poops: PoopEntry[]; foods: FoodEntry[] }
 
   return (
     <>
-      <div className="flex bg-surface border border-DEFAULT rounded-xl p-[3px] mb-4 max-w-xs">
+      <div className="grid grid-cols-6 bg-surface border border-DEFAULT rounded-xl p-[3px] mb-4 max-w-lg">
         {RANGES.map((r) => (
           <button
-            key={r.days}
-            onClick={() => setDays(r.days)}
-            className={'flex-1 py-2 rounded-[9px] text-xs font-bold transition-colors ' + (days === r.days ? 'bg-surface-high text-fg' : 'text-fg-muted')}
+            key={r.label}
+            onClick={() => setRange(r)}
+            className={'py-2 rounded-[9px] text-xs font-bold transition-colors ' + (range.label === r.label ? 'bg-surface-high text-fg' : 'text-fg-muted')}
           >
             {r.label}
           </button>
@@ -265,6 +291,7 @@ function TrendsView({ poops, foods }: { poops: PoopEntry[]; foods: FoodEntry[] }
       </div>
 
       <MedicationTotals days={days} />
+      <ComponentTotals days={days} foods={foods} />
 
       {/* Food suspects */}
       <div className="bg-surface-raised border border-DEFAULT rounded-2xl p-4">
@@ -317,6 +344,17 @@ function rangeDayKeys(days: number): number[] {
     d.setDate(d.getDate() + 1)
   }
   return keys
+}
+
+function rangeDayKeysBetween(startMillis: number, endMillis: number): number {
+  const start = new Date(dayKey(startMillis))
+  const end = new Date(dayKey(endMillis))
+  let count = 1
+  while (start < end) {
+    start.setDate(start.getDate() + 1)
+    count += 1
+  }
+  return count
 }
 
 /**
@@ -452,23 +490,24 @@ function MedicationTotals({ days }: { days: number }) {
 
 interface Suspect { food: string; bad: number; total: number }
 
-function computeSuspects(poops: PoopEntry[], foods: FoodEntry[], days: number): Suspect[] {
+function computeSuspects(poops: PoopEntry[], foods: FoodEntry[], itemsById: Map<string, FoodItem>, days: number): Suspect[] {
   const cutoff = dayKey(Date.now()) - (days - 1) * 86_400_000
   const badPoops = poops.filter((p) => p.blood >= 3 && p.occurredAt >= cutoff)
   const rangeFoods = foods.filter((f) => f.occurredAt >= cutoff - 86_400_000)
 
-  const tokenize = (items: string) =>
-    items.split(',').map((s) => s.trim().toLowerCase()).filter((s) => s.length > 1)
+  const names = (entry: FoodEntry) => entry.lines.map((line) =>
+    line.foodItemId ? itemsById.get(line.foodItemId)?.name : line.customText,
+  ).filter((x): x is string => Boolean(x?.trim())).map((x) => x.trim().toLowerCase())
 
   const total = new Map<string, number>()
-  for (const f of rangeFoods) for (const t of new Set(tokenize(f.items))) total.set(t, (total.get(t) ?? 0) + 1)
+  for (const f of rangeFoods) for (const t of new Set(names(f))) total.set(t, (total.get(t) ?? 0) + 1)
 
   const bad = new Map<string, number>()
   for (const p of badPoops) {
     const windowStart = p.occurredAt - 86_400_000
     const eaten = new Set<string>()
     for (const f of rangeFoods) {
-      if (f.occurredAt >= windowStart && f.occurredAt <= p.occurredAt) for (const t of tokenize(f.items)) eaten.add(t)
+      if (f.occurredAt >= windowStart && f.occurredAt <= p.occurredAt) for (const t of names(f)) eaten.add(t)
     }
     for (const t of eaten) bad.set(t, (bad.get(t) ?? 0) + 1)
   }
@@ -477,4 +516,55 @@ function computeSuspects(poops: PoopEntry[], foods: FoodEntry[], days: number): 
     .map(([food, b]) => ({ food, bad: b, total: total.get(food) ?? b }))
     .sort((a, b) => b.bad - a.bad)
     .slice(0, 6)
+}
+
+interface ComponentSeries {
+  component: TrackedComponent
+  daily: number[]
+  total: number
+  avgPerDay: number
+  peak: number
+}
+
+function ComponentTotals({ days, foods }: { days: number; foods: FoodEntry[] }) {
+  const { componentsById, foodItemsById } = useFoodCatalogContext()
+  const dayKeys = useMemo(() => rangeDayKeys(days), [days])
+  const series = useMemo<ComponentSeries[]>(() => {
+    const dayIndex = new Map(dayKeys.map((key, index) => [key, index]))
+    const totals = new Map<string, number[]>()
+    for (const entry of foods) {
+      const index = dayIndex.get(dayKey(entry.occurredAt))
+      if (index === undefined) continue
+      for (const [componentId, amount] of Object.entries(foodEntryComponentTotals(entry, foodItemsById))) {
+        const daily = totals.get(componentId) ?? new Array(days).fill(0)
+        daily[index] += amount
+        totals.set(componentId, daily)
+      }
+    }
+    return [...totals.entries()].map(([id, daily]) => ({
+      component: componentsById.get(id), daily,
+      total: daily.reduce((a, b) => a + b, 0),
+      avgPerDay: daily.reduce((a, b) => a + b, 0) / days,
+      peak: Math.max(...daily),
+    })).filter((row): row is ComponentSeries => Boolean(row.component) && row.total > 0)
+      .sort((a, b) => a.component.sortOrder - b.component.sortOrder)
+  }, [componentsById, dayKeys, days, foodItemsById, foods])
+
+  return <div className="bg-surface-raised border border-DEFAULT rounded-2xl p-4 mb-3">
+    <div className="ds-eyebrow mb-1">Food components · total</div>
+    {series.length === 0 ? <p className="text-sm text-fg-muted py-3">No tracked component amounts in this range.</p> : series.map((row, rowIndex) => {
+      const color = medicationSeriesColor(rowIndex)
+      return <div key={row.component.id} className="py-3 border-t border-subtle first:border-t-0 first:pt-1.5">
+        <div className="flex items-baseline gap-2 pb-2"><span className="text-[13px] font-bold flex-1">{row.component.name}</span>
+          <span className="text-[13px] font-bold tabular-nums" style={{ color }}>{formatFoodNumber(row.total)} {row.component.unit}</span></div>
+        <div className="flex gap-[3px] items-end h-[34px]">{row.daily.map((value, i) => <div key={i} title={`${formatFoodNumber(value)} ${row.component.unit}`}
+          className="flex-1 rounded-[2px]" style={{ height: value > 0 ? `${Math.max(6, value / row.peak * 100)}%` : '2px', background: value > 0 ? color : 'var(--border)' }} />)}</div>
+        <div className="flex justify-between text-[9px] text-fg-faint font-mono pt-1.5">
+          <span>{formatFoodNumber(row.avgPerDay)} {row.component.unit} / day avg</span>
+          <span>peak {formatFoodNumber(row.peak)} {row.component.unit}</span>
+        </div>
+        <div className="flex justify-between text-[9px] text-fg-faint font-mono pt-1"><span>{days}d ago</span><span>today</span></div>
+      </div>
+    })}
+  </div>
 }
