@@ -166,7 +166,9 @@ private fun FoodBody(entry: TimelineEntry.Food, compact: Boolean) {
         }
     }
     entry.food.lines.forEachIndexed { index, resolved ->
-        if (index > 0) HorizontalDivider(color = palette.borderSubtle)
+        if (index > 0) {
+            Box(Modifier.fillMaxWidth().height(1.dp).background(palette.borderSubtle))
+        }
         val quantity = resolved.line.quantity ?: 1.0
         val componentAmounts = resolved.componentAmounts.mapValues { (_, amount) ->
             if (resolved.line.foodItemId != null) amount * quantity else amount
