@@ -60,6 +60,7 @@ data class ResolvedFoodEntryLine(
 data class FoodEntryWithLines(
     val entry: FoodEntryEntity,
     val lines: List<ResolvedFoodEntryLine>,
+    val componentsById: Map<String, TrackedComponentEntity> = emptyMap(),
 ) {
     val displayText: String
         get() = lines.joinToString(", ") { resolved ->

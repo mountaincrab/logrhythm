@@ -46,8 +46,8 @@ class FoodLibraryViewModel(private val repository: FoodRepository) : ViewModel()
         viewModelScope.launch { repository.setComponentArchived(id, false) }
     }
 
-    fun saveItem(id: String?, name: String, amount: String, unit: String, componentAmounts: Map<String, Double>) {
-        viewModelScope.launch { repository.saveFoodItem(id, name, amount, unit, componentAmounts) }
+    fun saveItem(id: String?, name: String, icon: String, amount: String, unit: String, componentAmounts: Map<String, Double>) {
+        viewModelScope.launch { repository.saveFoodItem(id, name, icon, amount, unit, componentAmounts) }
     }
 
     fun archiveItem(id: String) {

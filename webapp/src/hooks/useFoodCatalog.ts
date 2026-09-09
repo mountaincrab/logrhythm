@@ -4,6 +4,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '../firebase'
 import { FoodItem, TrackedComponent } from '../types'
+import { DEFAULT_FOOD_ITEM_ICON } from '../lib/food'
 
 function numberMap(value: unknown): Record<string, number> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
@@ -30,6 +31,7 @@ function mapFoodItem(id: string, d: Record<string, unknown>): FoodItem {
     id,
     profileId: (d.profileId as string) ?? 'default',
     name: (d.name as string) ?? '',
+    icon: typeof d.icon === 'string' && d.icon.trim() ? d.icon : DEFAULT_FOOD_ITEM_ICON,
     amount: String(d.amount ?? ''),
     unit: (d.unit as string) ?? '',
     componentAmounts: numberMap(d.componentAmounts),
@@ -42,6 +44,7 @@ function mapFoodItem(id: string, d: Record<string, unknown>): FoodItem {
 export interface ComponentInput { name: string; unit: string }
 export interface FoodItemInput {
   name: string
+  icon: string
   amount: string
   unit: string
   componentAmounts: Record<string, number>
@@ -120,14 +123,14 @@ export function useFoodCatalog(userId: string, profileId: string) {
     const id = crypto.randomUUID()
     await setDoc(doc(col('food_items'), id), {
       userId, profileId, name: input.name.trim(), amount: input.amount.trim(), unit: input.unit.trim(),
-      componentAmounts: input.componentAmounts, sortOrder: allFoodItems.length,
+      icon: input.icon.trim(), componentAmounts: input.componentAmounts, sortOrder: allFoodItems.length,
       createdAt: Date.now(), updatedAt: serverTimestamp(), isArchived: false,
     })
     return id
   }
   const updateFoodItem = async (id: string, input: FoodItemInput) => updateDoc(doc(col('food_items'), id), {
     name: input.name.trim(), amount: input.amount.trim(), unit: input.unit.trim(),
-    componentAmounts: input.componentAmounts, updatedAt: serverTimestamp(),
+    icon: input.icon.trim(), componentAmounts: input.componentAmounts, updatedAt: serverTimestamp(),
   })
   const setFoodItemArchived = async (id: string, isArchived: boolean) => updateDoc(doc(col('food_items'), id), {
     isArchived, updatedAt: serverTimestamp(),

@@ -123,7 +123,7 @@ poop_entries            ← id, userId, profileId, occurredAt, bristolTypes (Set
 food_entries            ← event header: id, userId, profileId, occurredAt, mealTag?, createdAt, updatedAt, syncStatus, isDeleted
 food_entry_lines        ← id, entryId, position, foodItemId? + quantity? OR customText?
 food_entry_line_components ← lineId, componentId, amount (direct total for a custom line)
-food_items              ← id, userId, profileId, name, amount + unit (one serving), sortOrder, timestamps, syncStatus, isArchived
+food_items              ← id, userId, profileId, name, icon, amount + unit (one serving), sortOrder, timestamps, syncStatus, isArchived
 food_item_components    ← foodItemId, componentId, amount (in one item)
 tracked_components      ← id, userId, profileId, name, canonical unit, sortOrder, timestamps, syncStatus, isArchived
 note_entries            ← id, userId, profileId, occurredAt, content (String), createdAt, updatedAt, syncStatus, isDeleted
@@ -150,7 +150,7 @@ the webapp writes the same documents the Android `SyncWorker` pulls.
 ## Food catalogue and tracked components
 
 Food item definitions are live references, like medications, rather than snapshots. `FoodItem` has no
-food/drink type: its name, serving `amount` + `unit`, and component associations are all that is stored.
+food/drink type: its name, one-character `icon`, serving `amount` + `unit`, and component associations are all that is stored.
 Each catalogue entry line stores a `foodItemId` and numeric quantity; changing an item's name or component
 amount therefore updates historical rendering and trends without rewriting old entries. A custom line stores
 free text and may embed direct component totals instead. Caffeine (`mg`) and Alcohol (`UK units`) are

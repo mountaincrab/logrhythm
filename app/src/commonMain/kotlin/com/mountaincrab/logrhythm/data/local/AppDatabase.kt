@@ -56,7 +56,7 @@ import com.mountaincrab.logrhythm.data.model.SyncStatus
         FoodEntryLineEntity::class,
         FoodEntryLineComponentEntity::class,
     ],
-    version = 14,
+    version = 15,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -75,7 +75,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun medicationEntryDao(): MedicationEntryDao
 
     companion object {
-        const val CURRENT_VERSION = 14
+        const val CURRENT_VERSION = 15
     }
 }
 

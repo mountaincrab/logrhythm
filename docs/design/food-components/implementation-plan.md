@@ -45,7 +45,7 @@ Android screen concepts:
 
 The first implementation is complete across Android, Room, sync, Firestore, and the web app:
 
-- Room schema 14 contains the generic component catalogue, food items, item/component joins,
+- Room schema 15 contains the generic component catalogue, food items (including display icons), item/component joins,
   ordered entry lines, and custom-line component totals. The 13→14 migration deliberately
   discards legacy free-text food rows and preserves notes without the old booleans.
 - Android has Food library management, component and food-item editors, multi-item/custom food
@@ -100,6 +100,7 @@ Rules:
 | `id` | String | Stable catalogue identity |
 | `userId` / `profileId` | String | Ownership and scope |
 | `name` | String | e.g. `Bottle of beer` |
+| `icon` | String | One user-selected character, defaulting to `🍴` |
 | `amount` | Decimal/String | Serving amount, stored losslessly |
 | `unit` | String | Serving unit, e.g. `ml`, `g`, `bottle`, `cup` |
 | `sortOrder` | Int | Stable catalogue ordering |
@@ -286,6 +287,7 @@ Use three top-level collections because components and food items are independen
   "userId": "…",
   "profileId": "…",
   "name": "Bottle of beer",
+  "icon": "🍺",
   "amount": "500",
   "unit": "ml",
   "sortOrder": 0,
@@ -398,6 +400,7 @@ Show helper text explaining that the unit is used consistently in food items and
 
 Fields:
 
+- Icon (required; one typed character such as an emoji)
 - Name
 - Serving amount
 - Serving unit
@@ -421,13 +424,12 @@ Replace the single free-text box with an ordered line builder:
 
 Editing restores line IDs and order. Adding the same food item twice is allowed; the UI may offer “increase existing quantity” but must not silently merge lines because separate lines can communicate separate consumption moments within one entry.
 
-Timeline cards resolve current catalogue names and display, for example:
+Timeline cards resolve current catalogue names and icons, with one row per item, and display, for example:
 
 ```text
 Dinner · 19:30
-2 × Bottle of beer · 500 ml each
-1 × Vegetable curry · 450 g
-Alcohol 5 UK units
+🍺 2 × Bottle of beer · Alcohol 5 UK units
+🍛 1 × Vegetable curry
 ```
 
 ### 9.5 Notes

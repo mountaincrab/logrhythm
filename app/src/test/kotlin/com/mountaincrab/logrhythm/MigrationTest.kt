@@ -259,6 +259,26 @@ class MigrationTest {
         db.close()
     }
 
+    @Test
+    fun migrate14To15_foodItemsReceiveDefaultIcon() {
+        helper.createDatabase(DB_NAME, 14).apply {
+            execSQL(
+                "INSERT INTO food_items " +
+                    "(id, userId, profileId, name, amount, unit, sortOrder, createdAt, updatedAt, syncStatus, isArchived) " +
+                    "VALUES ('item1', 'u1', 'default', 'Toast', '1', 'slice', 0, 1000, 2000, 'SYNCED', 0)",
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(DB_NAME, 15, true, *ALL_MIGRATIONS)
+        db.query("SELECT icon FROM food_items WHERE id = 'item1'").use { cursor ->
+            assertEquals(1, cursor.count)
+            cursor.moveToFirst()
+            assertEquals("🍴", cursor.getString(0))
+        }
+        db.close()
+    }
+
     /**
      * Verifies every migration overrides migrate(SQLiteConnection).
      *

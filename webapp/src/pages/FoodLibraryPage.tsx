@@ -4,6 +4,7 @@ import AppShell from '../components/AppShell'
 import { useFoodCatalogContext } from '../contexts/FoodCatalogContext'
 import { useEntriesContext } from '../contexts/EntriesContext'
 import { FoodItem, TrackedComponent } from '../types'
+import { DEFAULT_FOOD_ITEM_ICON, firstFoodIcon } from '../lib/food'
 
 type Tab = 'items' | 'components'
 
@@ -44,6 +45,7 @@ export default function FoodLibraryPage() {
           className="w-full mb-3 bg-surface-raised border border-DEFAULT rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-accent placeholder:text-fg-faint" />
         <div className="space-y-2">
           {visibleFoodItems.map((item) => <CatalogRow key={item.id} title={item.name}
+            icon={item.icon}
             subtitle={`${item.amount} ${item.unit}${componentLabel(item, catalog.componentsById)}`}
             onEdit={() => setEditingItem(item)} onArchive={() => catalog.setFoodItemArchived(item.id, true)} />)}
           {catalog.foodItems.length === 0
@@ -82,8 +84,9 @@ function componentLabel(item: FoodItem, byId: Map<string, TrackedComponent>) {
   return values.length ? ` · ${values.join(' · ')}` : ''
 }
 
-function CatalogRow({ title, subtitle, onEdit, onArchive }: { title: string; subtitle: string; onEdit: () => void; onArchive: () => void }) {
+function CatalogRow({ title, subtitle, onEdit, onArchive, icon }: { title: string; subtitle: string; onEdit: () => void; onArchive: () => void; icon?: string }) {
   return <div className="flex items-center gap-2 bg-surface-raised border border-DEFAULT rounded-2xl px-4 py-3">
+    {icon && <span className="text-2xl shrink-0" aria-hidden>{icon}</span>}
     <div className="flex-1 min-w-0"><div className="text-sm font-bold truncate">{title}</div><div className="text-xs text-fg-muted truncate">{subtitle}</div></div>
     <button onClick={onEdit} aria-label="Edit" className="w-9 h-9 rounded-xl bg-surface-high text-fg-muted inline-flex items-center justify-center"><Pencil size={16} /></button>
     <button onClick={onArchive} aria-label="Archive" className="w-9 h-9 rounded-xl bg-surface-high text-fg-muted inline-flex items-center justify-center"><Archive size={16} /></button>
@@ -99,15 +102,15 @@ function Empty({ text }: { text: string }) { return <div className="py-10 text-c
 
 function DialogFrame({ title, onClose, onSave, canSave, children }: { title: string; onClose: () => void; onSave: () => void; canSave: boolean; children: React.ReactNode }) {
   return <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center">
-    <div className="w-full sm:max-w-md bg-bg rounded-t-3xl sm:rounded-3xl p-5 max-h-[92dvh] overflow-auto">
-      <div className="flex items-center mb-5"><h2 className="text-xl font-extrabold flex-1">{title}</h2><button onClick={onClose}><X size={20} /></button></div>
-      {children}
-      <div className="flex gap-2 mt-5"><button onClick={onClose} className="flex-1 py-3 rounded-2xl bg-surface-high font-bold text-fg-muted">Cancel</button>
+    <div className="w-full sm:max-w-md bg-bg rounded-t-3xl sm:rounded-3xl shadow-dialog max-h-[92dvh] overflow-hidden flex flex-col">
+      <div className="px-5 pt-4 pb-3 flex items-center gap-3 shrink-0"><h2 className="text-xl font-extrabold flex-1">{title}</h2><button onClick={onClose} aria-label="Close" className="w-9 h-9 rounded-xl bg-surface inline-flex items-center justify-center text-fg-muted"><X size={20} /></button></div>
+      <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5">{children}</div>
+      <div className="flex gap-2 px-5 py-3 border-t border-strong bg-surface shrink-0"><button onClick={onClose} className="flex-1 py-3 rounded-2xl bg-surface-high font-bold text-fg-muted">Cancel</button>
         <button onClick={onSave} disabled={!canSave} className="flex-1 py-3 rounded-2xl bg-accent text-accent-fg font-bold disabled:opacity-40">Save</button></div>
     </div>
   </div>
 }
-const inputClass = 'w-full bg-surface-raised border border-DEFAULT rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-accent'
+const inputClass = 'w-full bg-surface-raised border border-strong rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-accent transition-colors'
 
 function ComponentDialog({ component, unitLocked, onClose }: { component: TrackedComponent | null; unitLocked: boolean; onClose: () => void }) {
   const catalog = useFoodCatalogContext()
@@ -132,23 +135,25 @@ function ComponentDialog({ component, unitLocked, onClose }: { component: Tracke
 function FoodItemDialog({ item, onClose }: { item: FoodItem | null; onClose: () => void }) {
   const catalog = useFoodCatalogContext()
   const [name, setName] = useState(item?.name ?? '')
+  const [icon, setIcon] = useState(item?.icon ?? DEFAULT_FOOD_ITEM_ICON)
   const [amount, setAmount] = useState(item?.amount ?? '')
   const [unit, setUnit] = useState(item?.unit ?? '')
   const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(item?.componentAmounts ?? {}).map(([id, n]) => [id, String(n)])))
   const save = async () => {
     const numericValues: [string, number][] = Object.entries(values).map(([id, value]) => [id, Number(value)])
-    const input = { name, amount, unit, componentAmounts: Object.fromEntries(numericValues.filter(([, n]) => Number.isFinite(n) && n > 0)) }
+    const input = { name, icon, amount, unit, componentAmounts: Object.fromEntries(numericValues.filter(([, n]) => Number.isFinite(n) && n > 0)) }
     if (item) await catalog.updateFoodItem(item.id, input)
     else await catalog.addFoodItem(input)
     onClose()
   }
-  return <DialogFrame title={item ? 'Edit food item' : 'Add food item'} onClose={onClose} onSave={save} canSave={Boolean(name.trim() && amount.trim() && unit.trim())}>
-    <label className="ds-eyebrow block mb-2">Name</label><input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Bottle of beer" className={inputClass} />
+  return <DialogFrame title={item ? 'Edit food item' : 'Add food item'} onClose={onClose} onSave={save} canSave={Boolean(icon && name.trim() && amount.trim() && unit.trim())}>
+    <div className="grid grid-cols-[88px_1fr] gap-2"><div><label className="ds-eyebrow block mb-2">Icon</label><input aria-label="Icon, one character" value={icon} onChange={(e) => setIcon(firstFoodIcon(e.target.value))} className={inputClass + ' text-center text-xl'} /></div>
+      <div><label className="ds-eyebrow block mb-2">Name</label><input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Bottle of beer" className={inputClass} /></div></div>
     <div className="grid grid-cols-2 gap-2 mt-4"><div><label className="ds-eyebrow block mb-2">Amount</label><input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="500" className={inputClass} /></div>
       <div><label className="ds-eyebrow block mb-2">Unit</label><input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="ml" className={inputClass} /></div></div>
     <div className="ds-eyebrow mt-5 mb-2">Components in one item</div>
-    <div className="space-y-2">{catalog.components.map((component) => <label key={component.id} className="flex items-center gap-2 bg-surface-raised border border-DEFAULT rounded-xl px-3 py-2">
-      <span className="flex-1 text-sm font-semibold">{component.name}</span><input type="number" min="0" step="any" value={values[component.id] ?? ''} onChange={(e) => setValues((all) => ({ ...all, [component.id]: e.target.value }))} placeholder="0" className="w-20 bg-surface text-right border border-DEFAULT rounded-lg px-2 py-1.5 text-sm outline-none" /><span className="w-14 text-xs text-fg-muted">{component.unit}</span>
+    <div className="divide-y divide-[var(--border-subtle)] rounded-xl border border-strong bg-surface-raised px-3">{catalog.components.map((component) => <label key={component.id} className="flex items-center gap-2 py-2.5">
+      <span className="flex-1 text-sm font-semibold">{component.name}</span><input type="number" min="0" step="any" value={values[component.id] ?? ''} onChange={(e) => setValues((all) => ({ ...all, [component.id]: e.target.value }))} placeholder="0" className="w-20 bg-surface text-right border border-strong rounded-lg px-2 py-1.5 text-sm outline-none focus:border-accent" /><span className="w-14 text-xs text-fg-muted">{component.unit}</span>
     </label>)}</div>
   </DialogFrame>
 }
