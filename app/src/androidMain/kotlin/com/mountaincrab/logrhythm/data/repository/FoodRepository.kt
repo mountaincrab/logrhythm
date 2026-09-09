@@ -96,8 +96,8 @@ class FoodRepository(
     fun observeEntriesSince(sinceMillis: Long): Flow<List<FoodEntryWithLines>> =
         activeProfileId.flatMapLatest { resolveEntries(it, sinceMillis) }
 
-    private fun resolveEntries(profileId: String, sinceMillis: Long): Flow<List<FoodEntryWithLines>> =
-        combine(
+    private fun resolveEntries(profileId: String, sinceMillis: Long): Flow<List<FoodEntryWithLines>> {
+        val resolvedEntries = combine(
             entryDao.observeSince(profileId, sinceMillis),
             entryDao.observeLinesSince(profileId, sinceMillis),
             entryDao.observeLineComponentsSince(profileId, sinceMillis),
@@ -121,6 +121,11 @@ class FoodRepository(
                 FoodEntryWithLines(entry, resolved)
             }
         }
+        return combine(resolvedEntries, componentDao.observeForLookup(profileId)) { entries, components ->
+            val componentsById = components.associateBy { it.id }
+            entries.map { it.copy(componentsById = componentsById) }
+        }
+    }
 
     suspend fun getComponent(id: String): TrackedComponentEntity? = componentDao.getById(id)
     suspend fun isComponentUnitLocked(id: String): Boolean = componentDao.isUnitLocked(id)
@@ -169,20 +174,24 @@ class FoodRepository(
     suspend fun saveFoodItem(
         id: String? = null,
         name: String,
+        icon: String,
         amount: String,
         unit: String,
         componentAmounts: Map<String, Double>,
     ): FoodItemWithComponents {
         val trimmedName = name.trim()
+        val trimmedIcon = icon.trim()
         val trimmedAmount = amount.trim()
         val trimmedUnit = unit.trim()
         require(trimmedName.isNotEmpty() && trimmedAmount.isNotEmpty() && trimmedUnit.isNotEmpty())
+        require(trimmedIcon.codePointCount(0, trimmedIcon.length) == 1) { "Food item icon must be one character" }
         require(componentAmounts.values.all { it.isFinite() && it > 0.0 })
         val pid = profileId()
         val existing = id?.let { itemDao.getById(it) }
         val now = currentTimeMillis()
         val item = existing?.copy(
             name = trimmedName,
+            icon = trimmedIcon,
             amount = trimmedAmount,
             unit = trimmedUnit,
             updatedAt = now,
@@ -191,6 +200,7 @@ class FoodRepository(
             userId = getUserId(),
             profileId = pid,
             name = trimmedName,
+            icon = trimmedIcon,
             amount = trimmedAmount,
             unit = trimmedUnit,
             sortOrder = itemDao.getAllForLookup(pid).size,
@@ -221,7 +231,8 @@ class FoodRepository(
             }
             ResolvedFoodEntryLine(line, item, amounts)
         }
-        return FoodEntryWithLines(entry, lines)
+        val componentsById = componentDao.getAllForLookup(entry.profileId).associateBy { it.id }
+        return FoodEntryWithLines(entry, lines, componentsById)
     }
 
     suspend fun entriesInRange(startMillis: Long, endMillis: Long): List<FoodEntryWithLines> =

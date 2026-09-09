@@ -322,6 +322,7 @@ class FirestoreRepository {
                 "userId" to uid,
                 "profileId" to item.profileId,
                 "name" to item.name,
+                "icon" to item.icon,
                 "amount" to item.amount,
                 "unit" to item.unit,
                 "sortOrder" to item.sortOrder,
@@ -342,6 +343,8 @@ class FirestoreRepository {
                     userId = uid,
                     profileId = doc.getString("profileId") ?: DEFAULT_PROFILE_ID,
                     name = doc.getString("name") ?: return@mapNotNull null,
+                    icon = doc.getString("icon")?.takeIf { it.isNotBlank() }
+                        ?: com.mountaincrab.logrhythm.data.local.entity.DEFAULT_FOOD_ITEM_ICON,
                     amount = doc.getString("amount") ?: return@mapNotNull null,
                     unit = doc.getString("unit") ?: return@mapNotNull null,
                     sortOrder = (doc.getLong("sortOrder") ?: 0L).toInt(),

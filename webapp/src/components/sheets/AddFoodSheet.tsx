@@ -109,7 +109,7 @@ export default function AddFoodSheet({ onClose, onSave, onDelete, initial }: Pro
               <div key={line.id} className="rounded-2xl bg-surface-raised border border-DEFAULT p-3">
                 <div className="flex items-center gap-2">
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-bold truncate">{item?.name ?? line.customText ?? 'Unavailable food item'}</div>
+                    <div className="text-sm font-bold truncate"><span className="mr-2">{item?.icon ?? '🍴'}</span>{item?.name ?? line.customText ?? 'Unavailable food item'}</div>
                     {item && <div className="text-[11px] text-fg-muted">One item · {item.amount} {item.unit}</div>}
                   </div>
                   {item && (
@@ -137,7 +137,7 @@ export default function AddFoodSheet({ onClose, onSave, onDelete, initial }: Pro
           <select value={effectiveSavedItemId} onChange={(e) => setSavedItemId(e.target.value)}
             className="min-w-0 flex-1 bg-surface-raised border border-DEFAULT rounded-xl px-3 py-2.5 text-sm outline-none focus:border-accent">
             {filteredFoodItems.length === 0 && <option value="">{foodItems.length === 0 ? 'No saved food items yet' : 'No matching items'}</option>}
-            {filteredFoodItems.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.amount} {item.unit}</option>)}
+            {filteredFoodItems.map((item) => <option key={item.id} value={item.id}>{item.icon} {item.name} · {item.amount} {item.unit}</option>)}
           </select>
           <button onClick={addSaved} disabled={!effectiveSavedItemId}
             className="px-3 rounded-xl bg-accent-soft border border-accent text-accent-text disabled:opacity-40"><Plus size={18} /></button>

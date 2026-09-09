@@ -1,5 +1,11 @@
 import { FoodEntry, FoodItem } from '../types'
 
+export const DEFAULT_FOOD_ITEM_ICON = '🍴'
+
+export function firstFoodIcon(value: string): string {
+  return Array.from(value.trimStart())[0] ?? ''
+}
+
 export function formatFoodNumber(value: number): string {
   return Number.isInteger(value) ? String(value) : String(Math.round(value * 100) / 100)
 }

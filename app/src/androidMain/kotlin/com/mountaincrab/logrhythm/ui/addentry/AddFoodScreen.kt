@@ -148,6 +148,7 @@ private fun FoodLineCard(
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(item?.item?.icon ?: "🍴", fontSize = 22.sp)
             Column(modifier = Modifier.weight(1f)) {
                 Text(item?.item?.name ?: draft.customText ?: "Unavailable food item", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 item?.item?.let { Text("${it.amount} ${it.unit} each", color = palette.fgMuted, fontSize = 12.sp) }
@@ -244,13 +245,18 @@ private fun FoodItemPickerDialog(
                     Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         if (items.isEmpty()) Text("No saved items yet. Add one in Settings → Food library.", color = palette.fgMuted, fontSize = 13.sp)
                         items.filter { query.isBlank() || it.item.name.contains(query.trim(), ignoreCase = true) }.forEach { food ->
-                            Column(
+                            Row(
                                 Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(palette.surfaceRaised)
                                     .border(1.dp, palette.border, RoundedCornerShape(12.dp)).clickable { onSavedItem(food.item.id) }
                                     .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
-                                Text(food.item.name, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                Text("${food.item.amount} ${food.item.unit}", color = palette.fgMuted, fontSize = 12.sp)
+                                Text(food.item.icon, fontSize = 22.sp)
+                                Column {
+                                    Text(food.item.name, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    Text("${food.item.amount} ${food.item.unit}", color = palette.fgMuted, fontSize = 12.sp)
+                                }
                             }
                         }
                         TextButton(onClick = onOpenFoodLibrary, modifier = Modifier.fillMaxWidth()) {

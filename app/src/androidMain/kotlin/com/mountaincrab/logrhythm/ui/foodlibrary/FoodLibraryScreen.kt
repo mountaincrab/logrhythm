@@ -26,6 +26,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mountaincrab.logrhythm.data.local.entity.DEFAULT_FOOD_ITEM_ICON
 import com.mountaincrab.logrhythm.data.local.entity.FoodItemWithComponents
 import com.mountaincrab.logrhythm.data.local.entity.TrackedComponentEntity
 import com.mountaincrab.logrhythm.ui.theme.LocalAppPalette
@@ -58,7 +59,7 @@ fun FoodLibraryScreen(onBack: () -> Unit, viewModel: FoodLibraryViewModel = koin
         initial = editingItem,
         components = components,
         onDismiss = { showItemEditor = false; editingItem = null },
-        onSave = { name, amount, unit, values -> viewModel.saveItem(editingItem?.item?.id, name, amount, unit, values); showItemEditor = false; editingItem = null },
+        onSave = { name, icon, amount, unit, values -> viewModel.saveItem(editingItem?.item?.id, name, icon, amount, unit, values); showItemEditor = false; editingItem = null },
     )
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -90,6 +91,7 @@ fun FoodLibraryScreen(onBack: () -> Unit, viewModel: FoodLibraryViewModel = koin
                     items(items, key = { it.item.id }) { food ->
                         LibraryRow(
                             title = food.item.name,
+                            leadingIcon = food.item.icon,
                             subtitle = buildString {
                                 append("${food.item.amount} ${food.item.unit}")
                                 if (food.components.isNotEmpty()) append(" · ${food.components.size} component${if (food.components.size == 1) "" else "s"}")
@@ -108,7 +110,12 @@ fun FoodLibraryScreen(onBack: () -> Unit, viewModel: FoodLibraryViewModel = koin
                 }
                 LibraryTab.COMPONENTS -> {
                     items(components, key = { it.id }) { component ->
-                        LibraryRow(component.name, component.unit, { editingComponent = component; showComponentEditor = true }) { viewModel.archiveComponent(component.id) }
+                        LibraryRow(
+                            title = component.name,
+                            subtitle = component.unit,
+                            onClick = { editingComponent = component; showComponentEditor = true },
+                            onArchive = { viewModel.archiveComponent(component.id) },
+                        )
                     }
                     item { AddRow("+ Add component") { editingComponent = null; showComponentEditor = true } }
                     if (archivedComponents.isNotEmpty()) {
@@ -124,9 +131,12 @@ fun FoodLibraryScreen(onBack: () -> Unit, viewModel: FoodLibraryViewModel = koin
 }
 
 @Composable
-private fun LibraryRow(title: String, subtitle: String, onClick: () -> Unit, onArchive: () -> Unit) {
+private fun LibraryRow(title: String, subtitle: String, onClick: () -> Unit, onArchive: () -> Unit, leadingIcon: String? = null) {
     val palette = LocalAppPalette.current
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(palette.surfaceRaised).border(1.dp, palette.border, RoundedCornerShape(14.dp)).clickable(onClick = onClick).padding(start = 14.dp, top = 10.dp, bottom = 10.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        leadingIcon?.let {
+            Text(it, fontSize = 22.sp, modifier = Modifier.padding(end = 10.dp))
+        }
         Column(Modifier.weight(1f)) { Text(title, fontSize = 14.sp, fontWeight = FontWeight.Bold); Text(subtitle, color = palette.fgMuted, fontSize = 12.sp) }
         IconButton(onClick = onArchive) { Icon(Icons.Outlined.Archive, "Archive", tint = palette.fgMuted) }
     }
@@ -162,11 +172,12 @@ private fun ComponentEditorDialog(
     var name by remember(initial?.id) { mutableStateOf(initial?.name.orEmpty()) }
     var unit by remember(initial?.id) { mutableStateOf(initial?.unit.orEmpty()) }
     val duplicateName = existingComponents.any { it.id != initial?.id && it.name.equals(name.trim(), ignoreCase = true) }
+    val fieldColors = foodDialogFieldColors()
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (initial == null) "Add component" else "Edit component") },
         text = { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true)
+            OutlinedTextField(name, { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth(), colors = fieldColors, shape = RoundedCornerShape(12.dp), singleLine = true)
             if (duplicateName) Text("A component with this name already exists", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
             OutlinedTextField(
                 unit,
@@ -174,6 +185,9 @@ private fun ComponentEditorDialog(
                 label = { Text("Unit") },
                 enabled = !unitLocked,
                 supportingText = { Text(if (unitLocked) "Locked because this component is already used" else "Used consistently in food items and trends") },
+                modifier = Modifier.fillMaxWidth(),
+                colors = fieldColors,
+                shape = RoundedCornerShape(12.dp),
                 singleLine = true,
             )
         } },
@@ -183,19 +197,33 @@ private fun ComponentEditorDialog(
 }
 
 @Composable
-private fun FoodItemEditorDialog(initial: FoodItemWithComponents?, components: List<TrackedComponentEntity>, onDismiss: () -> Unit, onSave: (String, String, String, Map<String, Double>) -> Unit) {
+private fun FoodItemEditorDialog(initial: FoodItemWithComponents?, components: List<TrackedComponentEntity>, onDismiss: () -> Unit, onSave: (String, String, String, String, Map<String, Double>) -> Unit) {
     var name by remember(initial?.item?.id) { mutableStateOf(initial?.item?.name.orEmpty()) }
+    var icon by remember(initial?.item?.id) { mutableStateOf(initial?.item?.icon ?: DEFAULT_FOOD_ITEM_ICON) }
     var amount by remember(initial?.item?.id) { mutableStateOf(initial?.item?.amount.orEmpty()) }
     var unit by remember(initial?.item?.id) { mutableStateOf(initial?.item?.unit.orEmpty()) }
     var values by remember(initial?.item?.id) { mutableStateOf(initial?.components?.associate { it.componentId to it.amount.toString().removeSuffix(".0") }.orEmpty()) }
+    val fieldColors = foodDialogFieldColors()
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (initial == null) "Add food item" else "Edit food item") },
         text = { Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedTextField(name, { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(amount, { amount = it }, label = { Text("Amount") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f), singleLine = true)
-                OutlinedTextField(unit, { unit = it }, label = { Text("Unit") }, modifier = Modifier.weight(1f), singleLine = true)
+                OutlinedTextField(
+                    value = icon,
+                    onValueChange = { icon = it.firstUnicodeCharacter() },
+                    label = { Text("Icon") },
+                    supportingText = { Text("One character") },
+                    modifier = Modifier.width(104.dp),
+                    colors = fieldColors,
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true,
+                )
+                OutlinedTextField(name, { name = it }, label = { Text("Name") }, modifier = Modifier.weight(1f), colors = fieldColors, shape = RoundedCornerShape(12.dp), singleLine = true)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(amount, { amount = it }, label = { Text("Amount") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f), colors = fieldColors, shape = RoundedCornerShape(12.dp), singleLine = true)
+                OutlinedTextField(unit, { unit = it }, label = { Text("Unit") }, modifier = Modifier.weight(1f), colors = fieldColors, shape = RoundedCornerShape(12.dp), singleLine = true)
             }
             Text("TRACKED COMPONENTS · PER ITEM", color = LocalAppPalette.current.fgMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             components.forEach { component ->
@@ -204,11 +232,27 @@ private fun FoodItemEditorDialog(initial: FoodItemWithComponents?, components: L
                     onValueChange = { values = values + (component.id to it) },
                     label = { Text("${component.name} (${component.unit})") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    modifier = Modifier.fillMaxWidth(), colors = fieldColors, shape = RoundedCornerShape(12.dp), singleLine = true,
                 )
             }
         } },
-        confirmButton = { TextButton(onClick = { onSave(name, amount, unit, values.mapNotNull { (id, raw) -> raw.toDoubleOrNull()?.takeIf { it > 0.0 }?.let { id to it } }.toMap()) }, enabled = name.isNotBlank() && amount.isNotBlank() && unit.isNotBlank()) { Text("Save") } },
+        confirmButton = { TextButton(onClick = { onSave(name, icon, amount, unit, values.mapNotNull { (id, raw) -> raw.toDoubleOrNull()?.takeIf { it > 0.0 }?.let { id to it } }.toMap()) }, enabled = icon.isNotBlank() && name.isNotBlank() && amount.isNotBlank() && unit.isNotBlank()) { Text("Save") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
+}
+
+@Composable
+private fun foodDialogFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = MaterialTheme.colorScheme.primary,
+    unfocusedBorderColor = LocalAppPalette.current.borderStrong,
+    disabledBorderColor = LocalAppPalette.current.border,
+    focusedContainerColor = LocalAppPalette.current.surfaceRaised,
+    unfocusedContainerColor = LocalAppPalette.current.surfaceRaised,
+    disabledContainerColor = LocalAppPalette.current.surfaceRaised,
+)
+
+private fun String.firstUnicodeCharacter(): String {
+    val value = trimStart()
+    if (value.isEmpty()) return ""
+    return value.substring(0, value.offsetByCodePoints(0, 1))
 }

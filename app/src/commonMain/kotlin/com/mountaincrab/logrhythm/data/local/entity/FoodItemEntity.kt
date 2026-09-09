@@ -1,5 +1,6 @@
 package com.mountaincrab.logrhythm.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -7,6 +8,8 @@ import androidx.room.PrimaryKey
 import com.mountaincrab.logrhythm.data.model.SyncStatus
 import com.mountaincrab.logrhythm.util.currentTimeMillis
 import com.mountaincrab.logrhythm.util.randomUUID
+
+const val DEFAULT_FOOD_ITEM_ICON = "🍴"
 
 /** A reusable catalogue item. One quantity represents [amount] [unit]. */
 @Entity(
@@ -18,6 +21,7 @@ data class FoodItemEntity(
     val userId: String = "local",
     val profileId: String = DEFAULT_PROFILE_ID,
     val name: String,
+    @ColumnInfo(defaultValue = DEFAULT_FOOD_ITEM_ICON) val icon: String = DEFAULT_FOOD_ITEM_ICON,
     val amount: String,
     val unit: String,
     val sortOrder: Int = 0,

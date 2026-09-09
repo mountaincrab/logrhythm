@@ -64,6 +64,8 @@ export interface FoodItem {
   id: string
   profileId: string
   name: string
+  /** A single user-selected character shown beside the item. */
+  icon: string
   /** The serving size represented by one quantity, stored as lossless text. */
   amount: string
   unit: string

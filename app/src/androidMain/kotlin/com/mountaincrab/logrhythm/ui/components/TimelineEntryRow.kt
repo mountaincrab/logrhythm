@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mountaincrab.logrhythm.data.local.entity.dose
+import com.mountaincrab.logrhythm.data.local.entity.formatFoodNumber
 import com.mountaincrab.logrhythm.data.model.bristol
 import com.mountaincrab.logrhythm.data.model.formatDoseAmount
 import com.mountaincrab.logrhythm.data.repository.TimelineEntry
@@ -154,18 +155,71 @@ private fun FoodBody(entry: TimelineEntry.Food, compact: Boolean) {
             fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.CenterVertically),
         )
-        Text(
-            text = "🍴",
-            fontSize = EntryIconSizes.timelineEmoji(compact),
-            modifier = Modifier.align(Alignment.CenterVertically),
-        )
+        entry.food.entry.mealTag?.let { tag ->
+            Text(
+                text = "· ${tag.label}",
+                color = palette.fgMuted,
+                fontSize = if (compact) 11.sp else 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.align(Alignment.CenterVertically),
+            )
+        }
     }
-    Text(
-        text = entry.food.displayText,
-        color = palette.fgMuted,
-        fontSize = if (compact) 12.sp else 14.sp,
-        lineHeight = if (compact) 16.sp else 20.sp,
-    )
+    entry.food.lines.forEachIndexed { index, resolved ->
+        if (index > 0) HorizontalDivider(color = palette.borderSubtle)
+        val quantity = resolved.line.quantity ?: 1.0
+        val componentAmounts = resolved.componentAmounts.mapValues { (_, amount) ->
+            if (resolved.line.foodItemId != null) amount * quantity else amount
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(if (compact) 7.dp else 10.dp),
+            verticalAlignment = Alignment.Top,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                text = resolved.foodItem?.icon ?: "🍴",
+                fontSize = EntryIconSizes.timelineEmoji(compact),
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(if (compact) 1.dp else 3.dp),
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    if (resolved.line.foodItemId != null) {
+                        Text(
+                            text = "${formatFoodNumber(quantity)} ×",
+                            color = palette.accentText,
+                            fontSize = if (compact) 12.sp else 13.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                    Text(
+                        text = resolved.foodItem?.name
+                            ?: resolved.line.customText
+                            ?: "Unavailable food item",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = if (compact) 12.sp else 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(if (compact) 5.dp else 7.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    componentAmounts.filterValues { it > 0.0 }.forEach { (componentId, amount) ->
+                        entry.food.componentsById[componentId]?.let { component ->
+                            Text(
+                                text = "${component.name} ${formatFoodNumber(amount)} ${component.unit}",
+                                color = palette.fgMuted,
+                                fontSize = if (compact) 10.sp else 11.sp,
+                                fontWeight = FontWeight.Medium,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable

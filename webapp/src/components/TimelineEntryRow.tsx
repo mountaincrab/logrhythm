@@ -7,7 +7,7 @@ import { formatDoseAmount, medicationDose } from '../lib/medications'
 import { ENTRY_ICON_SIZES, MedicationFormIcon, MedicineIcon } from './MedicationIcons'
 import { useMedicationsContext } from '../contexts/MedicationsContext'
 import { useFoodCatalogContext } from '../contexts/FoodCatalogContext'
-import { foodEntryLabel } from '../lib/food'
+import { DEFAULT_FOOD_ITEM_ICON, formatFoodNumber } from '../lib/food'
 
 function RatingPill({ n }: { n: number }) {
   const c = ratingColor(n)
@@ -37,7 +37,7 @@ function describePoop(types: number[]): string {
 
 export default function TimelineEntryRow({ item, onClick }: { item: TimelineEntry; onClick: () => void }) {
   const { medicationsById } = useMedicationsContext()
-  const { foodItemsById } = useFoodCatalogContext()
+  const { foodItemsById, componentsById } = useFoodCatalogContext()
   let dotColor = 'var(--surface-high)'
   let kindLabel = ''
   let kindColor = 'var(--fg-faint)'
@@ -60,10 +60,31 @@ export default function TimelineEntryRow({ item, onClick }: { item: TimelineEntr
     kindLabel = 'Food'
     const tag = mealTagLabel(item.entry.mealTag)
     body = (
-      <span>
-        {foodEntryLabel(item.entry, foodItemsById)}
-        {tag && <span className="text-fg-muted"> · {tag}</span>}
-      </span>
+      <div className="divide-y divide-[var(--border-subtle)]">
+        {[...item.entry.lines].sort((a, b) => a.position - b.position).map((line) => {
+          const foodItem = line.foodItemId ? foodItemsById.get(line.foodItemId) : undefined
+          const quantity = line.quantity ?? 1
+          const amounts = foodItem
+            ? Object.entries(foodItem.componentAmounts).map(([id, amount]) => [id, amount * quantity] as const)
+            : Object.entries(line.componentAmounts)
+          return <div key={line.id} className="flex items-start gap-2.5 py-1.5 first:pt-0 last:pb-0">
+            <span className="text-lg leading-none shrink-0" aria-hidden>{foodItem?.icon ?? DEFAULT_FOOD_ITEM_ICON}</span>
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold">
+                {line.foodItemId && <span className="text-accent-text font-bold mr-1.5">{formatFoodNumber(quantity)} ×</span>}
+                {foodItem?.name ?? line.customText ?? 'Unavailable food item'}
+              </div>
+              <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-fg-muted">
+                {amounts.filter(([, amount]) => amount > 0).map(([componentId, amount]) => {
+                  const component = componentsById.get(componentId)
+                  return component && <span key={componentId}>{component.name} {formatFoodNumber(amount)} {component.unit}</span>
+                })}
+              </div>
+            </div>
+          </div>
+        })}
+        {tag && <div className="pt-1.5 text-xs text-fg-muted">{tag}</div>}
+      </div>
     )
   } else if (item.kind === 'medicine') {
     const { medicationId, quantity, notes } = item.entry

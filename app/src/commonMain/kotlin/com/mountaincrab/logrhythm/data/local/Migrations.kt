@@ -595,7 +595,14 @@ private val MIGRATION_13_14 = object : Migration(13, 14) {
     }
 }
 
+/** Adds a user-selected one-character mark to reusable food items. */
+private val MIGRATION_14_15 = object : Migration(14, 15) {
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("ALTER TABLE food_items ADD COLUMN icon TEXT NOT NULL DEFAULT '🍴'")
+    }
+}
+
 val ALL_MIGRATIONS: Array<Migration> = arrayOf(
     MIGRATION_3_4, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10,
-    MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14,
+    MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15,
 )
