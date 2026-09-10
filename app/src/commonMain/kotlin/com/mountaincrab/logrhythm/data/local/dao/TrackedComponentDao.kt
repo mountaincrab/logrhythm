@@ -31,13 +31,6 @@ interface TrackedComponentDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertIfAbsent(components: List<TrackedComponentEntity>)
 
-    @Query("""
-        SELECT CASE WHEN EXISTS(SELECT 1 FROM food_item_components WHERE componentId = :id)
-          OR EXISTS(SELECT 1 FROM food_entry_line_components WHERE componentId = :id)
-        THEN 1 ELSE 0 END
-    """)
-    suspend fun isUnitLocked(id: String): Boolean
-
     @Query("UPDATE tracked_components SET isArchived = :archived, updatedAt = :updatedAt, syncStatus = 'PENDING' WHERE id = :id")
     suspend fun setArchived(id: String, archived: Boolean, updatedAt: Long = currentTimeMillis())
 

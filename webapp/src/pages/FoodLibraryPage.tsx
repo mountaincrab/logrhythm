@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { Archive, Pencil, Plus, RotateCcw, X } from 'lucide-react'
 import AppShell from '../components/AppShell'
 import { useFoodCatalogContext } from '../contexts/FoodCatalogContext'
-import { useEntriesContext } from '../contexts/EntriesContext'
 import { FoodItem, TrackedComponent } from '../types'
 import { DEFAULT_FOOD_ITEM_ICON, firstFoodIcon } from '../lib/food'
 
@@ -10,18 +9,11 @@ type Tab = 'items' | 'components'
 
 export default function FoodLibraryPage() {
   const catalog = useFoodCatalogContext()
-  const { foods } = useEntriesContext()
   const [tab, setTab] = useState<Tab>('items')
   const [itemSearch, setItemSearch] = useState('')
   const [editingItem, setEditingItem] = useState<FoodItem | null | undefined>()
   const [editingComponent, setEditingComponent] = useState<TrackedComponent | null | undefined>()
 
-  const usedComponentIds = useMemo(() => {
-    const ids = new Set<string>()
-    catalog.archivedFoodItems.concat(catalog.foodItems).forEach((item) => Object.keys(item.componentAmounts).forEach((id) => ids.add(id)))
-    foods.forEach((entry) => entry.lines.forEach((line) => Object.keys(line.componentAmounts).forEach((id) => ids.add(id))))
-    return ids
-  }, [catalog.archivedFoodItems, catalog.foodItems, foods])
   const visibleFoodItems = useMemo(() => {
     const query = itemSearch.trim().toLocaleLowerCase()
     return query ? catalog.foodItems.filter((item) => item.name.toLocaleLowerCase().includes(query)) : catalog.foodItems
@@ -70,9 +62,7 @@ export default function FoodLibraryPage() {
     </div>
 
     {editingItem !== undefined && <FoodItemDialog item={editingItem} onClose={() => setEditingItem(undefined)} />}
-    {editingComponent !== undefined && <ComponentDialog component={editingComponent}
-      unitLocked={Boolean(editingComponent && usedComponentIds.has(editingComponent.id))}
-      onClose={() => setEditingComponent(undefined)} />}
+    {editingComponent !== undefined && <ComponentDialog component={editingComponent} onClose={() => setEditingComponent(undefined)} />}
   </AppShell>
 }
 
@@ -112,7 +102,7 @@ function DialogFrame({ title, onClose, onSave, canSave, children }: { title: str
 }
 const inputClass = 'w-full bg-surface-raised border border-strong rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-accent transition-colors'
 
-function ComponentDialog({ component, unitLocked, onClose }: { component: TrackedComponent | null; unitLocked: boolean; onClose: () => void }) {
+function ComponentDialog({ component, onClose }: { component: TrackedComponent | null; onClose: () => void }) {
   const catalog = useFoodCatalogContext()
   const [name, setName] = useState(component?.name ?? '')
   const [unit, setUnit] = useState(component?.unit ?? '')
@@ -127,8 +117,8 @@ function ComponentDialog({ component, unitLocked, onClose }: { component: Tracke
   return <DialogFrame title={component ? 'Edit component' : 'Add component'} onClose={onClose} onSave={save} canSave={Boolean(name.trim() && unit.trim() && !duplicateName)}>
     <label className="ds-eyebrow block mb-2">Name</label><input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Caffeine" className={inputClass} />
     {duplicateName && <p className="text-xs text-danger-text mt-2">A component with this name already exists.</p>}
-    <label className="ds-eyebrow block mt-4 mb-2">Unit</label><input value={unit} onChange={(e) => setUnit(e.target.value)} disabled={unitLocked} placeholder="e.g. mg" className={inputClass + ' disabled:opacity-50'} />
-    {unitLocked && <p className="text-xs text-fg-muted mt-2">The unit is locked because this component is already used.</p>}
+    <label className="ds-eyebrow block mt-4 mb-2">Unit</label><input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="e.g. mg" className={inputClass} />
+    {component && <p className="text-xs text-fg-muted mt-2">Changing this relabels existing amounts; values are not converted.</p>}
   </DialogFrame>
 }
 

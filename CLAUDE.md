@@ -155,7 +155,7 @@ Each catalogue entry line stores a `foodItemId` and numeric quantity; changing a
 amount therefore updates historical rendering and trends without rewriting old entries. A custom line stores
 free text and may embed direct component totals instead. Caffeine (`mg`) and Alcohol (`UK units`) are
 idempotently seeded default tracked components, not special columns or note flags. Used component units are
-locked because changing a unit without a conversion would reinterpret history. Catalogue rows archive rather
+editable; changing one relabels historical numeric amounts rather than converting them. Catalogue rows archive rather
 than delete so historical references keep resolving. The full rationale and schema are in
 `docs/design/food-components/implementation-plan.md`.
 
