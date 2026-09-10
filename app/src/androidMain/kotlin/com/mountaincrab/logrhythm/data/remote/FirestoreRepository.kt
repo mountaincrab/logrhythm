@@ -39,6 +39,20 @@ data class RemoteFoodEntry(
     val lineComponents: List<FoodEntryLineComponentEntity>,
 )
 
+private val FOOD_ITEM_DOCUMENT_FIELDS = listOf(
+    "userId",
+    "profileId",
+    "name",
+    "icon",
+    "amount",
+    "unit",
+    "sortOrder",
+    "componentAmounts",
+    "createdAt",
+    "updatedAt",
+    "isArchived",
+)
+
 class FirestoreRepository {
     private val db get() = Firebase.firestore
 
@@ -317,6 +331,10 @@ class FirestoreRepository {
         }
 
     suspend fun pushFoodItem(uid: String, item: FoodItemEntity, components: List<FoodItemComponentEntity>) {
+        // componentAmounts is an owned map: removing a local association must remove its
+        // remote key too. A merge-all write creates leaf field paths for a non-empty map,
+        // which preserves omitted keys. Merging this explicit top-level field mask replaces
+        // the map atomically while retaining unrelated top-level fields from newer clients.
         userCol(uid, "food_items").document(item.id).set(
             mapOf(
                 "userId" to uid,
@@ -331,7 +349,7 @@ class FirestoreRepository {
                 "updatedAt" to FieldValue.serverTimestamp(),
                 "isArchived" to item.isArchived,
             ),
-            SetOptions.merge(),
+            SetOptions.mergeFields(FOOD_ITEM_DOCUMENT_FIELDS),
         ).await()
     }
 
