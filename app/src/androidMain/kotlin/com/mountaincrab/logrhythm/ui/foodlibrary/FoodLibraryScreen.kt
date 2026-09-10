@@ -45,12 +45,10 @@ fun FoodLibraryScreen(onBack: () -> Unit, viewModel: FoodLibraryViewModel = koin
     val archivedItems by viewModel.archivedItems.collectAsStateWithLifecycle()
     val components by viewModel.components.collectAsStateWithLifecycle()
     val archivedComponents by viewModel.archivedComponents.collectAsStateWithLifecycle()
-    val lockedComponentIds by viewModel.lockedComponentIds.collectAsStateWithLifecycle()
     val palette = LocalAppPalette.current
 
     if (showComponentEditor) ComponentEditorDialog(
         initial = editingComponent,
-        unitLocked = editingComponent?.id in lockedComponentIds,
         existingComponents = components,
         onDismiss = { showComponentEditor = false; editingComponent = null },
         onSave = { name, unit -> viewModel.saveComponent(editingComponent?.id, name, unit); showComponentEditor = false; editingComponent = null },
@@ -164,7 +162,6 @@ private fun ArchivedRow(title: String, subtitle: String, onRestore: () -> Unit) 
 @Composable
 private fun ComponentEditorDialog(
     initial: TrackedComponentEntity?,
-    unitLocked: Boolean,
     existingComponents: List<TrackedComponentEntity>,
     onDismiss: () -> Unit,
     onSave: (String, String) -> Unit,
@@ -183,8 +180,12 @@ private fun ComponentEditorDialog(
                 unit,
                 { unit = it },
                 label = { Text("Unit") },
-                enabled = !unitLocked,
-                supportingText = { Text(if (unitLocked) "Locked because this component is already used" else "Used consistently in food items and trends") },
+                supportingText = {
+                    Text(
+                        if (initial == null) "Used consistently in food items and trends"
+                        else "Changing this relabels existing amounts; values are not converted"
+                    )
+                },
                 modifier = Modifier.fillMaxWidth(),
                 colors = fieldColors,
                 shape = RoundedCornerShape(12.dp),

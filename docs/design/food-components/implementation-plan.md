@@ -259,7 +259,7 @@ Add a startup invariant similar to other self-healing seed logic. On profile cre
 - `Caffeine` / `mg`
 - `Alcohol` / `UK units`
 
-Use deterministic IDs derived from profile ID plus a stable built-in key. Make the operation idempotent and sync them like ordinary components. Defaults may be renamed or archived, but their unit follows the same post-use lock.
+Use deterministic IDs derived from profile ID plus a stable built-in key. Make the operation idempotent and sync them like ordinary components. Defaults may be renamed, archived, or have their unit relabelled like ordinary components; changing a unit does not convert existing numeric amounts.
 
 ## 6. Firestore representation
 
@@ -394,7 +394,7 @@ Fields:
 - Name (required)
 - Unit (required; examples offered but free text allowed)
 
-Show helper text explaining that the unit is used consistently in food items and trends. On edit, explain why a used component's unit is locked. Prevent duplicate active names within the profile.
+Show helper text explaining that the unit is used consistently in food items and trends. On edit, explain that changing the unit relabels existing amounts without converting their numeric values. Prevent duplicate active names within the profile.
 
 ### 9.3 Add/edit food item
 

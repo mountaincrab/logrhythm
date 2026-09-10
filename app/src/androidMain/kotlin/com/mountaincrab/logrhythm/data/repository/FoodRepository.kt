@@ -128,8 +128,6 @@ class FoodRepository(
     }
 
     suspend fun getComponent(id: String): TrackedComponentEntity? = componentDao.getById(id)
-    suspend fun isComponentUnitLocked(id: String): Boolean = componentDao.isUnitLocked(id)
-
     suspend fun saveComponent(id: String? = null, name: String, unit: String): TrackedComponentEntity {
         val trimmedName = name.trim()
         val trimmedUnit = unit.trim()
@@ -140,9 +138,6 @@ class FoodRepository(
             it.id != id && !it.isArchived && it.name.equals(trimmedName, ignoreCase = true)
         }
         require(!duplicate) { "A component named $trimmedName already exists" }
-        if (existing != null && existing.unit != trimmedUnit) {
-            require(!componentDao.isUnitLocked(existing.id)) { "The unit is locked after first use" }
-        }
         val now = currentTimeMillis()
         val component = existing?.copy(
             name = trimmedName,
