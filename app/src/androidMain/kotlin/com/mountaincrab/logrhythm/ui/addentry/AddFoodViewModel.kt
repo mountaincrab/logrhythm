@@ -97,17 +97,27 @@ class AddFoodViewModel(
         state.copy(lines = state.lines.map { if (it.id == lineId) it.copy(quantity = value) else it })
     }
 
+    fun adjustQuantity(lineId: String, delta: Int) = _state.update { state ->
+        state.copy(
+            lines = state.lines.map { line ->
+                if (line.id != lineId) line else {
+                    val current = line.quantity.toDoubleOrNull()?.takeIf { it.isFinite() } ?: 1.0
+                    line.copy(quantity = displayNumber((current + delta).coerceAtLeast(1.0)))
+                }
+            },
+        )
+    }
+
     fun removeLine(lineId: String) = _state.update { state ->
         state.copy(lines = state.lines.filterNot { it.id == lineId })
     }
 
-    fun moveLine(lineId: String, delta: Int) = _state.update { state ->
+    fun reorderLine(lineId: String, targetIndex: Int) = _state.update { state ->
         val index = state.lines.indexOfFirst { it.id == lineId }
-        val target = index + delta
-        if (index < 0 || target !in state.lines.indices) state else {
+        if (index < 0 || targetIndex !in state.lines.indices || index == targetIndex) state else {
             val reordered = state.lines.toMutableList()
             val item = reordered.removeAt(index)
-            reordered.add(target, item)
+            reordered.add(targetIndex, item)
             state.copy(lines = reordered)
         }
     }
@@ -117,7 +127,7 @@ class AddFoodViewModel(
         if (current.saving || current.lines.isEmpty()) return
         val inputs = current.lines.mapNotNull { line ->
             if (line.foodItemId != null) {
-                val quantity = line.quantity.toDoubleOrNull()?.takeIf { it.isFinite() && it > 0.0 } ?: return
+                val quantity = line.quantity.toDoubleOrNull()?.takeIf { it.isFinite() && it >= 1.0 } ?: return
                 FoodEntryLineInput(id = line.id, foodItemId = line.foodItemId, quantity = quantity)
             } else {
                 val text = line.customText?.trim()?.takeIf { it.isNotEmpty() } ?: return
