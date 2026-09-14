@@ -129,7 +129,14 @@ val appModule = module {
     }
     viewModel { ProfilesViewModel(profileRepository = get(), entryRepository = get(), medicationRepository = get()) }
     viewModel { (entryId: String?) -> AddPoopViewModel(repository = get(), existingId = entryId) }
-    viewModel { (entryId: String?) -> AddFoodViewModel(repository = get(), existingId = entryId) }
+    viewModel { (entryId: String?) ->
+        AddFoodViewModel(
+            repository = get(),
+            profileRepository = get(),
+            preferencesRepository = get(),
+            existingId = entryId,
+        )
+    }
     viewModel { (entryId: String?) -> AddNoteViewModel(repository = get(), existingId = entryId) }
     viewModel { (entryId: String?) -> AddMedicineViewModel(repository = get(), existingId = entryId) }
     viewModel { (kind: String, entryId: String) ->

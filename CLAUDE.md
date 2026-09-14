@@ -16,7 +16,7 @@ LogRhythm tracks IBD-relevant signal: poop entries (Bristol type + blood rating 
 - Jetpack Compose + Material3
 - Room (KMP runtime, schemas exported to `app/schemas/`)
 - Koin DI
-- DataStore-Preferences (theme + stool-system pref + active profile + home filters)
+- DataStore-Preferences (theme + stool-system pref + active profile + home filters + per-profile quick-add foods)
 - Navigation-Compose
 - Firebase Auth (Google) + Cloud Firestore; WorkManager-driven `SyncWorker`
 - kotlinx-serialization (lightweight, kept for future use)
@@ -158,6 +158,12 @@ idempotently seeded default tracked components, not special columns or note flag
 editable; changing one relabels historical numeric amounts rather than converting them. Catalogue rows archive rather
 than delete so historical references keep resolving. The full rationale and schema are in
 `docs/design/food-components/implementation-plan.md`.
+
+Android's Log food screen keeps an ordered list of up to five quick-add food item ids per profile in
+DataStore. It is deliberately a device preference rather than part of the Firestore food schema. An
+unconfigured profile initially shows the first five active catalogue items; once saved, an empty list is a
+valid explicit configuration. Quick-add inserts quantity 1 and increments the existing draft line when the
+same item is tapped again.
 
 ## Medication
 

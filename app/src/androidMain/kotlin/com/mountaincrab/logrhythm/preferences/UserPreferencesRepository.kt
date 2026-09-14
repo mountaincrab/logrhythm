@@ -11,8 +11,15 @@ import com.mountaincrab.logrhythm.data.local.entity.DEFAULT_PROFILE_ID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 private val Context.dataStore by preferencesDataStore(name = "logrhythm_prefs")
+
+const val MAX_QUICK_ADD_FOOD_ITEMS = 5
+
+private val preferencesJson = Json
 
 enum class HomeTimelineDensity {
     STANDARD,
@@ -33,6 +40,9 @@ class UserPreferencesRepository(private val context: Context) {
     private val keyTagProfileIdRepaired = booleanPreferencesKey("tag_profile_id_repaired")
     private val keyDisabledHomeEntryTypes = stringSetPreferencesKey("disabled_home_entry_types")
     private val keyHomeTimelineDensity = stringPreferencesKey("home_timeline_density")
+
+    private fun quickAddFoodItemIdsKey(profileId: String) =
+        stringPreferencesKey("quick_add_food_item_ids:$profileId")
 
     /** Legacy theme key, read once during the profile theme migration then unused. */
     val appTheme: Flow<String?> = context.dataStore.data.map { it[keyAppTheme] }
@@ -66,6 +76,28 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun setHomeTimelineDensity(value: HomeTimelineDensity) {
         context.dataStore.edit { it[keyHomeTimelineDensity] = value.name }
+    }
+
+    /**
+     * Ordered food catalogue ids shown as quick-add shortcuts for [profileId] on this device.
+     * `null` means the profile has not configured shortcuts yet, allowing the UI to offer
+     * catalogue-order defaults; an empty list is an explicitly cleared configuration.
+     */
+    fun quickAddFoodItemIds(profileId: String): Flow<List<String>?> =
+        context.dataStore.data.map { preferences ->
+            preferences[quickAddFoodItemIdsKey(profileId)]?.let { encoded ->
+                runCatching { preferencesJson.decodeFromString<List<String>>(encoded) }
+                    .getOrDefault(emptyList())
+                    .distinct()
+                    .take(MAX_QUICK_ADD_FOOD_ITEMS)
+            }
+        }
+
+    suspend fun setQuickAddFoodItemIds(profileId: String, itemIds: List<String>) {
+        val sanitised = itemIds.distinct().take(MAX_QUICK_ADD_FOOD_ITEMS)
+        context.dataStore.edit { preferences ->
+            preferences[quickAddFoodItemIdsKey(profileId)] = preferencesJson.encodeToString(sanitised)
+        }
     }
 
     suspend fun isProfileThemeMigrated(): Boolean =

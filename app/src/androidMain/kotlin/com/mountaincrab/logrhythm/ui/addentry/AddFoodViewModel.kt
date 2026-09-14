@@ -6,8 +6,14 @@ import com.mountaincrab.logrhythm.data.local.entity.FoodItemWithComponents
 import com.mountaincrab.logrhythm.data.local.entity.TrackedComponentEntity
 import com.mountaincrab.logrhythm.data.repository.FoodEntryLineInput
 import com.mountaincrab.logrhythm.data.repository.FoodRepository
+import com.mountaincrab.logrhythm.data.repository.ProfileRepository
 import com.mountaincrab.logrhythm.data.model.MealTag
+import com.mountaincrab.logrhythm.preferences.MAX_QUICK_ADD_FOOD_ITEMS
+import com.mountaincrab.logrhythm.preferences.UserPreferencesRepository
 import com.mountaincrab.logrhythm.util.currentTimeMillis
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -32,8 +38,11 @@ data class AddFoodUiState(
     val saved: Boolean = false,
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class AddFoodViewModel(
     private val repository: FoodRepository,
+    private val profileRepository: ProfileRepository,
+    private val preferencesRepository: UserPreferencesRepository,
     private val existingId: String?,
 ) : ViewModel() {
     private val _state = MutableStateFlow(AddFoodUiState())
@@ -43,6 +52,18 @@ class AddFoodViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val foodItemsForLookup: StateFlow<List<FoodItemWithComponents>> = repository.observeFoodItemsForLookup()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val quickAddFoodItemIds = profileRepository.activeProfileId
+        .flatMapLatest(preferencesRepository::quickAddFoodItemIds)
+
+    val quickAddFoodItems: StateFlow<List<FoodItemWithComponents>> = combine(
+        foodItems,
+        quickAddFoodItemIds,
+    ) { availableItems, configuredIds ->
+        val ids = configuredIds ?: availableItems.take(MAX_QUICK_ADD_FOOD_ITEMS).map { it.item.id }
+        val itemsById = availableItems.associateBy { it.item.id }
+        ids.mapNotNull(itemsById::get)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val components: StateFlow<List<TrackedComponentEntity>> = repository.observeComponents()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val componentsForLookup: StateFlow<List<TrackedComponentEntity>> = repository.observeComponentsForLookup()
@@ -81,6 +102,31 @@ class AddFoodViewModel(
 
     fun addSavedItem(itemId: String) = _state.update { state ->
         state.copy(lines = state.lines + FoodLineDraft(id = com.mountaincrab.logrhythm.util.randomUUID(), foodItemId = itemId, quantity = "1"))
+    }
+
+    fun addQuickAddItem(itemId: String) = _state.update { state ->
+        val existingIndex = state.lines.indexOfFirst { it.foodItemId == itemId }
+        if (existingIndex < 0) {
+            state.copy(
+                lines = state.lines + FoodLineDraft(
+                    id = com.mountaincrab.logrhythm.util.randomUUID(),
+                    foodItemId = itemId,
+                    quantity = "1",
+                ),
+            )
+        } else {
+            val lines = state.lines.toMutableList()
+            val existing = lines[existingIndex]
+            val quantity = existing.quantity.toDoubleOrNull()?.takeIf { it.isFinite() && it >= 1.0 } ?: 0.0
+            lines[existingIndex] = existing.copy(quantity = displayNumber(quantity + 1.0))
+            state.copy(lines = lines)
+        }
+    }
+
+    fun setQuickAddFoodItems(itemIds: List<String>) {
+        viewModelScope.launch {
+            preferencesRepository.setQuickAddFoodItemIds(profileRepository.activeProfileId.value, itemIds)
+        }
     }
 
     fun addCustomItem(text: String, amounts: Map<String, String>) = _state.update { state ->

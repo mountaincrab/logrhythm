@@ -7,6 +7,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -15,6 +18,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -43,6 +48,7 @@ import com.mountaincrab.logrhythm.data.local.entity.FoodItemWithComponents
 import com.mountaincrab.logrhythm.data.local.entity.TrackedComponentEntity
 import com.mountaincrab.logrhythm.data.local.entity.formatFoodNumber
 import com.mountaincrab.logrhythm.data.model.MealTag
+import com.mountaincrab.logrhythm.preferences.MAX_QUICK_ADD_FOOD_ITEMS
 import com.mountaincrab.logrhythm.ui.components.FieldLabel
 import com.mountaincrab.logrhythm.ui.components.SaveBar
 import com.mountaincrab.logrhythm.ui.components.SheetHeader
@@ -63,7 +69,9 @@ fun AddFoodScreen(
     val lookupItems by viewModel.foodItemsForLookup.collectAsStateWithLifecycle()
     val components by viewModel.components.collectAsStateWithLifecycle()
     val lookupComponents by viewModel.componentsForLookup.collectAsStateWithLifecycle()
+    val quickAddItems by viewModel.quickAddFoodItems.collectAsStateWithLifecycle()
     var showPicker by remember { mutableStateOf(false) }
+    var showQuickAddEditor by remember { mutableStateOf(false) }
     var displayLines by remember { mutableStateOf(state.lines) }
     var draggingLineId by remember { mutableStateOf<String?>(null) }
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
@@ -85,6 +93,22 @@ fun AddFoodScreen(
             onCustomItem = { text, amounts -> viewModel.addCustomItem(text, amounts); showPicker = false },
             onOpenFoodLibrary = { showPicker = false; onOpenFoodLibrary() },
             onDismiss = { showPicker = false },
+        )
+    }
+
+    if (showQuickAddEditor) {
+        QuickAddEditorDialog(
+            availableItems = items,
+            initialSelectedIds = quickAddItems.map { it.item.id },
+            onSave = {
+                viewModel.setQuickAddFoodItems(it)
+                showQuickAddEditor = false
+            },
+            onOpenFoodLibrary = {
+                showQuickAddEditor = false
+                onOpenFoodLibrary()
+            },
+            onDismiss = { showQuickAddEditor = false },
         )
     }
 
@@ -205,6 +229,15 @@ fun AddFoodScreen(
                     }
                 }
             }
+
+            if (editId == null) {
+                QuickAddSection(
+                    items = quickAddItems,
+                    onItemClick = viewModel::addQuickAddItem,
+                    onEdit = { showQuickAddEditor = true },
+                    modifier = Modifier.padding(bottom = 18.dp),
+                )
+            }
         }
         SaveBar(
             onCancel = onDismiss,
@@ -215,6 +248,262 @@ fun AddFoodScreen(
                 else !it.customText.isNullOrBlank()
             },
         )
+    }
+}
+
+@Composable
+private fun QuickAddSection(
+    items: List<FoodItemWithComponents>,
+    onItemClick: (String) -> Unit,
+    onEdit: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val palette = LocalAppPalette.current
+    Column(modifier = modifier) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "QUICK ADD",
+                color = palette.fgMuted,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.1.sp,
+            )
+            Spacer(Modifier.weight(1f))
+            TextButton(
+                onClick = onEdit,
+                modifier = Modifier.heightIn(min = 36.dp),
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+            ) {
+                Text("Edit", color = palette.accentText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        if (items.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                    .border(1.dp, palette.border, RoundedCornerShape(12.dp))
+                    .clickable(onClick = onEdit)
+                    .padding(horizontal = 16.dp, vertical = 18.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("Choose quick-add items", color = palette.fgMuted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items.chunked(2).forEach { rowItems ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        rowItems.forEach { food ->
+                            QuickAddTile(
+                                food = food,
+                                onClick = { onItemClick(food.item.id) },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                        if (rowItems.size == 1) Spacer(Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuickAddTile(
+    food: FoodItemWithComponents,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val palette = LocalAppPalette.current
+    Row(
+        modifier = modifier.heightIn(min = 64.dp).clip(RoundedCornerShape(14.dp))
+            .background(palette.surfaceRaised)
+            .border(1.dp, palette.border, RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = "Quick add ${food.item.name}, quantity 1" }
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(food.item.icon, fontSize = 24.sp)
+        Text(
+            food.item.name,
+            modifier = Modifier.weight(1f),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun QuickAddEditorDialog(
+    availableItems: List<FoodItemWithComponents>,
+    initialSelectedIds: List<String>,
+    onSave: (List<String>) -> Unit,
+    onOpenFoodLibrary: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val palette = LocalAppPalette.current
+    val availableIds = remember(availableItems) { availableItems.mapTo(mutableSetOf()) { it.item.id } }
+    var selectedIds by remember {
+        mutableStateOf(
+            initialSelectedIds.filter { it in availableIds }.distinct().take(MAX_QUICK_ADD_FOOD_ITEMS),
+        )
+    }
+    val itemsById = availableItems.associateBy { it.item.id }
+    val selectedItems = selectedIds.mapNotNull(itemsById::get)
+    val unselectedItems = availableItems.filterNot { it.item.id in selectedIds }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit quick add") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "Choose up to $MAX_QUICK_ADD_FOOD_ITEMS foods. Their order here matches the grid.",
+                    color = palette.fgMuted,
+                    fontSize = 13.sp,
+                )
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 420.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    if (availableItems.isEmpty()) {
+                        item {
+                            Text(
+                                "No saved food items yet.",
+                                color = palette.fgMuted,
+                                fontSize = 13.sp,
+                                modifier = Modifier.padding(vertical = 8.dp),
+                            )
+                        }
+                        item {
+                            TextButton(onClick = onOpenFoodLibrary, modifier = Modifier.fillMaxWidth()) {
+                                Text("Manage food library")
+                            }
+                        }
+                    } else {
+                        if (selectedItems.isNotEmpty()) {
+                            item { QuickAddEditorLabel("Selected · ${selectedItems.size}/$MAX_QUICK_ADD_FOOD_ITEMS") }
+                            itemsIndexed(selectedItems, key = { _, food -> "selected-${food.item.id}" }) { index, food ->
+                                QuickAddSelectedRow(
+                                    food = food,
+                                    canMoveUp = index > 0,
+                                    canMoveDown = index < selectedIds.lastIndex,
+                                    onMoveUp = {
+                                        selectedIds = selectedIds.toMutableList().apply {
+                                            add(index - 1, removeAt(index))
+                                        }
+                                    },
+                                    onMoveDown = {
+                                        selectedIds = selectedIds.toMutableList().apply {
+                                            add(index + 1, removeAt(index))
+                                        }
+                                    },
+                                    onRemove = { selectedIds = selectedIds - food.item.id },
+                                )
+                            }
+                        }
+                        if (unselectedItems.isNotEmpty()) {
+                            item { QuickAddEditorLabel("Available") }
+                            items(unselectedItems, key = { "available-${it.item.id}" }) { food ->
+                                QuickAddAvailableRow(
+                                    food = food,
+                                    enabled = selectedIds.size < MAX_QUICK_ADD_FOOD_ITEMS,
+                                    onAdd = { selectedIds = selectedIds + food.item.id },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSave(selectedIds) }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun QuickAddEditorLabel(text: String) {
+    Text(
+        text.uppercase(),
+        color = LocalAppPalette.current.fgMuted,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 1.sp,
+        modifier = Modifier.padding(top = 6.dp, start = 4.dp),
+    )
+}
+
+@Composable
+private fun QuickAddSelectedRow(
+    food: FoodItemWithComponents,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    val palette = LocalAppPalette.current
+    Row(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+            .background(palette.surfaceRaised)
+            .border(1.dp, palette.border, RoundedCornerShape(12.dp))
+            .padding(start = 10.dp, end = 2.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(food.item.icon, fontSize = 21.sp)
+        Spacer(Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(food.item.name, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("${food.item.amount} ${food.item.unit}", color = palette.fgMuted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        IconButton(onClick = onMoveUp, enabled = canMoveUp, modifier = Modifier.size(32.dp)) {
+            Icon(Icons.Outlined.KeyboardArrowUp, "Move ${food.item.name} up", modifier = Modifier.size(18.dp))
+        }
+        IconButton(onClick = onMoveDown, enabled = canMoveDown, modifier = Modifier.size(32.dp)) {
+            Icon(Icons.Outlined.KeyboardArrowDown, "Move ${food.item.name} down", modifier = Modifier.size(18.dp))
+        }
+        IconButton(onClick = onRemove, modifier = Modifier.size(34.dp)) {
+            Icon(Icons.Outlined.DeleteOutline, "Remove ${food.item.name} from quick add", tint = palette.dangerText, modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
+@Composable
+private fun QuickAddAvailableRow(
+    food: FoodItemWithComponents,
+    enabled: Boolean,
+    onAdd: () -> Unit,
+) {
+    val palette = LocalAppPalette.current
+    Row(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+            .background(palette.surfaceRaised)
+            .clickable(enabled = enabled, onClick = onAdd)
+            .padding(horizontal = 10.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(food.item.icon, fontSize = 21.sp)
+        Spacer(Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                food.item.name,
+                color = if (enabled) MaterialTheme.colorScheme.onSurface else palette.fgDisabled,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text("${food.item.amount} ${food.item.unit}", color = palette.fgMuted, fontSize = 11.sp)
+        }
+        Icon(Icons.Outlined.Add, contentDescription = "Add ${food.item.name} to quick add", tint = if (enabled) palette.accentText else palette.fgDisabled)
     }
 }
 
