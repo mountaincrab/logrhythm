@@ -13,6 +13,7 @@ import { usePagedTimeline } from '../hooks/usePagedTimeline'
 import { drawnIconSize, MedicineIcon } from '../components/MedicationIcons'
 import { EntryKind, TimelineEntry } from '../types'
 import { dayKey, formatDayLabel, formatDayShort } from '../lib/dates'
+import { groupHomeByEntryType } from '../lib/homeLayout'
 
 type SheetKind = 'poop' | 'food' | 'note' | 'medicine' | null
 
@@ -28,7 +29,30 @@ const LOG_BUTTONS: { kind: Exclude<SheetKind, null>; label: string; icon: (size:
   { kind: 'medicine', label: 'Medicine', icon: (s) => <MedicineIcon size={drawnIconSize(s)} /> },
 ]
 
+const ENTRY_KIND_ICONS = Object.fromEntries(
+  LOG_BUTTONS.map(({ kind, icon }) => [kind, icon]),
+) as Record<EntryKind, (size: number) => JSX.Element>
+
 const ALL_ENTRY_KINDS: EntryKind[] = ['poop', 'food', 'note', 'medicine']
+
+/** The plural name a grouped box goes by — the box speaks for several entries. */
+const GROUP_LABELS: Record<EntryKind, string> = {
+  poop: 'Poops',
+  food: 'Food',
+  note: 'Notes',
+  medicine: 'Medicine',
+}
+
+/**
+ * A day's entries split by type, in ALL_ENTRY_KINDS order so a box sits in the same place
+ * every day. A type with no entries that day has no group — an empty box is never drawn.
+ */
+function typeGroups(items: TimelineEntry[]) {
+  return ALL_ENTRY_KINDS
+    .map((kind) => ({ kind, items: items.filter((item) => item.kind === kind) }))
+    .filter((group) => group.items.length > 0)
+}
+
 const HOME_FILTER_STORAGE_KEY = 'logrhythm:disabledHomeEntryKinds'
 
 function storedEnabledEntryKinds(): Set<EntryKind> {
@@ -80,6 +104,8 @@ export default function HomePage() {
   const { timeline, loading, hasMore, loadingMore, loadMore } = usePagedTimeline(user!.uid, activeProfileId)
   const [sheet, setSheet] = useState<SheetKind>(null)
   const [enabledKinds, setEnabledKinds] = useState<Set<EntryKind>>(storedEnabledEntryKinds)
+  // Read once per mount: Settings owns the toggle and this page remounts on navigation.
+  const [groupByType] = useState(groupHomeByEntryType)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -252,12 +278,38 @@ export default function HomePage() {
                     : `${group.total} entr${group.total === 1 ? 'y' : 'ies'}`}
                 </span>
               </div>
-              <div className="relative pl-[22px]">
-                <span className="absolute left-[7px] top-1.5 bottom-1.5 w-px bg-[var(--border)]" />
-                {group.items.map((item) => (
-                  <TimelineEntryRow key={`${item.kind}-${item.entry.id}`} item={item} onClick={() => openEntry(item)} />
-                ))}
-              </div>
+              {groupByType ? (
+                <div className="flex flex-col gap-2.5">
+                  {typeGroups(group.items).map(({ kind, items }) => (
+                    <div key={kind} className="bg-surface-raised border border-DEFAULT rounded-2xl overflow-hidden">
+                      <div className="flex items-center gap-2 px-3.5 py-2 bg-surface-high border-b border-[var(--border-subtle)]">
+                        <span className="inline-flex items-center justify-center w-5 h-5">
+                          {ENTRY_KIND_ICONS[kind](16)}
+                        </span>
+                        <span className="flex-1 text-[12px] font-bold text-fg">{GROUP_LABELS[kind]}</span>
+                        <span className="text-[11px] text-fg-faint font-semibold tabular-nums">{items.length}</span>
+                      </div>
+                      <div className="divide-y divide-[var(--border-subtle)]">
+                        {items.map((item) => (
+                          <TimelineEntryRow
+                            key={`${item.kind}-${item.entry.id}`}
+                            item={item}
+                            variant="grouped"
+                            onClick={() => openEntry(item)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="relative pl-[22px]">
+                  <span className="absolute left-[7px] top-1.5 bottom-1.5 w-px bg-[var(--border)]" />
+                  {group.items.map((item) => (
+                    <TimelineEntryRow key={`${item.kind}-${item.entry.id}`} item={item} onClick={() => openEntry(item)} />
+                  ))}
+                </div>
+              )}
             </div>
           ))}
           {/* Infinite-scroll sentinel + paging spinner */}

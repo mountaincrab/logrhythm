@@ -6,6 +6,7 @@ import AppShell from '../components/AppShell'
 import { useAuth } from '../contexts/AuthContext'
 import { useProfileContext } from '../contexts/ProfileContext'
 import { THEMES } from '../lib/theme'
+import { groupHomeByEntryType, setGroupHomeByEntryType } from '../lib/homeLayout'
 
 export default function SettingsPage() {
   const navigate = useNavigate()
@@ -14,8 +15,17 @@ export default function SettingsPage() {
     useProfileContext()
 
   const [newName, setNewName] = useState('')
+  const [groupByType, setGroupByType] = useState(groupHomeByEntryType)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
+
+  const toggleGroupByType = () => {
+    setGroupByType((current) => {
+      const next = !current
+      setGroupHomeByEntryType(next)
+      return next
+    })
+  }
 
   const startEdit = (id: string, name: string) => { setEditingId(id); setEditName(name) }
   const commitEdit = async () => {
@@ -49,6 +59,32 @@ export default function SettingsPage() {
             <span className="flex-1"><span className="block text-sm font-semibold">Food library</span><span className="block text-xs text-fg-muted">Manage saved items and tracked components</span></span>
             <span className="text-fg-faint">›</span>
           </button>
+        </section>
+
+        {/* Home timeline — how the feed is laid out on this device, not what is in it. */}
+        <section className="mb-9">
+          <div className="ds-eyebrow mb-2">Home timeline</div>
+          <div className="bg-surface-raised border border-DEFAULT rounded-xl">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={groupByType}
+              onClick={toggleGroupByType}
+              className="w-full px-4 py-3.5 flex items-center gap-3 text-left"
+            >
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm font-semibold">Group by entry type</span>
+                <span className="block text-xs text-fg-muted">One box per type within each day</span>
+              </span>
+              <span
+                className={'shrink-0 w-11 h-6 rounded-full p-0.5 transition-colors ' + (groupByType ? 'bg-accent' : 'bg-surface-high')}
+              >
+                <span
+                  className={'block w-5 h-5 rounded-full bg-white transition-transform ' + (groupByType ? 'translate-x-5' : '')}
+                />
+              </span>
+            </button>
+          </div>
         </section>
 
         {/* Appearance */}

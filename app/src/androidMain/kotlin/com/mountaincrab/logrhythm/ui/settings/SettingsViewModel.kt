@@ -37,6 +37,9 @@ class SettingsViewModel(
     val homeTimelineDensity: StateFlow<HomeTimelineDensity> = preferencesRepository.homeTimelineDensity
         .stateIn(viewModelScope, SharingStarted.Eagerly, HomeTimelineDensity.STANDARD)
 
+    val groupByEntryType: StateFlow<Boolean> = preferencesRepository.groupHomeByEntryType
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     val poopTags: StateFlow<List<PoopTagEntity>> = repository.observeAllPoopTags()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -49,6 +52,10 @@ class SettingsViewModel(
 
     fun setHomeTimelineDensity(value: HomeTimelineDensity) {
         viewModelScope.launch { preferencesRepository.setHomeTimelineDensity(value) }
+    }
+
+    fun setGroupByEntryType(value: Boolean) {
+        viewModelScope.launch { preferencesRepository.setGroupHomeByEntryType(value) }
     }
 
     fun addPoopTag(name: String) {

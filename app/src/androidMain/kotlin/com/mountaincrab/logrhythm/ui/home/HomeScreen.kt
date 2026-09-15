@@ -54,6 +54,7 @@ import com.mountaincrab.logrhythm.data.repository.TimelineEntry
 import com.mountaincrab.logrhythm.preferences.HomeTimelineDensity
 import com.mountaincrab.logrhythm.ui.components.BottomTabBar
 import com.mountaincrab.logrhythm.ui.components.EntryIconSizes
+import com.mountaincrab.logrhythm.ui.components.GroupedTimelineEntryRow
 import com.mountaincrab.logrhythm.ui.components.MedicineIcon
 import com.mountaincrab.logrhythm.ui.components.TimelineEntryRow
 import com.mountaincrab.logrhythm.ui.navigation.Screen
@@ -81,6 +82,7 @@ fun HomeScreen(
     val profiles by viewModel.profiles.collectAsStateWithLifecycle()
     val activeProfile by viewModel.activeProfile.collectAsStateWithLifecycle()
     val homeTimelineDensity by viewModel.homeTimelineDensity.collectAsStateWithLifecycle()
+    val groupByEntryType by viewModel.groupByEntryType.collectAsStateWithLifecycle()
     val palette = LocalAppPalette.current
     val compactTimeline = homeTimelineDensity == HomeTimelineDensity.COMPACT
 
@@ -211,19 +213,33 @@ fun HomeScreen(
                             )
                         }
                     }
-                    items(day.entries, key = { it.id }) { entry ->
-                        TimelineEntryRow(
-                            entry = entry,
-                            density = homeTimelineDensity,
-                            modifier = Modifier
-                                .padding(
-                                    start = 20.dp,
-                                    end = 20.dp,
-                                    bottom = if (compactTimeline) 4.dp else 8.dp,
+                    if (groupByEntryType) {
+                        // One box per type, in HomeEntryType order. A type with nothing in it
+                        // that day has no group, so no empty box is ever drawn.
+                        day.typeGroups.forEach { group ->
+                            item(key = "group-${day.date}-${group.type.name}") {
+                                EntryTypeGroupCard(
+                                    group = group,
+                                    density = homeTimelineDensity,
+                                    onOpenEntry = onOpenEntry,
                                 )
-                                .drawTimelineLine(palette.border),
-                            onClick = { onOpenEntry(entry.kindKey(), entry.id) },
-                        )
+                            }
+                        }
+                    } else {
+                        items(day.entries, key = { it.id }) { entry ->
+                            TimelineEntryRow(
+                                entry = entry,
+                                density = homeTimelineDensity,
+                                modifier = Modifier
+                                    .padding(
+                                        start = 20.dp,
+                                        end = 20.dp,
+                                        bottom = if (compactTimeline) 4.dp else 8.dp,
+                                    )
+                                    .drawTimelineLine(palette.border),
+                                onClick = { onOpenEntry(entry.kindKey(), entry.id) },
+                            )
+                        }
                     }
                 }
                 if (state.loadingMore) {
@@ -257,6 +273,84 @@ fun HomeScreen(
         }
 
         BottomTabBar(active = Screen.Home.route, onSelect = onTabSelect)
+    }
+}
+
+/** The plural name a grouped box goes by — the box speaks for several entries. */
+private fun HomeEntryType.groupLabel(): String = when (this) {
+    HomeEntryType.POOP -> "Poops"
+    HomeEntryType.FOOD -> "Food"
+    HomeEntryType.NOTE -> "Notes"
+    HomeEntryType.MEDICINE -> "Medicine"
+}
+
+@Composable
+private fun EntryTypeMark(type: HomeEntryType) {
+    when (type) {
+        HomeEntryType.POOP -> Text(text = "💩", fontSize = 16.sp, lineHeight = 16.sp)
+        HomeEntryType.FOOD -> Text(text = "🍴", fontSize = 16.sp, lineHeight = 16.sp)
+        HomeEntryType.NOTE -> Text(text = "📝", fontSize = 16.sp, lineHeight = 16.sp)
+        HomeEntryType.MEDICINE -> MedicineIcon(size = EntryIconSizes.ChipIcon)
+    }
+}
+
+/**
+ * One day's entries of a single type: a header naming the type once, then a row per entry.
+ * Every row is shown — the box never truncates or collapses what its count claims.
+ */
+@Composable
+private fun EntryTypeGroupCard(
+    group: EntryTypeGroup,
+    density: HomeTimelineDensity,
+    onOpenEntry: (kind: String, id: String) -> Unit,
+) {
+    val palette = LocalAppPalette.current
+    val compact = density == HomeTimelineDensity.COMPACT
+    val shape = RoundedCornerShape(if (compact) 12.dp else 16.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 20.dp, end = 20.dp, bottom = if (compact) 6.dp else 10.dp)
+            .clip(shape)
+            .background(palette.surfaceRaised)
+            .border(1.dp, palette.border, shape),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(palette.surfaceHigh)
+                .padding(horizontal = if (compact) 10.dp else 14.dp, vertical = if (compact) 6.dp else 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Box(modifier = Modifier.size(20.dp), contentAlignment = Alignment.Center) {
+                EntryTypeMark(group.type)
+            }
+            Text(
+                text = group.type.groupLabel(),
+                modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.3.sp,
+            )
+            Text(
+                text = "${group.entries.size}",
+                color = palette.fgFaint,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        group.entries.forEachIndexed { index, entry ->
+            if (index > 0) {
+                Box(Modifier.fillMaxWidth().height(1.dp).background(palette.borderSubtle))
+            }
+            GroupedTimelineEntryRow(
+                entry = entry,
+                density = density,
+                onClick = { onOpenEntry(entry.kindKey(), entry.id) },
+            )
+        }
     }
 }
 

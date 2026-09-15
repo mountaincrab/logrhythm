@@ -35,7 +35,23 @@ function describePoop(types: number[]): string {
   return `Bristol ${nums} · ${plain}`
 }
 
-export default function TimelineEntryRow({ item, onClick }: { item: TimelineEntry; onClick: () => void }) {
+/**
+ * `timeline` is the standalone card on the chronological feed. `grouped` is the same entry
+ * as a row inside a day's per-type box: no dot, no card and no type mark, because the box
+ * draws the border and names the type once for every row in it.
+ */
+export type TimelineEntryRowVariant = 'timeline' | 'grouped'
+
+export default function TimelineEntryRow({
+  item,
+  onClick,
+  variant = 'timeline',
+}: {
+  item: TimelineEntry
+  onClick: () => void
+  variant?: TimelineEntryRowVariant
+}) {
+  const grouped = variant === 'grouped'
   const { medicationsById } = useMedicationsContext()
   const { foodItemsById, componentsById } = useFoodCatalogContext()
   let dotColor = 'var(--surface-high)'
@@ -101,7 +117,7 @@ export default function TimelineEntryRow({ item, onClick }: { item: TimelineEntr
     // catalog, so an unresolvable medication drops the bracket rather than guessing a form.
     body = (
       <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-1">
-        <MedicineIcon size={ENTRY_ICON_SIZES.timelineIcon} />
+        {!grouped && <MedicineIcon size={ENTRY_ICON_SIZES.timelineIcon} />}
         <span className="inline-flex items-center gap-1">
           {medicationName}
           {medication && (
@@ -121,25 +137,37 @@ export default function TimelineEntryRow({ item, onClick }: { item: TimelineEntr
     body = <span>{item.entry.content}</span>
   }
 
+  const content = (
+    <button
+      onClick={onClick}
+      className={
+        grouped
+          ? 'w-full text-left px-3.5 py-2.5 hover:bg-surface-high/40 transition-colors'
+          : 'w-full text-left bg-surface-raised border border-DEFAULT rounded-2xl px-3.5 py-3 hover:bg-surface-high/40 transition-colors'
+      }
+    >
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-[13px] font-bold font-mono tabular-nums">{formatTime(item.occurredAt)}</span>
+        {!grouped && (
+          <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: kindColor }}>
+            · {kindLabel}
+          </span>
+        )}
+      </div>
+      <div className="text-sm leading-snug text-fg break-words">{body}</div>
+      {meta && <div className="mt-1.5 flex items-center gap-2.5">{meta}</div>}
+    </button>
+  )
+
+  if (grouped) return content
+
   return (
     <div className="relative mb-2">
       <span
         className="absolute -left-[19px] top-4 w-[11px] h-[11px] rounded-full"
         style={{ background: dotColor, border: '2px solid var(--bg)' }}
       />
-      <button
-        onClick={onClick}
-        className="w-full text-left bg-surface-raised border border-DEFAULT rounded-2xl px-3.5 py-3 hover:bg-surface-high/40 transition-colors"
-      >
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-[13px] font-bold font-mono tabular-nums">{formatTime(item.occurredAt)}</span>
-          <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: kindColor }}>
-            · {kindLabel}
-          </span>
-        </div>
-        <div className="text-sm leading-snug text-fg break-words">{body}</div>
-        {meta && <div className="mt-1.5 flex items-center gap-2.5">{meta}</div>}
-      </button>
+      {content}
     </div>
   )
 }
