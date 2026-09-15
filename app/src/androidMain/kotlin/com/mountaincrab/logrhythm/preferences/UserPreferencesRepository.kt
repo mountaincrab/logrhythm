@@ -40,6 +40,7 @@ class UserPreferencesRepository(private val context: Context) {
     private val keyTagProfileIdRepaired = booleanPreferencesKey("tag_profile_id_repaired")
     private val keyDisabledHomeEntryTypes = stringSetPreferencesKey("disabled_home_entry_types")
     private val keyHomeTimelineDensity = stringPreferencesKey("home_timeline_density")
+    private val keyGroupHomeByEntryType = booleanPreferencesKey("group_home_by_entry_type")
 
     private fun quickAddFoodItemIdsKey(profileId: String) =
         stringPreferencesKey("quick_add_food_item_ids:$profileId")
@@ -82,6 +83,18 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun setHomeTimelineDensity(value: HomeTimelineDensity) {
         context.dataStore.edit { it[keyHomeTimelineDensity] = value.name }
+    }
+
+    /**
+     * Whether the home timeline collapses each day into one box per entry type. Like the
+     * density above it is a device preference: it changes how the feed is laid out, not what
+     * is in it, so it is deliberately not part of profile sync.
+     */
+    val groupHomeByEntryType: Flow<Boolean> =
+        context.dataStore.data.map { it[keyGroupHomeByEntryType] ?: false }
+
+    suspend fun setGroupHomeByEntryType(value: Boolean) {
+        context.dataStore.edit { it[keyGroupHomeByEntryType] = value }
     }
 
     /**

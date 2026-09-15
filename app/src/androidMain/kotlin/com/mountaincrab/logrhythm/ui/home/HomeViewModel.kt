@@ -48,6 +48,17 @@ data class DayGroup(
     val date: LocalDate,
     val entries: List<TimelineEntry>,
     val totalEntryCount: Int,
+    /**
+     * The day's visible entries split by type, in [HomeEntryType] order so a box sits in the
+     * same place every day. A type with no entries that day has no group at all — the home
+     * timeline never draws an empty box. Only read when the group-by-type preference is on.
+     */
+    val typeGroups: List<EntryTypeGroup> = emptyList(),
+)
+
+data class EntryTypeGroup(
+    val type: HomeEntryType,
+    val entries: List<TimelineEntry>,
 )
 
 class HomeViewModel(
@@ -80,6 +91,9 @@ class HomeViewModel(
             started = SharingStarted.Eagerly,
             initialValue = HomeTimelineDensity.STANDARD,
         )
+
+    val groupByEntryType: StateFlow<Boolean> = preferencesRepository.groupHomeByEntryType
+        .stateIn(scope = viewModelScope, started = SharingStarted.Eagerly, initialValue = false)
 
     init {
         syncScheduler.enqueue()
@@ -160,6 +174,7 @@ class HomeViewModel(
                         date = date,
                         entries = it,
                         totalEntryCount = entries.size,
+                        typeGroups = it.toTypeGroups(),
                     )
                 }
             }
@@ -181,6 +196,17 @@ class HomeViewModel(
 
     private companion object {
         const val PAGE_SIZE = 50
+    }
+}
+
+/**
+ * Split a day's entries into one group per type, dropping the types with nothing in them.
+ * The entries are already newest-first, and filtering preserves that inside each group.
+ */
+private fun List<TimelineEntry>.toTypeGroups(): List<EntryTypeGroup> {
+    val byType = groupBy { it.homeEntryType() }
+    return HomeEntryType.entries.mapNotNull { type ->
+        byType[type]?.takeIf { it.isNotEmpty() }?.let { EntryTypeGroup(type, it) }
     }
 }
 

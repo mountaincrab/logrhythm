@@ -73,18 +73,49 @@ fun TimelineEntryRow(
                 ),
             verticalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 4.dp),
         ) {
-            when (entry) {
-                is TimelineEntry.Poop -> PoopBody(entry, compact)
-                is TimelineEntry.Food -> FoodBody(entry, compact)
-                is TimelineEntry.Note -> NoteBody(entry, compact)
-                is TimelineEntry.Medication -> MedicationBody(entry, compact)
-            }
+            EntryBody(entry, compact, showTypeMark = true)
         }
     }
 }
 
+/**
+ * The same entry as a row inside a grouped day box: no dot, no card of its own, and no type
+ * mark — the box supplies the border and says once which type these all are.
+ */
 @Composable
-private fun PoopBody(entry: TimelineEntry.Poop, compact: Boolean) {
+fun GroupedTimelineEntryRow(
+    entry: TimelineEntry,
+    density: HomeTimelineDensity = HomeTimelineDensity.STANDARD,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val compact = density == HomeTimelineDensity.COMPACT
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(
+                horizontal = if (compact) 10.dp else 14.dp,
+                vertical = if (compact) 6.dp else 10.dp,
+            ),
+        verticalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 4.dp),
+    ) {
+        EntryBody(entry, compact, showTypeMark = false)
+    }
+}
+
+@Composable
+private fun EntryBody(entry: TimelineEntry, compact: Boolean, showTypeMark: Boolean) {
+    when (entry) {
+        is TimelineEntry.Poop -> PoopBody(entry, compact, showTypeMark)
+        is TimelineEntry.Food -> FoodBody(entry, compact)
+        is TimelineEntry.Note -> NoteBody(entry, compact, showTypeMark)
+        is TimelineEntry.Medication -> MedicationBody(entry, compact, showTypeMark)
+    }
+}
+
+@Composable
+private fun PoopBody(entry: TimelineEntry.Poop, compact: Boolean, showTypeMark: Boolean) {
     val palette = LocalAppPalette.current
     val bristolNums = entry.entity.bristolTypes.sorted()
     val bristolText = buildString {
@@ -105,11 +136,13 @@ private fun PoopBody(entry: TimelineEntry.Poop, compact: Boolean) {
             fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.CenterVertically),
         )
-        Text(
-            text = "💩",
-            fontSize = EntryIconSizes.timelineEmoji(compact),
-            modifier = Modifier.align(Alignment.CenterVertically),
-        )
+        if (showTypeMark) {
+            Text(
+                text = "💩",
+                fontSize = EntryIconSizes.timelineEmoji(compact),
+                modifier = Modifier.align(Alignment.CenterVertically),
+            )
+        }
         if (bristolText.isNotEmpty()) {
             Text(
                 text = bristolText,
@@ -225,7 +258,7 @@ private fun FoodBody(entry: TimelineEntry.Food, compact: Boolean) {
 }
 
 @Composable
-private fun MedicationBody(entry: TimelineEntry.Medication, compact: Boolean) {
+private fun MedicationBody(entry: TimelineEntry.Medication, compact: Boolean, showTypeMark: Boolean) {
     val palette = LocalAppPalette.current
     val e = entry.entity
     // Name and strength come from the catalog row, so correcting a medication corrects
@@ -243,10 +276,12 @@ private fun MedicationBody(entry: TimelineEntry.Medication, compact: Boolean) {
             fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.CenterVertically),
         )
-        MedicineIcon(
-            size = EntryIconSizes.timelineIcon(compact),
-            modifier = Modifier.align(Alignment.CenterVertically),
-        )
+        if (showTypeMark) {
+            MedicineIcon(
+                size = EntryIconSizes.timelineIcon(compact),
+                modifier = Modifier.align(Alignment.CenterVertically),
+            )
+        }
         // Name and form stay one unit — a bracket that wrapped away from what it qualifies
         // would read as belonging to the dose amount instead.
         Row(
@@ -292,7 +327,7 @@ private fun MedicationBody(entry: TimelineEntry.Medication, compact: Boolean) {
 }
 
 @Composable
-private fun NoteBody(entry: TimelineEntry.Note, compact: Boolean) {
+private fun NoteBody(entry: TimelineEntry.Note, compact: Boolean, showTypeMark: Boolean) {
     val palette = LocalAppPalette.current
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp),
@@ -305,11 +340,13 @@ private fun NoteBody(entry: TimelineEntry.Note, compact: Boolean) {
             fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.CenterVertically),
         )
-        Text(
-            text = "📝",
-            fontSize = EntryIconSizes.timelineEmoji(compact),
-            modifier = Modifier.align(Alignment.CenterVertically),
-        )
+        if (showTypeMark) {
+            Text(
+                text = "📝",
+                fontSize = EntryIconSizes.timelineEmoji(compact),
+                modifier = Modifier.align(Alignment.CenterVertically),
+            )
+        }
         entry.tags.forEach { tag ->
             TimelineTag(
                 text = tag.name,
