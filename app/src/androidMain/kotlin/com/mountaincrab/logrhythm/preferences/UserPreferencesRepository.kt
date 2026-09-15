@@ -44,6 +44,12 @@ class UserPreferencesRepository(private val context: Context) {
     private fun quickAddFoodItemIdsKey(profileId: String) =
         stringPreferencesKey("quick_add_food_item_ids:$profileId")
 
+    private fun quickAddWidgetConfigKey(appWidgetId: Int) =
+        stringPreferencesKey("quick_add_widget_config:$appWidgetId")
+
+    private fun quickAddWidgetLoggedAtKey(appWidgetId: Int) =
+        longPreferencesKey("quick_add_widget_logged_at:$appWidgetId")
+
     /** Legacy theme key, read once during the profile theme migration then unused. */
     val appTheme: Flow<String?> = context.dataStore.data.map { it[keyAppTheme] }
 
@@ -99,6 +105,51 @@ class UserPreferencesRepository(private val context: Context) {
             preferences[quickAddFoodItemIdsKey(profileId)] = preferencesJson.encodeToString(sanitised)
         }
     }
+
+    /**
+     * The shortcut a home-screen widget logs, or `null` while it is unconfigured — which is
+     * also what a widget restored onto a wiped device sees, so the widget has to offer setup
+     * rather than assume a config exists.
+     */
+    fun quickAddWidgetConfig(appWidgetId: Int): Flow<QuickAddWidgetConfig?> =
+        context.dataStore.data.map { preferences ->
+            preferences[quickAddWidgetConfigKey(appWidgetId)]?.let(::decodeQuickAddWidgetConfig)
+        }
+
+    suspend fun getQuickAddWidgetConfig(appWidgetId: Int): QuickAddWidgetConfig? =
+        quickAddWidgetConfig(appWidgetId).first()
+
+    suspend fun setQuickAddWidgetConfig(appWidgetId: Int, config: QuickAddWidgetConfig) {
+        require(config.isValid) { "A quick-add widget needs a profile, a food item and a positive quantity" }
+        context.dataStore.edit { preferences ->
+            preferences[quickAddWidgetConfigKey(appWidgetId)] = preferencesJson.encodeToString(config)
+        }
+    }
+
+    /** Drops a removed widget's config and its last-logged stamp so ids are never reused stale. */
+    suspend fun clearQuickAddWidget(appWidgetId: Int) {
+        context.dataStore.edit { preferences ->
+            preferences.remove(quickAddWidgetConfigKey(appWidgetId))
+            preferences.remove(quickAddWidgetLoggedAtKey(appWidgetId))
+        }
+    }
+
+    /**
+     * When this widget last logged, shown on the tile itself. It answers "did I already log
+     * that tea?" without opening the app, which is the whole point of logging from the
+     * launcher, and it is the only feedback a tap gets once the toast has gone.
+     */
+    fun quickAddWidgetLoggedAt(appWidgetId: Int): Flow<Long?> =
+        context.dataStore.data.map { it[quickAddWidgetLoggedAtKey(appWidgetId)] }
+
+    suspend fun setQuickAddWidgetLoggedAt(appWidgetId: Int, millis: Long) {
+        context.dataStore.edit { it[quickAddWidgetLoggedAtKey(appWidgetId)] = millis }
+    }
+
+    private fun decodeQuickAddWidgetConfig(encoded: String): QuickAddWidgetConfig? =
+        runCatching { preferencesJson.decodeFromString<QuickAddWidgetConfig>(encoded) }
+            .getOrNull()
+            ?.takeIf { it.isValid }
 
     suspend fun isProfileThemeMigrated(): Boolean =
         context.dataStore.data.map { it[keyProfileThemeMigrated] ?: false }.first()

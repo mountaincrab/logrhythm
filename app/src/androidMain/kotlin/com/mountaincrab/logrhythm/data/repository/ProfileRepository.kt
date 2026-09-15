@@ -36,6 +36,10 @@ class ProfileRepository(
     val activeProfile: Flow<ProfileEntity?> =
         activeProfileId.flatMapLatest { dao.observe(it) }
 
+    /** A named profile rather than the active one — the home-screen widget themes itself from
+     *  the profile it was configured for, which the app may since have switched away from. */
+    fun observeProfile(id: String): Flow<ProfileEntity?> = dao.observe(id)
+
     init {
         scope.launch {
             ensureDefaultProfile()

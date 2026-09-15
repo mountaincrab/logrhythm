@@ -3,4 +3,10 @@
     <string name="app_name">LogRhythm</string>
     <!-- Overridden by google-services.json when Google Sign-In is enabled in Firebase Auth -->
     <string name="default_web_client_id"></string>
+    <string name="widget_quick_add_food_label">Quick add food</string>
+    <string name="widget_quick_add_food_description">One tap logs a food item at the current time.</string>
+    <!-- Widget-picker preview only; the real tile reads its icon and name from the food item. -->
+    <string name="widget_quick_add_food_preview_icon">☕</string>
+    <string name="widget_quick_add_food_preview_name">Tea</string>
+    <string name="widget_quick_add_food_preview_serving">1 cup</string>
 </resources>

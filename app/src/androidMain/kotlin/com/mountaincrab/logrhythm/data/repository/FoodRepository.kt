@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 data class FoodEntryLineInput(
@@ -89,6 +90,18 @@ class FoodRepository(
                 items.map { FoodItemWithComponents(it, byItem[it.id].orEmpty()) }
             }
         }
+
+    /**
+     * One catalogue item in an explicit profile, archived rows included so the lookup never
+     * misses. The home-screen widget observes rather than snapshots it so a rename or a
+     * changed serving reaches the tile, the same way it reaches a historical entry line.
+     */
+    fun observeFoodItem(profileId: String, foodItemId: String): Flow<FoodItemEntity?> =
+        itemDao.observeForLookup(profileId).map { items -> items.firstOrNull { it.id == foodItemId } }
+
+    /** One-shot counterpart of [observeFoodItem], for the widget's tap handler. */
+    suspend fun getFoodItemInProfile(profileId: String, foodItemId: String): FoodItemEntity? =
+        itemDao.getById(foodItemId)?.takeIf { it.profileId == profileId }
 
     fun observeEntries(): Flow<List<FoodEntryWithLines>> =
         activeProfileId.flatMapLatest { resolveEntries(it, Long.MIN_VALUE) }
@@ -233,11 +246,17 @@ class FoodRepository(
     suspend fun entriesInRange(startMillis: Long, endMillis: Long): List<FoodEntryWithLines> =
         entryDao.getInRange(profileId(), startMillis, endMillis).mapNotNull { getEntry(it.id) }
 
+    /**
+     * [profileIdOverride] writes against a profile other than the active one. The home-screen
+     * widget needs it: its configured item belongs to whichever profile it was set up for, and
+     * the app may well be showing a different one by the time the tile is tapped.
+     */
     suspend fun saveEntry(
         id: String? = null,
         occurredAt: Long,
         mealTag: MealTag?,
         inputs: List<FoodEntryLineInput>,
+        profileIdOverride: String? = null,
     ) {
         require(inputs.isNotEmpty())
         inputs.forEach { input ->
@@ -255,7 +274,7 @@ class FoodRepository(
             syncStatus = SyncStatus.PENDING,
         ) ?: FoodEntryEntity(
             userId = getUserId(),
-            profileId = profileId(),
+            profileId = profileIdOverride ?: profileId(),
             occurredAt = occurredAt,
             mealTag = mealTag,
         )
