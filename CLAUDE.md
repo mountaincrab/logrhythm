@@ -195,6 +195,10 @@ the app.
 - Unconfigured or unresolvable tiles carry an `actionStartActivity` intent rather than the callback:
   a broadcast cannot start an activity on Android 10+, so setup has to ride the launcher's own tap. That is
   the route back for a widget restored onto a wiped device.
+- **The picker entry is generic, the placed tile is not.** The widget picker shows the 🍴 mark and
+  "Quick add food" (`previewLayout` on API 31+, the `ic_widget_quick_add_food_preview` vector below
+  that, since a drawable cannot host an emoji) — never a sample food, which would imply the widget is
+  fixed to it. A placed tile reads its icon and name from whichever item it points at.
 - Widget colours restate `AppPalette` in `QuickAddWidgetTheme` (Glance runs outside the app's composition,
   so `LocalAppPalette` is unreachable) and the tile background is a per-theme drawable because
   `GlanceModifier.cornerRadius` is API 31+ and `minSdk` is 26. **Change a palette in `Theme.kt` and this
