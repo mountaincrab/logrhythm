@@ -16,8 +16,10 @@ LogRhythm tracks IBD-relevant signal: poop entries (Bristol type + blood rating 
 - Jetpack Compose + Material3
 - Room (KMP runtime, schemas exported to `app/schemas/`)
 - Koin DI
-- DataStore-Preferences (theme + stool-system pref + active profile + home filters + per-profile quick-add foods)
+- DataStore-Preferences (theme + stool-system pref + active profile + home filters + per-profile quick-add foods
+  + per-widget quick-add shortcuts)
 - Navigation-Compose
+- Glance (home-screen app widget)
 - Firebase Auth (Google) + Cloud Firestore; WorkManager-driven `SyncWorker`
 - kotlinx-serialization (lightweight, kept for future use)
 
@@ -109,6 +111,9 @@ app/src/
       detail/{EntryDetailViewModel,EntryDetailScreen}.kt
       settings/{SettingsViewModel,SettingsScreen}.kt
       util/DateUtils.kt
+    widget/                                 ← Glance home-screen quick-add widget
+      {QuickAddFoodWidget,QuickAddLogAction,QuickAddWidgetTheme}.kt
+      {QuickAddFoodWidgetConfigActivity,QuickAddWidgetConfigViewModel}.kt
 ```
 
 The Android Firebase config (`app/google-services.json`) is gitignored — pull it from the Firebase console.
@@ -164,6 +169,40 @@ DataStore. It is deliberately a device preference rather than part of the Firest
 unconfigured profile initially shows the first five active catalogue items; once saved, an empty list is a
 valid explicit configuration. Quick-add inserts quantity 1 and increments the existing draft line when the
 same item is tapped again.
+
+### Home-screen quick-add widget (Android)
+
+`ui/`'s counterpart on the launcher: a Glance app widget (`widget/`) whose tap logs one catalogue item at
+the moment of the tap — no app launch, no confirmation step. A mis-tap is deleted like any other entry;
+that is deliberately the only correction path, because a confirm-every-tap widget is slower than opening
+the app.
+
+- **One tile = one shortcut.** Each placed widget stores its own `QuickAddWidgetConfig` (profile + food
+  item id + quantity) under `quick_add_widget_config:<appWidgetId>` in the same DataStore as the Log-food
+  quick-adds, and for the same reason: widgets belong to the launcher they were dropped on, not to the
+  Firestore schema. Drop one per food you log often. The framework reuses widget ids, so
+  `onDeleted` clears the config and the last-logged stamp.
+- **The widget owns the pointer, the catalogue owns the appearance.** Icon, name and serving size are read
+  live from the food item, exactly as an entry line reads them, so renaming "Tea" or changing its serving
+  updates the tile. There is deliberately no per-widget icon or label override — that would fork the food
+  definition, and the icon is set once, in the definition.
+- **The configured profile, not the active one.** A widget keeps logging into the profile whose catalogue
+  its item came from (`FoodRepository.saveEntry(profileIdOverride = …)`), because the app may have switched
+  profiles since. Reconfiguring saves against whichever profile is active and drops a selection the new
+  profile cannot resolve.
+- **The tile is the feedback.** A tap writes `Logged HH:mm` onto the widget alongside a toast, which is
+  what answers "did I already log that tea?" without opening the app.
+- Unconfigured or unresolvable tiles carry an `actionStartActivity` intent rather than the callback:
+  a broadcast cannot start an activity on Android 10+, so setup has to ride the launcher's own tap. That is
+  the route back for a widget restored onto a wiped device.
+- **The picker entry is generic, the placed tile is not.** The widget picker shows the 🍴 mark and
+  "Quick add food" (`previewLayout` on API 31+, the `ic_widget_quick_add_food_preview` vector below
+  that, since a drawable cannot host an emoji) — never a sample food, which would imply the widget is
+  fixed to it. A placed tile reads its icon and name from whichever item it points at.
+- Widget colours restate `AppPalette` in `QuickAddWidgetTheme` (Glance runs outside the app's composition,
+  so `LocalAppPalette` is unreachable) and the tile background is a per-theme drawable because
+  `GlanceModifier.cornerRadius` is API 31+ and `minSdk` is 26. **Change a palette in `Theme.kt` and this
+  must follow**, or a tile stops matching the app.
 
 ## Medication
 

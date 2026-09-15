@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  One tile = one shortcut, so several can be placed for several foods. It is configured on
+  drop (APPWIDGET_CONFIGURE) and stays reconfigurable afterwards on API 31+; there is no
+  configuration_optional, because a tile with no food item chosen has nothing to log.
+
+  initialLayout is Glance's loading layout: Glance replaces it as soon as it composes.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_quick_add_food_description"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:minWidth="40dp"
+    android:minHeight="40dp"
+    android:minResizeWidth="40dp"
+    android:minResizeHeight="40dp"
+    android:targetCellWidth="1"
+    android:targetCellHeight="1"
+    android:previewImage="@drawable/ic_widget_quick_add_food_preview"
+    android:previewLayout="@layout/widget_quick_add_food_preview"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen"
+    android:widgetFeatures="reconfigurable"
+    android:configure="com.mountaincrab.logrhythm.widget.QuickAddFoodWidgetConfigActivity" />

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What the widget picker shows before a tile is configured (API 31+; older launchers fall back
+  to previewImage). Static by necessity — the picker renders this without running Glance — so
+  it shows the generic food mark and the widget's own name, never a sample shortcut: a real
+  food's icon here would imply the widget is fixed to that food.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_surface_deep_navy"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/widget_quick_add_food_preview_icon"
+        android:textSize="24sp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="@string/widget_quick_add_food_label"
+        android:textColor="#FFF3F4F6"
+        android:textSize="13sp"
+        android:textStyle="bold" />
+
+</LinearLayout>

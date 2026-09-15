@@ -97,6 +97,7 @@ kotlin {
             implementation(libs.koin.compose)
             implementation(libs.koin.compose.viewmodel)
             implementation(libs.datastore.preferences)
+            implementation(libs.glance.appwidget)
         }
     }
 }

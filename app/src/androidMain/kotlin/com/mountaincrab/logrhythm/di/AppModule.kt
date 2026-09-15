@@ -26,6 +26,7 @@ import com.mountaincrab.logrhythm.ui.meds.MedsViewModel
 import com.mountaincrab.logrhythm.ui.profiles.ProfilesViewModel
 import com.mountaincrab.logrhythm.ui.settings.SettingsViewModel
 import com.mountaincrab.logrhythm.ui.theme.ThemeViewModel
+import com.mountaincrab.logrhythm.widget.QuickAddWidgetConfigViewModel
 import org.koin.android.ext.koin.androidContext
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
@@ -117,6 +118,14 @@ val appModule = module {
         )
     }
     viewModel { HistoryViewModel(repository = get(), foodRepository = get()) }
+    viewModel {
+        QuickAddWidgetConfigViewModel(
+            context = androidContext(),
+            foodRepository = get(),
+            profileRepository = get(),
+            preferences = get(),
+        )
+    }
     viewModel { FoodLibraryViewModel(repository = get()) }
     viewModel { MedsViewModel(repository = get()) }
     viewModel {
