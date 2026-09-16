@@ -114,6 +114,7 @@ app/src/
     widget/                                 ← Glance home-screen quick-add widget
       {QuickAddFoodWidget,QuickAddLogAction,QuickAddWidgetTheme}.kt
       {QuickAddFoodWidgetConfigActivity,QuickAddWidgetConfigViewModel}.kt
+      QuickAddNotificationPermission.kt      ← the one POST_NOTIFICATIONS prompt (toast survival)
 ```
 
 The Android Firebase config (`app/google-services.json`) is gitignored — pull it from the Firebase console.
@@ -190,15 +191,31 @@ the app.
   its item came from (`FoodRepository.saveEntry(profileIdOverride = …)`), because the app may have switched
   profiles since. Reconfiguring saves against whichever profile is active and drops a selection the new
   profile cannot resolve.
-- **The tile is the feedback.** A tap writes `Logged HH:mm` onto the widget alongside a toast, which is
-  what answers "did I already log that tea?" without opening the app.
+- **The tile is the feedback.** A tap writes `✓ HH:mm` onto the widget alongside an "Added 1 Tea" toast,
+  which is what answers "did I already log that tea?" without opening the app. The stamp, not the toast,
+  is the guarantee: the toast is posted from the background, where the system drops it unless the app holds
+  POST_NOTIFICATIONS. So the stamp renders at every tile size that has a line to spare, and only for
+  **today** — yesterday's time answers no question the tap asked.
+- **POST_NOTIFICATIONS is the widget's permission, and nothing else's.** The app posts nothing to the
+  notification shade; it holds the permission only so the confirmation toast survives being posted from the
+  background. `QuickAddNotificationPermission` therefore asks where it is earned and only there — straight
+  after a tile is configured, or on opening an app that already has one on the launcher — and exactly once,
+  behind DataStore's `notification_prompt_shown`, because a second dialog is how a permission gets denied
+  permanently. A refusal costs the banner and nothing else.
+- **The tile is square, whatever the cell is.** Launcher cells are routinely taller than they are wide, and
+  a tile that fills one reads as a stretched slab next to the round app icons beside it. So the tile is a
+  centred square of `min(width, height)`: a circle (`widget_tile_circle_<theme>`) while it is icon-only, a
+  rounded square (`widget_surface_<theme>`) once it is wide enough to carry the name — a circle clips its
+  own corners off text. That is also why `sizeMode` is `SizeMode.Exact` rather than `Responsive`: the
+  breakpoints have to come from the cell's real shape, and `Responsive` reports the matched breakpoint.
 - Unconfigured or unresolvable tiles carry an `actionStartActivity` intent rather than the callback:
   a broadcast cannot start an activity on Android 10+, so setup has to ride the launcher's own tap. That is
   the route back for a widget restored onto a wiped device.
-- **The picker entry is generic, the placed tile is not.** The widget picker shows the 🍴 mark and
-  "Quick add food" (`previewLayout` on API 31+, the `ic_widget_quick_add_food_preview` vector below
-  that, since a drawable cannot host an emoji) — never a sample food, which would imply the widget is
-  fixed to it. A placed tile reads its icon and name from whichever item it points at.
+- **The picker entry is generic, the placed tile is not.** The widget picker shows the generic fork-and-knife
+  mark on the same circle a placed tile draws — `ic_widget_quick_add_food_preview`, rendered `fitCenter` by
+  `previewLayout` on API 31+ and as `previewImage` below that, so the circle stays round in a preview cell
+  that isn't square. Never a sample food, which would imply the widget is fixed to it: a placed tile reads
+  its icon and name from whichever item it points at.
 - Widget colours restate `AppPalette` in `QuickAddWidgetTheme` (Glance runs outside the app's composition,
   so `LocalAppPalette` is unreachable) and the tile background is a per-theme drawable because
   `GlanceModifier.cornerRadius` is API 31+ and `minSdk` is 26. **Change a palette in `Theme.kt` and this

@@ -7,6 +7,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -65,6 +66,11 @@ class QuickAddFoodWidgetConfigActivity : ComponentActivity() {
     private var appWidgetId: Int = AppWidgetManager.INVALID_APPWIDGET_ID
     private val viewModel: QuickAddWidgetConfigViewModel by koinActivityViewModel()
 
+    // The widget is already saved by the time this dialog goes up, so the answer only decides
+    // whether the confirmation arrives as a banner as well as on the tile.
+    private val requestNotificationPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { finish() }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -106,7 +112,17 @@ class QuickAddFoodWidgetConfigActivity : ComponentActivity() {
         lifecycleScope.launch {
             viewModel.save(appWidgetId, foodItemId, quantity)
             setResult(RESULT_OK, resultIntent())
-            finish()
+
+            // Asked here because here is where it is earned: the user has just built the one
+            // feature the permission serves. Once only — see [QuickAddNotificationPermission].
+            if (QuickAddNotificationPermission.isNeeded(this@QuickAddFoodWidgetConfigActivity) &&
+                !viewModel.isNotificationPromptShown()
+            ) {
+                viewModel.markNotificationPromptShown()
+                requestNotificationPermission.launch(QuickAddNotificationPermission.PERMISSION)
+            } else {
+                finish()
+            }
         }
     }
 

@@ -2,6 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!--
+      Asked for solely so the quick-add widget's confirmation toast is not suppressed: the
+      system drops a background toast from an app whose notifications are off, which is the
+      default from Android 13. Nothing is posted to the notification shade.
+      See widget/QuickAddNotificationPermission.kt.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".LogRhythmApplication"

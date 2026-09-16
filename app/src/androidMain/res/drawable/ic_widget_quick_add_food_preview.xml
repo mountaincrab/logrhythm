@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Widget-picker preview for launchers below API 31, which cannot render previewLayout.
+  Widget-picker preview, and the mark widget_quick_add_food_preview.xml renders on API 31+.
   Vector rather than the launcher icon: the picker entry should say "food shortcut", not
   "LogRhythm". Drawn as paths because a drawable cannot host the 🍴 emoji the tile itself
-  uses; the colours mirror the deep-navy tile (AppPalette.surfaceRaised / border / fg).
+  uses; the colours mirror the deep-navy tile (AppPalette.surfaceRaised / border / fg) and the
+  surface is the same circle a placed tile draws at icon size.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="72dp"
@@ -11,12 +12,12 @@
     android:viewportWidth="72"
     android:viewportHeight="72">
 
-    <!-- Tile surface, matching widget_surface_deep_navy. -->
+    <!-- Tile surface, matching widget_tile_circle_deep_navy. -->
     <path
         android:fillColor="#FF1C2340"
         android:strokeColor="#26FFFFFF"
         android:strokeWidth="1"
-        android:pathData="M14,2 L58,2 A12,12 0 0 1 70,14 L70,58 A12,12 0 0 1 58,70 L14,70 A12,12 0 0 1 2,58 L2,14 A12,12 0 0 1 14,2 Z" />
+        android:pathData="M2,36 A34,34 0 1 0 70,36 A34,34 0 1 0 2,36 Z" />
 
     <!-- Fork: three tines over a yoke and stem. -->
     <path

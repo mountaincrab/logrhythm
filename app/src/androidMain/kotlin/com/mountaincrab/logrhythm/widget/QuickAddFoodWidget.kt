@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -22,9 +21,11 @@ import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.layout.Alignment
+import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.padding
+import androidx.glance.layout.size
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
@@ -36,6 +37,7 @@ import com.mountaincrab.logrhythm.preferences.QuickAddWidgetConfig
 import com.mountaincrab.logrhythm.preferences.UserPreferencesRepository
 import com.mountaincrab.logrhythm.ui.theme.AppTheme
 import com.mountaincrab.logrhythm.ui.util.formatTime
+import com.mountaincrab.logrhythm.ui.util.toLocalDate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -46,6 +48,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.koin.core.context.GlobalContext
+import java.time.LocalDate
 
 /**
  * A one-tap home-screen tile that logs a configured food item at the current time.
@@ -58,17 +61,12 @@ import org.koin.core.context.GlobalContext
 class QuickAddFoodWidget : GlanceAppWidget() {
 
     /**
-     * Three breakpoints rather than one layout: at 1x1 there is only room for the icon, and a
-     * name clipped to "Te..." is worse than none. Width decides, because a launcher row is what
-     * gets squeezed.
+     * Exact rather than a set of breakpoints, because the tile is laid out from the *smaller*
+     * of the two dimensions and `SizeMode.Responsive` reports the matched breakpoint instead of
+     * the cell's real shape. Launcher cells are routinely taller than they are wide, and a tile
+     * that fills one reads as a stretched slab next to the round app icons beside it.
      */
-    override val sizeMode = SizeMode.Responsive(
-        setOf(
-            DpSize(50.dp, 50.dp),
-            DpSize(110.dp, 50.dp),
-            DpSize(180.dp, 110.dp),
-        ),
-    )
+    override val sizeMode = SizeMode.Exact
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -118,9 +116,13 @@ private fun QuickAddTile(
     loggedAt: Long?,
 ) {
     val context = LocalContext.current
-    val width = LocalSize.current.width
-    val iconOnly = width < 100.dp
-    val showLoggedStamp = width >= 150.dp
+    val size = LocalSize.current
+    // The tile is a square of the cell's shorter side, centred in whatever the launcher gave
+    // us: that is what keeps a 1x1 shortcut looking like the app icons it sits among instead of
+    // stretching to the cell's aspect ratio.
+    val side = if (size.width < size.height) size.width else size.height
+    val tiny = side < 56.dp
+    val iconOnly = side < 100.dp
     val configured = config != null && item != null
 
     // An unconfigured tile opens setup straight from the launcher's tap rather than routing
@@ -134,69 +136,100 @@ private fun QuickAddTile(
         )
     }
 
-    Column(
-        modifier = GlanceModifier
-            .fillMaxSize()
-            .background(ImageProvider(theme.backgroundRes))
-            .padding(horizontal = 8.dp, vertical = 8.dp)
-            .clickable(onTap),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalAlignment = Alignment.CenterVertically,
+    // Only today's stamp is worth the room. Yesterday's time answers no question a tap asks
+    // ("have I logged that tea yet?") and on an icon-only tile it is all the room there is.
+    val loggedToday = loggedAt?.takeIf { it.toLocalDate() == LocalDate.now() }
+
+    Box(
+        // The whole cell is the target, not just the drawn circle: a tap that lands a couple of
+        // dp outside it was still aimed at the shortcut.
+        modifier = GlanceModifier.fillMaxSize().clickable(onTap),
+        contentAlignment = Alignment.Center,
     ) {
-        if (config == null || item == null) {
-            // Unconfigured, or pointing at an item that no longer resolves — a widget restored
-            // onto a wiped device, or one whose profile was deleted. Tapping opens setup (see
-            // onTap above) rather than failing silently.
-            Text(DEFAULT_TILE_ICON, style = TextStyle(fontSize = 24.sp))
-            if (!iconOnly) {
-                Text(
-                    text = if (config == null) "Tap to set up" else "Item unavailable",
-                    style = TextStyle(
-                        color = theme.foregroundMuted,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        textAlign = TextAlign.Center,
+        Column(
+            modifier = GlanceModifier
+                .size(side)
+                // Round while it is an icon, rounded-square once it carries text — a circle
+                // clips its own corners off a name.
+                .background(
+                    ImageProvider(
+                        if (iconOnly) theme.circleBackgroundRes else theme.squareBackgroundRes,
                     ),
-                    maxLines = 2,
                 )
-            }
-        } else {
-            Text(item.icon, style = TextStyle(fontSize = if (iconOnly) 26.sp else 24.sp))
-            if (!iconOnly) {
-                Text(
-                    text = item.name,
-                    style = TextStyle(
-                        color = theme.foreground,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                    ),
-                    maxLines = 1,
-                )
-                Text(
-                    text = servingLabel(config.quantity, item),
-                    style = TextStyle(
-                        color = theme.foregroundMuted,
-                        fontSize = 11.sp,
-                        textAlign = TextAlign.Center,
-                    ),
-                    maxLines = 1,
-                )
-            }
-            if (showLoggedStamp && loggedAt != null) {
-                Text(
-                    text = "Logged ${loggedAt.formatTime()}",
-                    style = TextStyle(
-                        color = theme.accent,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        textAlign = TextAlign.Center,
-                    ),
-                    maxLines = 1,
-                )
+                .padding(if (iconOnly) 4.dp else 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (config == null || item == null) {
+                // Unconfigured, or pointing at an item that no longer resolves — a widget restored
+                // onto a wiped device, or one whose profile was deleted. Tapping opens setup (see
+                // onTap above) rather than failing silently.
+                Text(DEFAULT_TILE_ICON, style = TextStyle(fontSize = iconSize(tiny, iconOnly)))
+                if (!iconOnly) {
+                    Text(
+                        text = if (config == null) "Tap to set up" else "Item unavailable",
+                        style = TextStyle(
+                            color = theme.foregroundMuted,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center,
+                        ),
+                        maxLines = 2,
+                    )
+                }
+            } else {
+                Text(item.icon, style = TextStyle(fontSize = iconSize(tiny, iconOnly)))
+                if (!iconOnly) {
+                    Text(
+                        text = item.name,
+                        style = TextStyle(
+                            color = theme.foreground,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                        ),
+                        maxLines = 1,
+                    )
+                    Text(
+                        text = servingLabel(config.quantity, item),
+                        style = TextStyle(
+                            color = theme.foregroundMuted,
+                            fontSize = 11.sp,
+                            textAlign = TextAlign.Center,
+                        ),
+                        maxLines = 1,
+                    )
+                }
+                // The stamp is the feedback that cannot be suppressed: a toast fires from the
+                // background, where the system drops it unless the notification permission was
+                // granted, so the tile has to be able to answer for itself. It shows at every
+                // size that has a line to spare — on an icon-only tile as the bare time.
+                if (loggedToday != null && !tiny) {
+                    Text(
+                        text = if (iconOnly) {
+                            "✓ ${loggedToday.formatTime()}"
+                        } else {
+                            "Logged ${loggedToday.formatTime()}"
+                        },
+                        style = TextStyle(
+                            color = theme.accent,
+                            fontSize = if (iconOnly) 9.sp else 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center,
+                        ),
+                        maxLines = 1,
+                    )
+                }
             }
         }
     }
+}
+
+/** A tile too small for a second line gives the icon the room the stamp would have taken. */
+private fun iconSize(tiny: Boolean, iconOnly: Boolean) = when {
+    tiny -> 20.sp
+    iconOnly -> 22.sp
+    else -> 24.sp
 }
 
 private const val DEFAULT_TILE_ICON = "🍴"
@@ -209,6 +242,14 @@ internal fun servingLabel(quantity: Double, item: FoodItemEntity): String {
     val serving = "${item.amount} ${item.unit}".trim()
     return if (quantity == 1.0) serving else "${formatQuantity(quantity)} × $serving"
 }
+
+/**
+ * "Added 1 Tea" — what the tap just wrote, in the words the user would use for it. The
+ * quantity leads because it is the part a tile cannot show at icon-only size, and the food's
+ * name is the catalogue's, so a rename reaches the confirmation like it reaches everything else.
+ */
+internal fun addedLabel(quantity: Double, item: FoodItemEntity): String =
+    "Added ${formatQuantity(quantity)} ${item.name}"
 
 internal fun formatQuantity(value: Double): String =
     if (value % 1.0 == 0.0) value.toLong().toString() else value.toString()
