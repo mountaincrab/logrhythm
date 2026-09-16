@@ -191,6 +191,14 @@ the app.
   its item came from (`FoodRepository.saveEntry(profileIdOverride = …)`), because the app may have switched
   profiles since. Reconfiguring saves against whichever profile is active and drops a selection the new
   profile cannot resolve.
+- **Nothing re-renders a tile unless something asks it to.** The composition in `provideGlance` only runs
+  inside a live Glance session, and a tap arrives as a broadcast in a process that usually has none — so a
+  DataStore write the tile displays reaches nobody, and the launcher keeps the RemoteViews it has until a
+  resize or a launcher restart forces a render. Every path that changes what a tile shows therefore ends in
+  `QuickAddFoodWidget().update(context, glanceId)`: the log action after stamping, the config screen after
+  saving. For the same reason the composition seeds `collectAsState` from values read with `first()` rather
+  than from nulls — a fresh session composing from nulls publishes one frame of the "Tap to set up" tile
+  before the real one, which is a flash on every tap.
 - **The tile is the feedback.** A tap writes `✓ HH:mm` onto the widget alongside an "Added 1 Tea" toast,
   which is what answers "did I already log that tea?" without opening the app. The stamp, not the toast,
   is the guarantee: the toast is posted from the background, where the system drops it unless the app holds

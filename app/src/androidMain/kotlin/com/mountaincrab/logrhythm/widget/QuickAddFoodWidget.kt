@@ -43,6 +43,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -90,11 +91,19 @@ class QuickAddFoodWidget : GlanceAppWidget() {
         }
         val loggedAtFlow = preferences.quickAddWidgetLoggedAt(appWidgetId)
 
+        // Seeded from the current values rather than from nulls: a session starts afresh every
+        // time something asks for a render, and composing from nulls first would publish one
+        // frame of the "Tap to set up" tile before the real one — a flash on every tap.
+        val initialConfig = configFlow.first()
+        val initialItem = itemFlow.first()
+        val initialTheme = themeFlow.first()
+        val initialLoggedAt = loggedAtFlow.first()
+
         provideContent {
-            val config by configFlow.collectAsState(initial = null)
-            val item by itemFlow.collectAsState(initial = null)
-            val theme by themeFlow.collectAsState(initial = AppTheme.DEEP_NAVY)
-            val loggedAt by loggedAtFlow.collectAsState(initial = null)
+            val config by configFlow.collectAsState(initial = initialConfig)
+            val item by itemFlow.collectAsState(initial = initialItem)
+            val theme by themeFlow.collectAsState(initial = initialTheme)
+            val loggedAt by loggedAtFlow.collectAsState(initial = initialLoggedAt)
 
             QuickAddTile(
                 appWidgetId = appWidgetId,
