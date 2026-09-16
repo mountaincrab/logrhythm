@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import TimelineEntryRow from '../components/TimelineEntryRow'
+import MergedFoodTimelineRow from '../components/MergedFoodTimelineRow'
 import AddPoopSheet from '../components/sheets/AddPoopSheet'
 import AddFoodSheet from '../components/sheets/AddFoodSheet'
 import AddNoteSheet from '../components/sheets/AddNoteSheet'
@@ -11,9 +12,11 @@ import { useAuth } from '../contexts/AuthContext'
 import { useProfileContext } from '../contexts/ProfileContext'
 import { usePagedTimeline } from '../hooks/usePagedTimeline'
 import { drawnIconSize, MedicineIcon } from '../components/MedicationIcons'
-import { EntryKind, TimelineEntry } from '../types'
+import { EntryKind, FoodItem, TimelineEntry, TrackedComponent } from '../types'
 import { dayKey, formatDayLabel, formatDayShort } from '../lib/dates'
 import { groupHomeByEntryType } from '../lib/homeLayout'
+import { mergeFoodEntries, MergedFoodRow } from '../lib/food'
+import { useFoodCatalogContext } from '../contexts/FoodCatalogContext'
 
 type SheetKind = 'poop' | 'food' | 'note' | 'medicine' | null
 
@@ -46,10 +49,31 @@ const GROUP_LABELS: Record<EntryKind, string> = {
 /**
  * A day's entries split by type, in ALL_ENTRY_KINDS order so a box sits in the same place
  * every day. A type with no entries that day has no group — an empty box is never drawn.
+ *
+ * The food box also merges: one row per food, however many times it was logged. A merged
+ * row stands for several entries, so its times, not the row, are what open them. Nothing to
+ * merge (an entry whose lines never arrived) leaves `merged` empty and falls back to rows.
  */
-function typeGroups(items: TimelineEntry[]) {
+function typeGroups(
+  items: TimelineEntry[],
+  foodItemsById: Map<string, FoodItem>,
+  componentsById: Map<string, TrackedComponent>,
+): { kind: EntryKind; items: TimelineEntry[]; merged: MergedFoodRow[] }[] {
   return ALL_ENTRY_KINDS
-    .map((kind) => ({ kind, items: items.filter((item) => item.kind === kind) }))
+    .map((kind) => {
+      const kindItems = items.filter((item) => item.kind === kind)
+      return {
+        kind,
+        items: kindItems,
+        merged: kind === 'food'
+          ? mergeFoodEntries(
+              kindItems.flatMap((item) => (item.kind === 'food' ? [item.entry] : [])),
+              foodItemsById,
+              componentsById,
+            )
+          : [],
+      }
+    })
     .filter((group) => group.items.length > 0)
 }
 
@@ -101,6 +125,8 @@ export default function HomePage() {
   const { addPoop, addFood, addNote, addMedicine } = useEntriesContext()
   const { user } = useAuth()
   const { activeProfileId } = useProfileContext()
+  // The food box merges its rows, which needs the catalogue the lines point at.
+  const { foodItemsById, componentsById } = useFoodCatalogContext()
   const { timeline, loading, hasMore, loadingMore, loadMore } = usePagedTimeline(user!.uid, activeProfileId)
   const [sheet, setSheet] = useState<SheetKind>(null)
   const [enabledKinds, setEnabledKinds] = useState<Set<EntryKind>>(storedEnabledEntryKinds)
@@ -280,7 +306,7 @@ export default function HomePage() {
               </div>
               {groupByType ? (
                 <div className="flex flex-col gap-2.5">
-                  {typeGroups(group.items).map(({ kind, items }) => (
+                  {typeGroups(group.items, foodItemsById, componentsById).map(({ kind, items, merged }) => (
                     <div key={kind} className="bg-surface-raised border border-DEFAULT rounded-2xl overflow-hidden">
                       <div className="flex items-center gap-2 px-3.5 py-2 bg-surface-high border-b border-[var(--border-subtle)]">
                         <span className="inline-flex items-center justify-center w-5 h-5">
@@ -290,14 +316,22 @@ export default function HomePage() {
                         <span className="text-[11px] text-fg-faint font-semibold tabular-nums">{items.length}</span>
                       </div>
                       <div className="divide-y divide-[var(--border-subtle)]">
-                        {items.map((item) => (
-                          <TimelineEntryRow
-                            key={`${item.kind}-${item.entry.id}`}
-                            item={item}
-                            variant="grouped"
-                            onClick={() => openEntry(item)}
-                          />
-                        ))}
+                        {merged.length > 0
+                          ? merged.map((row) => (
+                              <MergedFoodTimelineRow
+                                key={row.key}
+                                row={row}
+                                onOpenEntry={(entryId) => navigate(`/entry/food/${entryId}`)}
+                              />
+                            ))
+                          : items.map((item) => (
+                              <TimelineEntryRow
+                                key={`${item.kind}-${item.entry.id}`}
+                                item={item}
+                                variant="grouped"
+                                onClick={() => openEntry(item)}
+                              />
+                            ))}
                       </div>
                     </div>
                   ))}

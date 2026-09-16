@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mountaincrab.logrhythm.data.local.entity.dose
 import com.mountaincrab.logrhythm.data.local.entity.formatFoodNumber
+import com.mountaincrab.logrhythm.data.model.MergedFoodRow
 import com.mountaincrab.logrhythm.data.model.bristol
 import com.mountaincrab.logrhythm.data.model.formatDoseAmount
 import com.mountaincrab.logrhythm.data.repository.TimelineEntry
@@ -101,6 +102,85 @@ fun GroupedTimelineEntryRow(
         verticalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 4.dp),
     ) {
         EntryBody(entry, compact, showTypeMark = false)
+    }
+}
+
+/**
+ * A day's loggings of one food as a single row inside the grouped food box: the food once,
+ * the total quantity and component amounts, then every time it was logged.
+ *
+ * Each time is its own target rather than the row being one: the row stands for several
+ * entries, and a tap has to land on the one being corrected. Editing and deleting stay
+ * exactly where they are for every other entry — on the entry itself.
+ */
+@Composable
+fun MergedFoodTimelineRow(
+    row: MergedFoodRow,
+    density: HomeTimelineDensity = HomeTimelineDensity.STANDARD,
+    modifier: Modifier = Modifier,
+    onOpenEntry: (entryId: String) -> Unit,
+) {
+    val palette = LocalAppPalette.current
+    val compact = density == HomeTimelineDensity.COMPACT
+    FlowRow(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(
+                horizontal = if (compact) 10.dp else 14.dp,
+                vertical = if (compact) 6.dp else 10.dp,
+            ),
+        horizontalArrangement = Arrangement.spacedBy(if (compact) 5.dp else 7.dp),
+        verticalArrangement = Arrangement.spacedBy(if (compact) 3.dp else 5.dp),
+    ) {
+        Text(
+            text = row.icon,
+            fontSize = EntryIconSizes.timelineEmoji(compact),
+            modifier = Modifier.align(Alignment.CenterVertically),
+        )
+        Text(
+            text = row.name,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontSize = if (compact) 12.sp else 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.align(Alignment.CenterVertically),
+        )
+        if (row.showQuantity) {
+            Text(
+                text = "× ${formatFoodNumber(row.totalQuantity)}",
+                color = palette.accentText,
+                fontSize = if (compact) 12.sp else 13.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.CenterVertically),
+            )
+        }
+        if (row.componentTotals.isNotEmpty()) {
+            // Bracketed as one unit: these are what the whole row adds up to, not a
+            // qualifier on the last time in the list beside them.
+            Text(
+                text = row.componentTotals.joinToString(" · ") {
+                    "${it.name} ${formatFoodNumber(it.amount)} ${it.unit}"
+                }.let { "($it)" },
+                color = palette.fgMuted,
+                fontSize = if (compact) 10.sp else 11.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.align(Alignment.CenterVertically),
+            )
+        }
+        row.occurrences.forEachIndexed { index, occurrence ->
+            Text(
+                text = occurrence.occurredAt.formatTime() + if (index < row.occurrences.lastIndex) "," else "",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = if (compact) 12.sp else 13.sp,
+                fontWeight = FontWeight.Bold,
+                // Padded inside the clickable so a time is a target a finger can find,
+                // not just the few millimetres its digits cover.
+                modifier = Modifier
+                    .align(Alignment.CenterVertically)
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable { onOpenEntry(occurrence.entryId) }
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
+            )
+        }
     }
 }
 
