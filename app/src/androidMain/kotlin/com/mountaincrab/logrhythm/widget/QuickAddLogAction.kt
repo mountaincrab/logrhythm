@@ -58,8 +58,15 @@ class QuickAddLogAction : ActionCallback {
         )
         preferences.setQuickAddWidgetLoggedAt(appWidgetId, occurredAt)
 
-        // The tile itself re-renders from the stamp it just wrote; the toast is what confirms
-        // the tap before the user looks away. Application context, because the receiver's own
+        // The stamp does not reach the tile on its own. The composition that reads it only runs
+        // inside a live Glance session, and a tap arrives here as a broadcast in a process that
+        // usually has none — so the write lands in DataStore with nobody collecting it and the
+        // launcher keeps the RemoteViews it already has, until something else (a resize, a
+        // launcher restart) asks for a render. Asking for one is this line.
+        QuickAddFoodWidget().update(context, glanceId)
+
+        // The tile now carries the stamp; the toast is what confirms the tap before the user
+        // looks away. Application context, because the receiver's own
         // context is gone once this broadcast finishes.
         withContext(Dispatchers.Main) {
             Toast.makeText(
