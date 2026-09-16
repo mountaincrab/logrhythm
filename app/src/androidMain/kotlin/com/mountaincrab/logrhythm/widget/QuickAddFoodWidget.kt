@@ -200,9 +200,9 @@ private fun QuickAddTile(
                         maxLines = 1,
                     )
                 }
-                // The stamp is the feedback that cannot be missed or suppressed: a toast fires
-                // from the background, where the system drops it whenever the app's
-                // notifications are off, so the tile has to answer for itself. It shows at every
+                // The stamp is the feedback that cannot be suppressed: a toast fires from the
+                // background, where the system drops it unless the notification permission was
+                // granted, so the tile has to be able to answer for itself. It shows at every
                 // size that has a line to spare — on an icon-only tile as the bare time.
                 if (loggedToday != null && !tiny) {
                     Text(

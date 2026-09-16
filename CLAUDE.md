@@ -114,6 +114,7 @@ app/src/
     widget/                                 ← Glance home-screen quick-add widget
       {QuickAddFoodWidget,QuickAddLogAction,QuickAddWidgetTheme}.kt
       {QuickAddFoodWidgetConfigActivity,QuickAddWidgetConfigViewModel}.kt
+      QuickAddNotificationPermission.kt      ← the one POST_NOTIFICATIONS prompt (toast survival)
 ```
 
 The Android Firebase config (`app/google-services.json`) is gitignored — pull it from the Firebase console.
@@ -192,10 +193,15 @@ the app.
   profile cannot resolve.
 - **The tile is the feedback.** A tap writes `✓ HH:mm` onto the widget alongside an "Added 1 Tea" toast,
   which is what answers "did I already log that tea?" without opening the app. The stamp, not the toast,
-  is the guarantee: the toast is posted from the background, where the system drops it whenever the app's
-  notifications are off (the default on Android 13+ for an app that never asks, which this one does not).
-  So the stamp renders at every tile size that has a line to spare, and only for **today** — yesterday's
-  time answers no question the tap asked.
+  is the guarantee: the toast is posted from the background, where the system drops it unless the app holds
+  POST_NOTIFICATIONS. So the stamp renders at every tile size that has a line to spare, and only for
+  **today** — yesterday's time answers no question the tap asked.
+- **POST_NOTIFICATIONS is the widget's permission, and nothing else's.** The app posts nothing to the
+  notification shade; it holds the permission only so the confirmation toast survives being posted from the
+  background. `QuickAddNotificationPermission` therefore asks where it is earned and only there — straight
+  after a tile is configured, or on opening an app that already has one on the launcher — and exactly once,
+  behind DataStore's `notification_prompt_shown`, because a second dialog is how a permission gets denied
+  permanently. A refusal costs the banner and nothing else.
 - **The tile is square, whatever the cell is.** Launcher cells are routinely taller than they are wide, and
   a tile that fills one reads as a stretched slab next to the round app icons beside it. So the tile is a
   centred square of `min(width, height)`: a circle (`widget_tile_circle_<theme>`) while it is icon-only, a

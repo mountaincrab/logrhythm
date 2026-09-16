@@ -31,6 +31,11 @@ class QuickAddWidgetConfigViewModel(
     suspend fun existingConfig(appWidgetId: Int): QuickAddWidgetConfig? =
         preferences.getQuickAddWidgetConfig(appWidgetId)
 
+    /** One dialog, ever — the flag is the app's, not this screen's. */
+    suspend fun isNotificationPromptShown(): Boolean = preferences.isNotificationPromptShown()
+
+    suspend fun markNotificationPromptShown() = preferences.setNotificationPromptShown()
+
     suspend fun save(appWidgetId: Int, foodItemId: String, quantity: Double) {
         preferences.setQuickAddWidgetConfig(
             appWidgetId,

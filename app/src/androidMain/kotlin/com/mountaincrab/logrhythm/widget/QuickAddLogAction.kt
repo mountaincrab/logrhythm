@@ -23,9 +23,10 @@ import org.koin.core.context.GlobalContext
  * "Logged HH:mm" stamp on the tile that survives it.
  *
  * The toast is best-effort by nature: it is posted from the background, and the system drops
- * background toasts from an app whose notifications are turned off (the default on Android 13+
- * for an app that never asks for them, which this one does not). That is why the stamp is not a
- * nicety — on those devices it is the whole of the feedback, so it renders at every tile size.
+ * background toasts from an app whose notifications are turned off. That is what the app's one
+ * POST_NOTIFICATIONS prompt is for (see [QuickAddNotificationPermission]) — but the user is free
+ * to say no, so the stamp is not a nicety: without the permission it is the whole of the
+ * feedback, which is why it renders at every tile size rather than only on the widest.
  *
  * A tile that has no resolvable config never routes here at all — it carries an activity
  * intent instead, because the launcher can start setup where a broadcast cannot. The check

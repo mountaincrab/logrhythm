@@ -41,6 +41,7 @@ class UserPreferencesRepository(private val context: Context) {
     private val keyDisabledHomeEntryTypes = stringSetPreferencesKey("disabled_home_entry_types")
     private val keyHomeTimelineDensity = stringPreferencesKey("home_timeline_density")
     private val keyGroupHomeByEntryType = booleanPreferencesKey("group_home_by_entry_type")
+    private val keyNotificationPromptShown = booleanPreferencesKey("notification_prompt_shown")
 
     private fun quickAddFoodItemIdsKey(profileId: String) =
         stringPreferencesKey("quick_add_food_item_ids:$profileId")
@@ -157,6 +158,19 @@ class UserPreferencesRepository(private val context: Context) {
 
     suspend fun setQuickAddWidgetLoggedAt(appWidgetId: Int, millis: Long) {
         context.dataStore.edit { it[quickAddWidgetLoggedAtKey(appWidgetId)] = millis }
+    }
+
+    /**
+     * Whether the one dialog asking for POST_NOTIFICATIONS has been put up. It exists so the
+     * app asks once and then lives with the answer: the permission only buys the quick-add
+     * widget's confirmation toast, and a second dialog is what turns a "not now" into a
+     * permanent no. See widget/QuickAddNotificationPermission.kt.
+     */
+    suspend fun isNotificationPromptShown(): Boolean =
+        context.dataStore.data.map { it[keyNotificationPromptShown] ?: false }.first()
+
+    suspend fun setNotificationPromptShown() {
+        context.dataStore.edit { it[keyNotificationPromptShown] = true }
     }
 
     private fun decodeQuickAddWidgetConfig(encoded: String): QuickAddWidgetConfig? =
