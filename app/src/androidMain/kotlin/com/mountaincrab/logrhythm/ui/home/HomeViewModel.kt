@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.mountaincrab.logrhythm.data.local.entity.ProfileEntity
+import com.mountaincrab.logrhythm.data.model.MergedFoodRow
+import com.mountaincrab.logrhythm.data.model.mergeFoodEntries
 import com.mountaincrab.logrhythm.data.repository.EntryRepository
 import com.mountaincrab.logrhythm.data.repository.MedicationRepository
 import com.mountaincrab.logrhythm.data.repository.ProfileRepository
@@ -59,6 +61,12 @@ data class DayGroup(
 data class EntryTypeGroup(
     val type: HomeEntryType,
     val entries: List<TimelineEntry>,
+    /**
+     * The food box's rows: every logging of the same food that day folded into one row,
+     * because "4 × Tea at 06:30, 07:30, 10:52, 11:48" is what the day actually says, where
+     * four identical rows only make it look busy. Empty for every other type.
+     */
+    val mergedFood: List<MergedFoodRow> = emptyList(),
 )
 
 class HomeViewModel(
@@ -206,7 +214,17 @@ class HomeViewModel(
 private fun List<TimelineEntry>.toTypeGroups(): List<EntryTypeGroup> {
     val byType = groupBy { it.homeEntryType() }
     return HomeEntryType.entries.mapNotNull { type ->
-        byType[type]?.takeIf { it.isNotEmpty() }?.let { EntryTypeGroup(type, it) }
+        byType[type]?.takeIf { it.isNotEmpty() }?.let { entries ->
+            EntryTypeGroup(
+                type = type,
+                entries = entries,
+                mergedFood = if (type == HomeEntryType.FOOD) {
+                    mergeFoodEntries(entries.filterIsInstance<TimelineEntry.Food>().map { it.food })
+                } else {
+                    emptyList()
+                },
+            )
+        }
     }
 }
 

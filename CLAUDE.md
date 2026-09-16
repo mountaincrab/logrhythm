@@ -86,7 +86,7 @@ app/src/
       local/AppDatabase.kt, Migrations.kt
       local/dao/{Poop,Food,Note}EntryDao.kt, FoodItemDao.kt, TrackedComponentDao.kt, {Poop,Note}TagDao.kt, ProfileDao.kt, Medication{,Schedule,Entry}Dao.kt
       local/entity/{Poop,Food,Note}EntryEntity.kt, FoodEntryLineEntity.kt, FoodItemEntity.kt, TrackedComponentEntity.kt, {Poop,Note}TagEntity.kt, {PoopEntry,NoteEntry}TagCrossRef.kt, ProfileEntity.kt, Medication{,Schedule,Entry}Entity.kt
-      model/{Bristol,EntryKind,MealTag,Medication,StoolSystem,SyncStatus}.kt
+      model/{Bristol,EntryKind,MealTag,Medication,MergedFood,StoolSystem,SyncStatus}.kt
     util/Platform.kt           ← expect: currentTimeMillis(), randomUUID()
   androidMain/kotlin/com/mountaincrab/logrhythm/
     LogRhythmApplication.kt    ← Koin startup
@@ -170,6 +170,26 @@ DataStore. It is deliberately a device preference rather than part of the Firest
 unconfigured profile initially shows the first five active catalogue items; once saved, an empty list is a
 valid explicit configuration. Quick-add inserts quantity 1 and increments the existing draft line when the
 same item is tapped again.
+
+### Merged food rows (grouped home timeline)
+
+With the group-by-entry-type setting on, the food box shows **one row per food, not per entry**
+(`data/model/MergedFood.kt` ↔ `webapp/src/lib/food.ts:mergeFoodEntries` — keep the two in step;
+`MergedFoodTest` covers the Kotlin side). Four teas in a morning read as
+`🫖 Tea × 4 (Caffeine 300 mg) 06:30, 07:30, 10:52, 11:48`, which is the question the day actually
+asks — four identical rows only make it look busy. Rules:
+
+- Catalogue lines merge on `foodItemId`, because the item is a live reference: two loggings are the
+  same food however it has been renamed since. Custom lines have only their text, so they merge
+  case-insensitively on that.
+- Quantities and component amounts add up under the same rule a single row renders by — a catalogue
+  line's component amounts are per serving and scale with its quantity, a custom line's are already
+  totals. One entry listing the same food twice is still **one** logging at one time.
+- Rows run newest-logged first, matching the feed around them; the times inside a row run forwards.
+- **Each time is the tap target, not the row.** A merged row stands for several entries, and editing
+  or deleting still happens on the entry — so tapping a time opens that entry, exactly like every
+  other row. Nothing about the underlying entries changes: this is a rendering of the day.
+- The box's count stays the number of **entries** (4), which is what the day's "x entries" totals.
 
 ### Home-screen quick-add widget (Android)
 

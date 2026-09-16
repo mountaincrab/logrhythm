@@ -56,6 +56,7 @@ import com.mountaincrab.logrhythm.ui.components.BottomTabBar
 import com.mountaincrab.logrhythm.ui.components.EntryIconSizes
 import com.mountaincrab.logrhythm.ui.components.GroupedTimelineEntryRow
 import com.mountaincrab.logrhythm.ui.components.MedicineIcon
+import com.mountaincrab.logrhythm.ui.components.MergedFoodTimelineRow
 import com.mountaincrab.logrhythm.ui.components.TimelineEntryRow
 import com.mountaincrab.logrhythm.ui.navigation.Screen
 import com.mountaincrab.logrhythm.ui.profiles.ProfileAvatar
@@ -341,15 +342,31 @@ private fun EntryTypeGroupCard(
                 fontWeight = FontWeight.SemiBold,
             )
         }
-        group.entries.forEachIndexed { index, entry ->
-            if (index > 0) {
-                Box(Modifier.fillMaxWidth().height(1.dp).background(palette.borderSubtle))
+        // The food box merges: one row per food, however many times it was logged, and a
+        // row stands for several entries — so its times, not the row, are what open them.
+        // Nothing to merge (an entry whose lines never arrived) falls back to plain rows.
+        if (group.type == HomeEntryType.FOOD && group.mergedFood.isNotEmpty()) {
+            group.mergedFood.forEachIndexed { index, row ->
+                if (index > 0) {
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(palette.borderSubtle))
+                }
+                MergedFoodTimelineRow(
+                    row = row,
+                    density = density,
+                    onOpenEntry = { entryId -> onOpenEntry("food", entryId) },
+                )
             }
-            GroupedTimelineEntryRow(
-                entry = entry,
-                density = density,
-                onClick = { onOpenEntry(entry.kindKey(), entry.id) },
-            )
+        } else {
+            group.entries.forEachIndexed { index, entry ->
+                if (index > 0) {
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(palette.borderSubtle))
+                }
+                GroupedTimelineEntryRow(
+                    entry = entry,
+                    density = density,
+                    onClick = { onOpenEntry(entry.kindKey(), entry.id) },
+                )
+            }
         }
     }
 }
