@@ -21,6 +21,13 @@ class QuickAddWidgetLabelTest {
     }
 
     @Test
+    fun theConfirmationNamesWhatWasWritten() {
+        assertEquals("Added 1 Tea", addedLabel(1.0, item("250", "ml")))
+        assertEquals("Added 2 Tea", addedLabel(2.0, item("250", "ml")))
+        assertEquals("Added 0.5 Tea", addedLabel(0.5, item("250", "ml")))
+    }
+
+    @Test
     fun wholeQuantitiesDropTheirDecimal() {
         assertEquals("3", formatQuantity(3.0))
         assertEquals("1.5", formatQuantity(1.5))
