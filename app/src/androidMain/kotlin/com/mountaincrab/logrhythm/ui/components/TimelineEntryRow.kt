@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import com.mountaincrab.logrhythm.data.local.entity.dose
 import com.mountaincrab.logrhythm.data.local.entity.formatFoodNumber
 import com.mountaincrab.logrhythm.data.model.MergedFoodRow
+import com.mountaincrab.logrhythm.data.model.MergedMedicationRow
 import com.mountaincrab.logrhythm.data.model.bristol
 import com.mountaincrab.logrhythm.data.model.formatDoseAmount
 import com.mountaincrab.logrhythm.data.repository.TimelineEntry
@@ -180,6 +181,101 @@ fun MergedFoodTimelineRow(
                     .clickable { onOpenEntry(occurrence.entryId) }
                     .padding(horizontal = 4.dp, vertical = 2.dp),
             )
+        }
+    }
+}
+
+/**
+ * A day's doses of one medication as a single row inside the grouped medicine box: the
+ * medication once, what it adds up to, then every time it was taken.
+ *
+ * Each time is its own target rather than the row being one: the row stands for several
+ * entries, and a tap has to land on the one being corrected. Editing and deleting stay
+ * exactly where they are for every other entry — on the entry itself. Anything typed on a
+ * dose follows underneath against its time, because merging must not swallow it.
+ */
+@Composable
+fun MergedMedicationTimelineRow(
+    row: MergedMedicationRow,
+    density: HomeTimelineDensity = HomeTimelineDensity.STANDARD,
+    modifier: Modifier = Modifier,
+    onOpenEntry: (entryId: String) -> Unit,
+) {
+    val palette = LocalAppPalette.current
+    val compact = density == HomeTimelineDensity.COMPACT
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(
+                horizontal = if (compact) 10.dp else 14.dp,
+                vertical = if (compact) 6.dp else 10.dp,
+            ),
+        verticalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 4.dp),
+    ) {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(if (compact) 5.dp else 7.dp),
+            verticalArrangement = Arrangement.spacedBy(if (compact) 3.dp else 5.dp),
+        ) {
+            // Name and form stay one unit — a bracket that wrapped away from what it qualifies
+            // would read as belonging to the dose amount instead.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(if (compact) 3.dp else 4.dp),
+                modifier = Modifier.align(Alignment.CenterVertically),
+            ) {
+                Text(
+                    text = row.name,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = if (compact) 12.sp else 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                // Absent when the medication can't be resolved — there's no form to name then.
+                row.form?.let { form ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(1.dp),
+                    ) {
+                        Text(text = "(", color = palette.fgFaint, fontSize = if (compact) 12.sp else 13.sp)
+                        MedicationFormIcon(form = form, size = EntryIconSizes.timelineFormIcon(compact))
+                        Text(text = ")", color = palette.fgFaint, fontSize = if (compact) 12.sp else 13.sp)
+                    }
+                }
+            }
+            if (row.amountText.isNotEmpty()) {
+                Text(
+                    text = row.amountText,
+                    color = palette.accentText,
+                    fontSize = if (compact) 12.sp else 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.CenterVertically),
+                )
+            }
+            row.occurrences.forEachIndexed { index, occurrence ->
+                Text(
+                    text = occurrence.occurredAt.formatTime() + if (index < row.occurrences.lastIndex) "," else "",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = if (compact) 12.sp else 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    // Padded inside the clickable so a time is a target a finger can find,
+                    // not just the few millimetres its digits cover.
+                    modifier = Modifier
+                        .align(Alignment.CenterVertically)
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable { onOpenEntry(occurrence.entryId) }
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                )
+            }
+        }
+        // Notes belong to one dose, not to the row, so each keeps the time that owns it.
+        row.occurrences.forEach { occurrence ->
+            occurrence.notes?.let { notes ->
+                Text(
+                    text = "${occurrence.occurredAt.formatTime()} · $notes",
+                    color = palette.fgMuted,
+                    fontSize = if (compact) 12.sp else 14.sp,
+                    lineHeight = if (compact) 16.sp else 20.sp,
+                )
+            }
         }
     }
 }

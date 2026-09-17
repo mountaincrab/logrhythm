@@ -3,7 +3,7 @@
 // schedule fires and on the derived id of a materialised dose, or the two apps
 // would produce different (or duplicate) doses for the same schedule.
 
-import { MedicationForm, RepeatRule } from '../types'
+import { Medication, MedicationEntry, MedicationForm, RepeatRule } from '../types'
 
 export const MEDICATION_FORMS: { value: MedicationForm; label: string }[] = [
   { value: 'TABLET', label: 'Tablet' },
@@ -194,3 +194,107 @@ export const MEDICATION_SERIES_COLORS = ['#12A0C4', '#8B5CF6', '#E14D96', '#C084
 
 export const medicationSeriesColor = (index: number): string =>
   MEDICATION_SERIES_COLORS[((index % MEDICATION_SERIES_COLORS.length) + MEDICATION_SERIES_COLORS.length) % MEDICATION_SERIES_COLORS.length]
+
+/** What a row falls back to when the catalog row a dose points at has vanished entirely. */
+export const UNRESOLVED_MEDICATION = 'Medication'
+
+/** One dose in a merged row: which entry recorded it, when, and anything typed on it. */
+export interface MedicationOccurrence {
+  entryId: string
+  occurredAt: number
+  notes: string | null
+}
+
+/**
+ * A day's doses of one medication, folded into a single row: the medication once, how much
+ * of it in total, and the time of each dose.
+ *
+ * Two Pentasa doses are two entries — deleting or editing one still happens on that entry,
+ * which is why `occurrences` keeps the entry ids rather than just the times.
+ */
+export interface MergedMedicationRow {
+  key: string
+  name: string
+  /** Null when the definition can't be resolved — there's no form to draw then. */
+  form: MedicationForm | null
+  /** How much the row adds up to, e.g. "4 × 1g" — blank for a medication with no strength. */
+  amountText: string
+  occurrences: MedicationOccurrence[]
+}
+
+/**
+ * Fold a day's doses into one row per medication, for the grouped home timeline.
+ *
+ * Doses merge on their `medicationId` — the catalog row is a live reference, so two doses are
+ * the same medication however it has been renamed since, and a dose never carries a drug name
+ * of its own to merge on instead.
+ *
+ * Quantities add up the way `doseUnits` already counts them: a blank or non-numeric quantity
+ * is one unit, because there is no number to add. A row standing for a single dose keeps that
+ * dose's quantity exactly as typed, so merging never rewrites what one dose said.
+ *
+ * Rows come back newest-dosed first, matching the feed around them, while the times inside a
+ * row run forwards — the row is that medication's day, read left to right.
+ * Mirror of `mergeMedicationEntries` in data/model/MergedMedication.kt.
+ */
+export function mergeMedicationEntries(
+  doses: MedicationEntry[],
+  medicationsById: Map<string, Medication>,
+): MergedMedicationRow[] {
+  interface Accumulator {
+    key: string
+    name: string
+    form: MedicationForm | null
+    dose: string
+    totalQuantity: number
+    quantities: string[]
+    occurrences: MedicationOccurrence[]
+  }
+  const accumulators = new Map<string, Accumulator>()
+
+  for (const entry of doses) {
+    const key = `med:${entry.medicationId}`
+    let accumulator = accumulators.get(key)
+    if (!accumulator) {
+      const medication = medicationsById.get(entry.medicationId)
+      accumulator = {
+        key,
+        name: medication?.name ?? UNRESOLVED_MEDICATION,
+        form: medication?.form ?? null,
+        dose: medication ? medicationDose(medication) : '',
+        totalQuantity: 0,
+        quantities: [],
+        occurrences: [],
+      }
+      accumulators.set(key, accumulator)
+    }
+    accumulator.totalQuantity += parseAmount(entry.quantity) ?? 1
+    const quantity = entry.quantity.trim()
+    if (quantity) accumulator.quantities.push(quantity)
+    accumulator.occurrences.push({
+      entryId: entry.id,
+      occurredAt: entry.occurredAt,
+      notes: entry.notes?.trim() ? entry.notes : null,
+    })
+  }
+
+  return [...accumulators.values()]
+    .map((accumulator): MergedMedicationRow => {
+      const quantityText = accumulator.quantities.length === 0
+        ? ''
+        : accumulator.occurrences.length === 1
+          ? accumulator.quantities[0]
+          : formatMedicationValue(accumulator.totalQuantity)
+      return {
+        key: accumulator.key,
+        name: accumulator.name,
+        form: accumulator.form,
+        amountText: formatDoseAmount(quantityText, accumulator.dose),
+        occurrences: [...accumulator.occurrences].sort((a, b) => a.occurredAt - b.occurredAt),
+      }
+    })
+    .sort((a, b) => {
+      const latest = (row: MergedMedicationRow) => Math.max(...row.occurrences.map((o) => o.occurredAt))
+      return latest(b) - latest(a) || a.name.localeCompare(b.name)
+    })
+}

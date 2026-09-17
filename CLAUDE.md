@@ -324,6 +324,25 @@ Rules that both surfaces must keep identical (`data/model/Medication.kt` ↔ `we
   sizes carry that ~1.27× (`drawnIconSize()` on the web). The two surfaces' numbers differ because their
   type scales do (a 24dp rating pill on Android, an 18px circle on the web); the relationships don't.
 
+### Merged medication rows (grouped home timeline)
+
+The medicine box folds the same way the food box does (`data/model/MergedMedication.kt` ↔
+`webapp/src/lib/medications.ts:mergeMedicationEntries` — keep the two in step; `MergedMedicationTest`
+covers the Kotlin side). Two Pentasa doses read as `Pentasa (💊) 4 × 1g  08:00, 20:00`, which is the
+day's prescription read back, where a row per dose only repeats the drug name. Rules:
+
+- Doses merge on `medicationId`, because the catalog row is a live reference: two doses are the same
+  medication however it has been renamed since, and a dose carries no drug name of its own to merge on.
+- Quantities add up the way `doseUnits` already counts them — a blank or non-numeric quantity is one
+  unit, because there is no number to add. A row standing for a **single** dose keeps that dose's
+  quantity exactly as typed, so merging never rewrites what one dose said.
+- Rows run newest-dosed first, matching the feed around them; the times inside a row run forwards.
+- **Each time is the tap target, not the row**, exactly as in the food box — a merged row stands for
+  several entries, and editing or deleting still happens on the entry.
+- **Notes stay with the dose that carried them**, on their own line under the row against their time.
+  Merging is a rendering of the day; it must never swallow what the user typed.
+- The box's count stays the number of **entries**, which is what the day's "x entries" totals.
+
 `MedicationScheduleTest` covers the repeat rules, the derived id and the time-of-day buckets on the Kotlin
 side; keep the TS mirror in step with it.
 

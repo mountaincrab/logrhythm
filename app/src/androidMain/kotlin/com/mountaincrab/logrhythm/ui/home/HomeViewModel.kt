@@ -6,7 +6,10 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.mountaincrab.logrhythm.data.local.entity.ProfileEntity
 import com.mountaincrab.logrhythm.data.model.MergedFoodRow
+import com.mountaincrab.logrhythm.data.model.MergedMedicationRow
+import com.mountaincrab.logrhythm.data.model.ResolvedDose
 import com.mountaincrab.logrhythm.data.model.mergeFoodEntries
+import com.mountaincrab.logrhythm.data.model.mergeMedicationEntries
 import com.mountaincrab.logrhythm.data.repository.EntryRepository
 import com.mountaincrab.logrhythm.data.repository.MedicationRepository
 import com.mountaincrab.logrhythm.data.repository.ProfileRepository
@@ -67,6 +70,12 @@ data class EntryTypeGroup(
      * four identical rows only make it look busy. Empty for every other type.
      */
     val mergedFood: List<MergedFoodRow> = emptyList(),
+    /**
+     * The medicine box's rows, folded the same way: every dose of the same medication that
+     * day on one row — "Pentasa (2 × 1g) 08:00, 20:00" is the day's prescription read back,
+     * where a row per dose only repeats the drug. Empty for every other type.
+     */
+    val mergedMedication: List<MergedMedicationRow> = emptyList(),
 )
 
 class HomeViewModel(
@@ -220,6 +229,14 @@ private fun List<TimelineEntry>.toTypeGroups(): List<EntryTypeGroup> {
                 entries = entries,
                 mergedFood = if (type == HomeEntryType.FOOD) {
                     mergeFoodEntries(entries.filterIsInstance<TimelineEntry.Food>().map { it.food })
+                } else {
+                    emptyList()
+                },
+                mergedMedication = if (type == HomeEntryType.MEDICINE) {
+                    mergeMedicationEntries(
+                        entries.filterIsInstance<TimelineEntry.Medication>()
+                            .map { ResolvedDose(it.entity, it.medication) },
+                    )
                 } else {
                     emptyList()
                 },
