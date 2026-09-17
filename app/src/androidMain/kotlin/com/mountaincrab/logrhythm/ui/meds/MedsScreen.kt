@@ -13,9 +13,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Archive
+import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -37,9 +39,7 @@ import com.mountaincrab.logrhythm.data.model.formatMinutesOfDay
 import com.mountaincrab.logrhythm.data.model.maskFromDays
 import com.mountaincrab.logrhythm.ui.components.EntryIconSizes
 import com.mountaincrab.logrhythm.ui.components.MedicationFormIcon
-import com.mountaincrab.logrhythm.ui.components.BottomTabBar
 import com.mountaincrab.logrhythm.ui.components.FieldLabel
-import com.mountaincrab.logrhythm.ui.navigation.Screen
 import com.mountaincrab.logrhythm.ui.theme.LocalAppPalette
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -52,7 +52,7 @@ private enum class MedsTab(val label: String) { SCHEDULE("Schedule"), CATALOG("M
  */
 @Composable
 fun MedsScreen(
-    onTabSelect: (route: String) -> Unit,
+    onBack: () -> Unit,
     viewModel: MedsViewModel = koinViewModel(),
 ) {
     val palette = LocalAppPalette.current
@@ -105,21 +105,27 @@ fun MedsScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 10.dp),
+                .padding(start = 12.dp, end = 20.dp, top = 10.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = "Meds",
-                fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.4).sp,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            Text(
-                text = "Doses are added to your timeline automatically",
-                fontSize = 13.sp, color = palette.fgMuted,
-            )
+            IconButton(onClick = onBack) {
+                Icon(Icons.Outlined.ArrowBack, "Back", tint = palette.fgMuted)
+            }
+            Column {
+                Text(
+                    text = "Meds",
+                    fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.4).sp,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+                Text(
+                    text = "Doses are added to your timeline automatically",
+                    fontSize = 13.sp, color = palette.fgMuted,
+                )
+            }
         }
 
         Row(
@@ -137,7 +143,9 @@ fun MedsScreen(
         }
 
         LazyColumn(
-            modifier = Modifier.weight(1f).fillMaxWidth(),
+            // The bottom tab bar used to carry the nav-bar inset; Meds is a pushed
+            // screen now, so the list applies it itself.
+            modifier = Modifier.weight(1f).fillMaxWidth().navigationBarsPadding(),
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -164,8 +172,6 @@ fun MedsScreen(
                 )
             }
         }
-
-        BottomTabBar(active = Screen.Meds.route, onSelect = onTabSelect)
     }
 }
 

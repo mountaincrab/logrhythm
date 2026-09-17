@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Archive, Pencil } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import { Field } from '../components/Sheet'
 import {
@@ -26,10 +27,16 @@ const TABS: { id: Tab; label: string }[] = [
  * there is deliberately no second place to review or confirm them.
  */
 export default function MedsPage() {
+  const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('schedule')
 
   return (
-    <AppShell title="Meds" subtitle="Doses are added to your timeline automatically" showProfileSwitcher>
+    <AppShell
+      title="Meds"
+      subtitle="Doses are added to your timeline automatically"
+      onBack={() => navigate('/settings')}
+      showProfileSwitcher
+    >
       <div className="flex gap-1.5 mb-5">
         {TABS.map((t) => (
           <button

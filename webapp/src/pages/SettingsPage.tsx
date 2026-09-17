@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Check, Pencil, Trash2, Plus, LogOut } from 'lucide-react'
-import { Apple } from 'lucide-react'
+import { Apple, Pill } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import { useAuth } from '../contexts/AuthContext'
@@ -57,6 +57,15 @@ export default function SettingsPage() {
           <button onClick={() => navigate('/food-library')} className="w-full bg-surface-raised border border-DEFAULT rounded-xl px-4 py-3.5 flex items-center gap-3 text-left hover:bg-surface-high transition-colors">
             <span className="w-9 h-9 rounded-xl bg-accent-soft text-accent-text flex items-center justify-center"><Apple size={18} /></span>
             <span className="flex-1"><span className="block text-sm font-semibold">Food library</span><span className="block text-xs text-fg-muted">Manage saved items and tracked components</span></span>
+            <span className="text-fg-faint">›</span>
+          </button>
+        </section>
+
+        <section className="mb-9">
+          <div className="ds-eyebrow mb-2">Medication</div>
+          <button onClick={() => navigate('/meds')} className="w-full bg-surface-raised border border-DEFAULT rounded-xl px-4 py-3.5 flex items-center gap-3 text-left hover:bg-surface-high transition-colors">
+            <span className="w-9 h-9 rounded-xl bg-accent-soft text-accent-text flex items-center justify-center"><Pill size={18} /></span>
+            <span className="flex-1"><span className="block text-sm font-semibold">Meds</span><span className="block text-xs text-fg-muted">Medications and scheduled doses</span></span>
             <span className="text-fg-faint">›</span>
           </button>
         </section>

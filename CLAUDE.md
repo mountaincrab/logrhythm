@@ -7,7 +7,7 @@ LogRhythm tracks IBD-relevant signal: poop entries (Bristol type + blood rating 
 - **Android app** + **web app** (`webapp/`), both live. iOS is still out of scope.
 - **Firebase auth + Firestore sync.** Users sign in (Google); each device syncs through `users/{uid}/…` in Firestore. `userId` is the Firebase uid. `SyncStatus` (PENDING/SYNCED) drives the Android `SyncWorker`; the webapp reads/writes Firestore directly with no local cache.
 - **Multi-profile.** A single Firebase account holds one or more local sub-profiles (e.g. tracking more than one person). Every entry/tag row carries a `profileId` (default profile id is `"default"`). The active profile is a per-device preference.
-- All v2 screens from `Poop tracker/` designs are implemented on Android: Home, Add poop, Add food, Add note, Add medicine, History (Calendar + Trends), Meds (Schedule / Medications), Entry detail, Settings, plus Sign-in and Profiles. The webapp mirrors these.
+- All v2 screens from `Poop tracker/` designs are implemented on Android: Home, Add poop, Add food, Add note, Add medicine, History (Trends + Calendar), Meds (Schedule / Medications), Entry detail, Settings, plus Sign-in and Profiles. The webapp mirrors these. History opens on **Trends** on both surfaces; the calendar is the drill-down.
 
 ## Stack
 
@@ -393,7 +393,9 @@ just CSS via responsive class prefixes:
   Settings + sign-out) and a content column with a top header bar. Home's log buttons sit in the header (`headerRight`).
 - **Phone (< md):** the `Sidebar` is `hidden`; instead a `MobileNav` bottom tab bar (Home/History/Settings) and a
   header `ProfileSwitcher` avatar (tap → bottom-sheet profile picker) mirror the **Android app** layout — the tab
-  bar carries Home/History/Meds/Settings on both surfaces. Home's log
+  bar carries Home/History/Settings on both surfaces. **Meds is not a tab**: like the food library it is a
+  pushed screen reached from Settings, because it is where medication is *set up*, not a place visited daily.
+  Home's log
   buttons move to a full-width `bottomBar` of vertical emoji cards above the tab bar. `AppShell` exposes
   `showProfileSwitcher` and `bottomBar` props for the phone-only chrome; `ProfileSwitcher` and `MobileNav` are
   `md:hidden`. The Android app is the visual reference for the phone layout — keep them in step.

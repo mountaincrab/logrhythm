@@ -123,16 +123,7 @@ fun AppNavigation(navController: NavHostController) {
             )
         }
         composable(Screen.Meds.route) {
-            MedsScreen(
-                onTabSelect = { tab ->
-                    if (tab != Screen.Meds.route) {
-                        navController.navigate(tab) {
-                            popUpTo(Screen.Home.route) { inclusive = false }
-                            launchSingleTop = true
-                        }
-                    }
-                },
-            )
+            MedsScreen(onBack = { navController.popBackStack() })
         }
         composable(Screen.Settings.route) {
             SettingsScreen(
@@ -146,6 +137,7 @@ fun AppNavigation(navController: NavHostController) {
                 },
                 onOpenProfiles = { navController.navigate(Screen.Profiles.route) },
                 onOpenFoodLibrary = { navController.navigate(Screen.FoodLibrary.route) },
+                onOpenMeds = { navController.navigate(Screen.Meds.route) },
             )
         }
         composable(Screen.Profiles.route) {

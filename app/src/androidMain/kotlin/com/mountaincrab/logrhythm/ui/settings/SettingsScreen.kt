@@ -45,6 +45,7 @@ fun SettingsScreen(
     onTabSelect: (route: String) -> Unit,
     onOpenProfiles: () -> Unit,
     onOpenFoodLibrary: () -> Unit,
+    onOpenMeds: () -> Unit,
     viewModel: SettingsViewModel = koinViewModel(),
 ) {
     val palette = LocalAppPalette.current
@@ -135,6 +136,25 @@ fun SettingsScreen(
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Food library", color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     Text("Saved items and tracked components", color = palette.fgMuted, fontSize = 12.sp)
+                }
+                Text("›", color = palette.fgMuted, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(modifier = Modifier.height(18.dp))
+
+            SectionLabel("Medication")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(palette.surfaceRaised)
+                    .border(1.dp, palette.border, RoundedCornerShape(14.dp))
+                    .clickable(onClick = onOpenMeds)
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Meds", color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Medications and scheduled doses", color = palette.fgMuted, fontSize = 12.sp)
                 }
                 Text("›", color = palette.fgMuted, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
