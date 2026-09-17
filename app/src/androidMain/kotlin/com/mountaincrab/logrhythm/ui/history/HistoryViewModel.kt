@@ -83,7 +83,7 @@ data class ComponentSeries(
 )
 
 data class HistoryUiState(
-    val tab: HistoryTab = HistoryTab.CALENDAR,
+    val tab: HistoryTab = HistoryTab.TRENDS,
     val month: YearMonth = YearMonth.now(),
     val calendarDays: List<CalendarDay> = emptyList(),
     val daysLoggedThisMonth: Int = 0,
@@ -104,7 +104,9 @@ data class HistoryUiState(
 
 class HistoryViewModel(repository: EntryRepository, foodRepository: FoodRepository) : ViewModel() {
 
-    private val tab = MutableStateFlow(HistoryTab.CALENDAR)
+    // History opens on Trends: the question the screen answers is "how have things gone",
+    // and the calendar is a drill-down from there.
+    private val tab = MutableStateFlow(HistoryTab.TRENDS)
     private val month = MutableStateFlow(YearMonth.now())
     private val range = MutableStateFlow(TrendsRange.DAYS_30)
 

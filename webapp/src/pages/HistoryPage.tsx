@@ -32,7 +32,9 @@ function buildPoopByDay(poops: PoopEntry[]): Map<number, DayStat> {
 export default function HistoryPage() {
   const { poops, foods, medicationEntries, loading } = useEntriesContext()
   const { foodItemsById } = useFoodCatalogContext()
-  const [tab, setTab] = useState<Tab>('calendar')
+  // History opens on Trends: the question the screen answers is "how have things gone",
+  // and the calendar is a drill-down from there.
+  const [tab, setTab] = useState<Tab>('trends')
 
   const poopByDay = useMemo(() => buildPoopByDay(poops), [poops])
 
